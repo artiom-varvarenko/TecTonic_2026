@@ -2,7 +2,7 @@
   "title": "The team behind TrustLabel",
   "subtitle": "SD Worx challenge · Tectonic Hackathon 2026",
   "members": [
-    {"name": "Rufina", "role": "", "photo": null},
-    {"name": "Artiom Varvarenko", "role": "", "photo": null}
+    {"name": "Rufina Chyhohidze", "role": "", "photo": null, "speaker": "rufina"},
+    {"name": "Artiom Varvarenko", "role": "", "photo": null, "speaker": "artiom"}
   ]
 }

@@ -52,6 +52,24 @@
         "speaker": "rufina"
       }
     ],
+    "overview": [
+      {
+        "id": "signin",
+        "text": "Lot-tuh signs in with her Google account.",
+        "speaker": "rufina",
+        "text_elevenlabs": "Lotte signs in with her Google account."
+      },
+      {
+        "id": "ready",
+        "text": "Before she even asks, her trust overview for Van Dam is ready.",
+        "speaker": "rufina"
+      },
+      {
+        "id": "board",
+        "text": "One topic is safe to use, two need a decision, and a handbook whose owner left is flagged as knowledge debt.",
+        "speaker": "rufina"
+      }
+    ],
     "grading": [
       {
         "id": "intro",
@@ -148,10 +166,16 @@
         "speaker": "rufina"
       },
       {
+        "id": "note",
+        "text": "Yes, Van Dam Logistics really has the twenty-fifth as cut-off, valid until thirty-one March twenty twenty-seven.",
+        "speaker": "ellen",
+        "text_elevenlabs": "Yes, Van Dam Logistics really has the 25th as cut-off, valid until 31 March 2027."
+      },
+      {
         "id": "transcribe",
-        "text": "Eleven Labs transcribes it.",
+        "text": "Eleven Labs Scribe turns it into text.",
         "speaker": "rufina",
-        "text_elevenlabs": "ElevenLabs transcribes it."
+        "text_elevenlabs": "ElevenLabs Scribe turns it into text."
       },
       {
         "id": "extract",
@@ -188,12 +212,65 @@
         "speaker": "rufina"
       }
     ],
-    "team": [
+    "teams": [
       {
         "id": "intro",
-        "text": "Trust Label was built by our team, for the S D Works challenge at Tectonic twenty twenty-six.",
-        "text_elevenlabs": "TrustLabel was built by our team, for the SD Worx challenge at Tectonic 2026.",
+        "text": "And Trust Label works where people already chat.",
+        "speaker": "artiom",
+        "text_elevenlabs": "And TrustLabel works where people already chat."
+      },
+      {
+        "id": "mcp",
+        "text": "It's an M C P server, so a Copilot Studio agent in Microsoft Teams gets the same grades, reasons and expert routing.",
+        "speaker": "artiom",
+        "text_elevenlabs": "It's an MCP server, so a Copilot Studio agent in Microsoft Teams gets the same grades, reasons and expert routing."
+      },
+      {
+        "id": "scope",
+        "text": "Always with the user's own permissions.",
         "speaker": "artiom"
+      }
+    ],
+    "ship": [
+      {
+        "id": "deploy",
+        "text": "It runs on a public H T T P S address through a Cloudflare Tunnel.",
+        "speaker": "artiom",
+        "text_elevenlabs": "It runs on a public HTTPS address through a Cloudflare Tunnel."
+      },
+      {
+        "id": "aikido",
+        "text": "And it passes every Aikido security check.",
+        "speaker": "artiom"
+      },
+      {
+        "id": "measures",
+        "text": "Hashed passwords and keys, server-side sessions, rate limits, and a strict content security policy.",
+        "speaker": "artiom"
+      }
+    ],
+    "team": [
+      {
+        "id": "rufina",
+        "text": "Hi, I'm Rufina.",
+        "speaker": "rufina"
+      },
+      {
+        "id": "artiom",
+        "text": "And I'm Artiom.",
+        "speaker": "artiom"
+      },
+      {
+        "id": "built",
+        "text": "We built Trust Label for the S D Works challenge at Tectonic twenty twenty-six.",
+        "speaker": "artiom",
+        "text_elevenlabs": "We built TrustLabel for the SD Worx challenge at Tectonic 2026."
+      },
+      {
+        "id": "clones",
+        "text": "And the narrators you've heard? Our own Eleven Labs voice clones.",
+        "speaker": "rufina",
+        "text_elevenlabs": "And the narrators you've heard? Our own ElevenLabs voice clones."
       }
     ],
     "outro": [
@@ -216,7 +293,7 @@
     ]
   },
   "elevenlabs_takes": {
-    "note": "Prompts for ElevenLabs eleven_v4, one take per part (4 variations each), voiced by the part's speaker clone. Save as <scene>.<n>.mp3 (one part) or <scene>.p<k>.<n>.mp3 (several parts), then run scripts/import_takes.py.",
+    "note": "Prompts for ElevenLabs eleven_v4, 4 variations per part, voiced by the part's speaker (see `speakers`). Save as <scene>.<n>.mp3 (one part) or <scene>.p<k>.<n>.mp3 (several parts), then run scripts/import_takes.py.",
     "hook": [
       {
         "speaker": "rufina",
@@ -233,6 +310,12 @@
       {
         "speaker": "rufina",
         "prompt": "[warmly] This is TrustLabel. [short pause] Search finds it. TrustLabel shows whether you can rely on it."
+      }
+    ],
+    "overview": [
+      {
+        "speaker": "rufina",
+        "prompt": "/ˈlɔtə/ signs in with her Google account. [short pause] Before she even asks, her trust overview for Van Dam is ready. [short pause] One topic is safe to use, two need a decision, and a handbook whose owner left is flagged as knowledge debt."
       }
     ],
     "grading": [
@@ -262,7 +345,15 @@
     "voice": [
       {
         "speaker": "rufina",
-        "prompt": "Ellen answers with a short voice note. [short pause] ElevenLabs transcribes it. [short pause] OpenAI extracts the value and a verbatim quote. [short pause] Then the rules check that the quote really is in the transcript, and really states the value. [short pause] Ellen confirms."
+        "prompt": "Ellen answers with a short voice note."
+      },
+      {
+        "speaker": "ellen",
+        "prompt": "[casual] Yes, Van Dam Logistics really has the 25th as cut-off, valid until 31 March 2027."
+      },
+      {
+        "speaker": "rufina",
+        "prompt": "ElevenLabs Scribe turns it into text. [short pause] OpenAI extracts the value and a verbatim quote. [short pause] Then the rules check that the quote really is in the transcript, and really states the value. [short pause] Ellen confirms."
       }
     ],
     "verified": [
@@ -271,10 +362,30 @@
         "prompt": "/ˈlɔtə/ asks again. [short pause] [warmly] The twenty-fifth. Grade A. Verified by Ellen, valid until March 2027. [short pause] And it stays in its context. For Belgium, all clients, the answer is still the twentieth."
       }
     ],
-    "team": [
+    "teams": [
       {
         "speaker": "artiom",
-        "prompt": "[warmly] TrustLabel was built by our team, for the SD Worx challenge at Tectonic 2026."
+        "prompt": "And TrustLabel works where people already chat. [short pause] It's an MCP server, so a Copilot Studio agent in Microsoft Teams gets the same grades, reasons and expert routing. [short pause] Always with the user's own permissions."
+      }
+    ],
+    "ship": [
+      {
+        "speaker": "artiom",
+        "prompt": "It runs on a public HTTPS address through a Cloudflare Tunnel. [short pause] [confident] And it passes every Aikido security check: [short pause] hashed passwords and keys, server-side sessions, rate limits, and a strict content security policy."
+      }
+    ],
+    "team": [
+      {
+        "speaker": "rufina",
+        "prompt": "[warmly] Hi, I'm Rufina."
+      },
+      {
+        "speaker": "artiom",
+        "prompt": "[warmly] And I'm Artiom. [short pause] We built TrustLabel for the SD Worx challenge at Tectonic 2026."
+      },
+      {
+        "speaker": "rufina",
+        "prompt": "[playfully] And the narrators you've heard? [short pause] Our own ElevenLabs voice clones."
       }
     ],
     "outro": [
@@ -291,11 +402,18 @@
   "speakers": {
     "rufina": {
       "description": "Rufina's ElevenLabs voice clone (female)",
-      "kokoro": "af_heart"
+      "kokoro": "af_heart",
+      "elevenlabs": "IKjOL6DF5xUQMihsrDMj"
     },
     "artiom": {
       "description": "Artiom's ElevenLabs voice clone (male)",
-      "kokoro": "am_michael"
+      "kokoro": "am_michael",
+      "elevenlabs": "tZYHx3XprsArEZVsdYKX"
+    },
+    "ellen": {
+      "description": "Ellen Maes, the fictional expert's voice note: ElevenLabs library voice 'Laura Peeters - Flemish accent'",
+      "kokoro": "bf_emma",
+      "elevenlabs": "gC9jy9VUxaXAswovchvQ"
     }
   }
 }

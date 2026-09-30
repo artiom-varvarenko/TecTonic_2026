@@ -5,12 +5,15 @@ export const SCENE_IDS = [
 	'hook',
 	'problem',
 	'reveal',
+	'overview',
 	'grading',
 	'applicability',
 	'triage',
 	'routing',
 	'voice',
 	'verified',
+	'teams',
+	'ship',
 	'team',
 	'outro',
 ] as const;
@@ -27,7 +30,7 @@ export const TRANSITION_FRAMES = 16;
 
 // Minimum length and hold after the narration, per scene: visuals can outlast the voice.
 const MIN_FRAMES: Partial<Record<SceneId, number>> = {reveal: 215, team: 250, outro: 260};
-const HOLD_FRAMES: Partial<Record<SceneId, number>> = {reveal: 45, verified: 45, team: 60, outro: 90};
+const HOLD_FRAMES: Partial<Record<SceneId, number>> = {reveal: 45, verified: 40, ship: 36, team: 60, outro: 90};
 
 export const narration = (scene: SceneId) => scenes[scene];
 

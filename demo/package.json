@@ -15,8 +15,6 @@
 		"stills": "node scripts/stills.mjs"
 	},
 	"dependencies": {
-		"@fontsource/inter": "^5.3.0",
-		"@fontsource/jetbrains-mono": "^5.3.0",
 		"@remotion/bundler": "4.0.531",
 		"@remotion/cli": "4.0.531",
 		"@remotion/fonts": "4.0.531",

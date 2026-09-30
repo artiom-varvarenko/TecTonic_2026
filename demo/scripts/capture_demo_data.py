@@ -1,7 +1,9 @@
 """Snapshot the real TrustLabel API responses along the demo path into demo/src/data/demo-data.json.
 
 The video never invents grades: every number, reason and expert ranking on screen comes from this
-file, produced by the actual engine on 2026-09-30. Voice/OpenAI calls are stubbed (same as the tests).
+file, produced by the actual engine on 2026-09-30: the ask answers, the trust overview before and
+after Ellen's verification, and the MCP server's replies to a Teams agent. OpenAI is stubbed (same as
+the tests); the transcript is what ElevenLabs Scribe made of Ellen's voice note in the video.
 
     uv run python demo/scripts/capture_demo_data.py
 """
@@ -26,7 +28,10 @@ from trustlabel.credentials import hash_password  # noqa: E402
 TODAY = date(2026, 9, 30)
 CUTOFF = "payroll.variables_cutoff"
 QUESTION = "What's the cut-off for submitting overtime this month?"
-TRANSCRIPT = "Yes, Van Dam Logistics really has the 25th as cut-off, valid until 31 March 2027."
+# ElevenLabs Scribe's transcript of Ellen's voice note as heard in the video (script.json, voice part 2).
+TRANSCRIPT = "Yes, Van Damme Logistics really has the 25th as cutoff, valid until March 31st, 2027"
+QUOTE = "the 25th as cutoff"
+TEAMS_QUESTION = "What's the overtime cut-off for Van Dam this month?"
 OUT = ROOT / "demo" / "src" / "data" / "demo-data.json"
 
 
@@ -37,7 +42,7 @@ class StubTranscriber:
 
 class StubExtractor:
     def extract(self, text, topics, today):
-        return [ExtractedClaim(topic_id=CUTOFF, value="25", quote="the 25th as cut-off", valid_until="2027-03-31")]
+        return [ExtractedClaim(topic_id=CUTOFF, value="25", quote=QUOTE, valid_until="2027-03-31")]
 
 
 def main() -> None:
@@ -62,6 +67,30 @@ def main() -> None:
             response.raise_for_status()
             return response.json()
 
+        def overview():
+            response = lotte.get("/api/overview", params={"client_id": "vandam"})
+            response.raise_for_status()
+            return response.json()
+
+        # Microsoft Teams: a Copilot Studio agent calls the MCP server with Lotte's connection key.
+        key = lotte.post("/api/connections/teams")
+        key.raise_for_status()
+        teams = TestClient(app, headers={"X-API-Key": key.json()["token"]})
+
+        def rpc(method: str, params: dict | None = None) -> dict:
+            response = teams.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}})
+            response.raise_for_status()
+            return response.json()["result"]
+
+        def ask_in_teams() -> dict:
+            result = rpc("tools/call", {"name": "ask_trustlabel", "arguments": {"question": TEAMS_QUESTION, "client": "Van Dam"}})
+            return {"text": result["content"][0]["text"], "result": result["structuredContent"]}
+
+        me = lotte.get("/api/me").json()
+        initialize = rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "demo", "version": "1"}})
+        tools = rpc("tools/list")["tools"]
+        overview_before = overview()
+        teams_before = ask_in_teams()
         before = ask("vandam")
         general_before = ask(None)
         request = lotte.post(
@@ -82,10 +111,26 @@ def main() -> None:
         resolved.raise_for_status()
         after = ask("vandam")
         general_after = ask(None)
+        overview_after = overview()
+        teams_after = ask_in_teams()
 
+    for board in (overview_before, overview_after):
+        for event in board["activity"]:
+            event["at"] = f"{TODAY.isoformat()}T10:42:00+02:00"  # wall-clock time, not engine output
     snapshot = {
         "today": TODAY.isoformat(),
         "question": QUESTION,
+        "me": {"user": me["user"], "contexts": me["contexts"]},
+        "overview_before": overview_before,
+        "overview_after": overview_after,
+        "mcp": {
+            "server": initialize["serverInfo"],
+            "protocol": initialize["protocolVersion"],
+            "tools": [{"name": t["name"], "title": t["title"]} for t in tools],
+            "question": TEAMS_QUESTION,
+            "before": teams_before,
+            "after": teams_after,
+        },
         "before": before,
         "general_before": general_before,
         "request": request.json(),
