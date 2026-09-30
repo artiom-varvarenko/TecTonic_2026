@@ -1,5 +1,9 @@
 # TrustLabel
 
+## [Open the live demo →](https://wage-deputy-practices-represents.trycloudflare.com)
+
+Runs on a team laptop through a Cloudflare Tunnel. Sign-in required: demo accounts are not published in this repo.
+
 **Search finds it. TrustLabel shows whether you can rely on it.**
 
 Built for the SD Worx challenge of the Tectonic Hackathon 2026 preselection (30 Sep 2026).
