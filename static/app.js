@@ -2,10 +2,10 @@
 
 const GRADES = ["A", "B", "C", "D", "E", "F", "G"];
 const LEGEND = "A expert-verified · B strong · C fair · D weak · E poor · F outdated · G contradicted";
-const BANNERS = {
-  use: { text: "Safe to use", cls: "banner-use" },
-  verify: { text: "Use with caution — ask for verification", cls: "banner-verify" },
-  ask_expert: { text: "Don't act yet", cls: "banner-ask" },
+const STATUSES = {
+  use: { text: "Safe to use", cls: "status-use", symbol: "check" },
+  verify: { text: "Use with caution — ask for verification", cls: "status-verify", symbol: "caution" },
+  ask_expert: { text: "Don't act yet", cls: "status-ask", symbol: "stop" },
 };
 const MUTED_STATUSES = new Set(["not_applicable", "overridden"]);
 const NOT_APPLICABLE_CODES = new Set(["country_mismatch", "client_mismatch", "not_yet_effective", "expired"]);
@@ -148,29 +148,32 @@ function firstName(name) {
   return String(name || "").split(" ")[0];
 }
 
-function gradeTile(grade, { muted = false, small = false } = {}) {
+function gradeTile(grade, { muted = false, small = false, large = false } = {}) {
   const cls = ["grade-tile", grade ? `grade-${grade}` : "grade-none"];
   if (muted) cls.push("muted");
   if (small) cls.push("grade-tile-small");
+  if (large) cls.push("grade-tile-large");
   return h("span", { className: cls.join(" "), title: grade ? `Grade ${grade}` : "No grade" }, grade || "–");
 }
 
-// ---------- visual helpers (SVG via createElementNS, styles via CSSOM only: CSP-safe) ----------
+// ---------- symbols (SVG via createElementNS; no innerHTML) ----------
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const ICONS = {
-  search: ["M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z", "m16 16 5 5"],
-  arrowUp: ["M12 19V5", "m5 12 7-7 7 7"],
-  pin: ["M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z", "M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"],
-  chat: ["M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12Z"],
-  chevronDown: ["m6 9 6 6 6-6"],
-  chevronRight: ["m9 6 6 6-6 6"],
-  mic: ["M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z", "M19 11a7 7 0 0 1-14 0", "M12 18v3"],
-  shield: ["M12 3 4.5 6v5.5c0 4.6 3.2 8.3 7.5 9.5 4.3-1.2 7.5-4.9 7.5-9.5V6L12 3Z", "m9 12 2 2 4-4"],
-  check: ["M20 6 9 17l-5-5"],
-  logout: ["M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3", "M10 17l-5-5 5-5", "M5 12h11"],
+const STROKES = {
+  search: ["M10.5 17.5a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z", "m15.5 15.5 5 5"],
+  arrowRight: ["M5 12h14", "m13 6 6 6-6 6"],
+  chevronRight: ["m9.5 6 6 6-6 6"],
+  chevronDown: ["m6 9.5 6 6 6-6"],
+  chevronUpDown: ["m8 9.5 4-4 4 4", "m8 14.5 4 4 4-4"],
+  check: ["m5 12.5 4.5 4.5L19 7.5"],
+  mic: ["M12 14.5a3 3 0 0 0 3-3v-5a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z", "M18.5 11a6.5 6.5 0 0 1-13 0", "M12 17.5V21"],
 };
-const prefersReducedMotion = () => window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+// Filled status symbols in the style of SF Symbols: a solid shape with a knocked-out glyph.
+const SYMBOLS = {
+  check: { shape: ["circle", { cx: 12, cy: 12, r: 10 }], glyph: ["m7.5 12.3 3 3 6-6.3"] },
+  caution: { shape: ["path", { d: "M10.3 3.9a2 2 0 0 1 3.4 0l8.1 14.1a2 2 0 0 1-1.7 3H3.9a2 2 0 0 1-1.7-3Z" }], glyph: ["M12 9v4.5", "M12 17.3v.01"] },
+  stop: { shape: ["path", { d: "M8.1 2h7.8L22 8.1v7.8L15.9 22H8.1L2 15.9V8.1Z" }], glyph: ["M8.5 12h7"] },
+};
 
 function svgEl(tag, attrs, ...children) {
   const el = document.createElementNS(SVG_NS, tag);
@@ -183,85 +186,37 @@ function icon(name, className = "") {
   return svgEl(
     "svg",
     { viewBox: "0 0 24 24", class: `icon ${className}`.trim(), "aria-hidden": "true", focusable: "false" },
-    ...ICONS[name].map((d) => svgEl("path", { d })),
+    ...STROKES[name].map((d) => svgEl("path", { d })),
   );
 }
 
-// The TrustLabel mark: the seven bars of an energy label.
-function logoMark(size = 28) {
-  const bars = GRADES.map((_, i) => svgEl("rect", { x: 2, y: 2.4 + i * 3.4, width: 11 + i * 2.1, height: 2.4, rx: 1.2 }));
-  return svgEl("svg", { viewBox: "0 0 28 28", width: size, height: size, class: "logo", "aria-hidden": "true" }, ...bars);
+function symbol(name) {
+  const s = SYMBOLS[name];
+  return svgEl(
+    "svg",
+    { viewBox: "0 0 24 24", class: "symbol", "aria-hidden": "true", focusable: "false" },
+    svgEl(s.shape[0], { ...s.shape[1], class: "symbol-shape" }),
+    ...s.glyph.map((d) => svgEl("path", { d, class: "symbol-glyph" })),
+  );
 }
 
-function initials(name) {
+// The TrustLabel mark: the stepped bars of an energy label.
+function logoMark(size) {
+  const bars = GRADES.map((_, i) => svgEl("rect", { x: 3, y: 3 + i * 3, width: 8 + i * 2, height: 2, rx: 0.5 }));
+  return svgEl("svg", { viewBox: "0 0 26 26", width: size, height: size, class: "mark", "aria-hidden": "true" }, ...bars);
+}
+
+function monogram(name) {
   const parts = String(name || "?").trim().split(/\s+/);
-  return ((parts[0] || "?")[0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+  const letters = (parts[0] || "?")[0] + (parts.length > 1 ? parts[parts.length - 1][0] : "");
+  return h("span", { className: "monogram", "aria-hidden": "true" }, letters.toUpperCase());
 }
 
-function avatar(name, large = false) {
-  let hash = 0;
-  for (const ch of String(name || "")) hash = (hash * 31 + ch.charCodeAt(0)) % 360;
-  const el = h("span", { className: large ? "avatar avatar-lg" : "avatar", "aria-hidden": "true" }, initials(name));
-  el.style.setProperty("--hue", String(hash));
-  return el;
+function setBusy(button, busy) {
+  button.disabled = busy;
+  button.classList.toggle("is-busy", busy);
+  button.setAttribute("aria-busy", busy ? "true" : "false");
 }
-
-// Stagger index for entrance animations.
-function stagger(el, i) {
-  el.style.setProperty("--i", String(i));
-  return el;
-}
-
-function countUp(el, to, duration = 1100) {
-  if (prefersReducedMotion() || !Number.isFinite(to)) {
-    el.textContent = String(to);
-    return;
-  }
-  const start = performance.now();
-  const step = (now) => {
-    const t = Math.min(1, (now - start) / duration);
-    el.textContent = String(Math.round(to * (1 - Math.pow(1 - t, 3))));
-    if (t < 1) requestAnimationFrame(step);
-  };
-  el.textContent = "0";
-  requestAnimationFrame(step);
-}
-
-// Circular trust-score gauge, coloured by grade, animated from empty.
-function scoreRing(score, grade) {
-  const r = 20;
-  const circumference = 2 * Math.PI * r;
-  const value = svgEl("circle", { class: "ring-value", cx: 24, cy: 24, r, "stroke-dasharray": circumference.toFixed(2) });
-  value.style.strokeDashoffset = String(circumference);
-  const num = h("span", { className: "ring-num" }, "0");
-  const wrap = h(
-    "span",
-    { className: `ring ${grade ? `grade-${grade}` : "grade-none"}`, title: "Trust score", role: "img", "aria-label": `Trust score ${score}` },
-    svgEl("svg", { viewBox: "0 0 48 48", "aria-hidden": "true" }, svgEl("circle", { class: "ring-track", cx: 24, cy: 24, r }), value),
-    num,
-  );
-  const pct = Math.max(0, Math.min(100, Number(score) || 0)) / 100;
-  requestAnimationFrame(() =>
-    requestAnimationFrame(() => {
-      value.style.strokeDashoffset = String(circumference * (1 - pct));
-      countUp(num, Number(score) || 0, 1400);
-    }),
-  );
-  return wrap;
-}
-
-// Soft spotlight that follows the pointer across cards.
-document.addEventListener(
-  "pointermove",
-  (e) => {
-    const card = e.target instanceof Element ? e.target.closest(".card") : null;
-    if (!card) return;
-    const rect = card.getBoundingClientRect();
-    card.style.setProperty("--mx", `${e.clientX - rect.left}px`);
-    card.style.setProperty("--my", `${e.clientY - rect.top}px`);
-  },
-  { passive: true },
-);
 
 // ---------- boot / login ----------
 
@@ -284,19 +239,19 @@ async function boot() {
 
 function renderLogin() {
   clear(root);
-  const username = h("input", { id: "login-username", name: "username", autocomplete: "username", required: true, maxLength: 64 });
-  const password = h("input", { id: "login-password", name: "password", type: "password", autocomplete: "current-password", required: true, maxLength: 256 });
+  const username = h("input", { id: "login-username", name: "username", autocomplete: "username", required: true, maxLength: 64, placeholder: "Username" });
+  const password = h("input", { id: "login-password", name: "password", type: "password", autocomplete: "current-password", required: true, maxLength: 256, placeholder: "Password" });
   const errorLine = h("p", { className: "form-error", role: "alert" });
-  const submit = h("button", { type: "submit", className: "btn btn-primary" }, "Log in");
+  const submit = h("button", { type: "submit", className: "login-go", title: "Log in", "aria-label": "Log in" }, icon("arrowRight"));
 
   const form = h(
     "form",
     {
-      className: "login-card",
+      className: "login",
       onSubmit: async (e) => {
         e.preventDefault();
         errorLine.textContent = "";
-        submit.disabled = true;
+        setBusy(submit, true);
         try {
           await api("/api/login", {
             method: "POST",
@@ -307,23 +262,25 @@ function renderLogin() {
         } catch (err) {
           errorLine.textContent = err instanceof ApiError ? err.detail : String(err);
           password.value = "";
-          submit.disabled = false;
+          setBusy(submit, false);
+          password.focus();
         }
       },
     },
-    logoMark(56),
-    h("h1", { className: "login-title" }, "TrustLabel"),
-    h("p", { className: "tagline-dark" }, "Search finds it. TrustLabel shows whether you can rely on it."),
-    h("label", { htmlFor: "login-username" }, "Username"),
-    username,
-    h("label", { htmlFor: "login-password" }, "Password"),
-    password,
+    logoMark(40),
+    h("h1", { className: "login-title" }, "Sign in to TrustLabel"),
+    h("p", { className: "login-sub" }, "Search finds it. TrustLabel shows whether you can rely on it."),
+    h(
+      "div",
+      { className: "field-group" },
+      h("label", { htmlFor: "login-username", className: "sr-only" }, "Username"),
+      username,
+      h("div", { className: "field-group-row" }, h("label", { htmlFor: "login-password", className: "sr-only" }, "Password"), password, submit),
+    ),
     errorLine,
-    submit,
-    h("p", { className: "hint" }, "lotte, jonas (consultants) · ellen, pieter, anke (experts)"),
+    h("p", { className: "login-hint" }, "lotte, jonas (consultants) · ellen, pieter, anke (experts)"),
   );
-  const aurora = h("div", { className: "aurora", "aria-hidden": "true" }, h("span"), h("span"), h("span"));
-  root.appendChild(h("div", { className: "login-wrap" }, aurora, form));
+  root.appendChild(h("main", { className: "login-page" }, form));
   username.focus();
 }
 
@@ -334,31 +291,27 @@ let inboxViewEl = null;
 let inboxNavBtn = null;
 let askNavBtn = null;
 let inboxBadge = null;
-let navThumb = null;
+let segmentThumb = null;
 
 function renderShell() {
   clear(root);
   const me = state.me;
-  askNavBtn = h("button", { className: "nav-btn", type: "button", onClick: () => switchView("ask") }, "Ask");
-  inboxBadge = h("span", { className: "nav-badge zero", "aria-label": "open requests" }, "0");
-  inboxNavBtn = h("button", { className: "nav-btn", type: "button", onClick: () => switchView("inbox") }, "Verification inbox", inboxBadge);
-  navThumb = h("span", { className: "nav-thumb", "aria-hidden": "true" });
+  askNavBtn = h("button", { className: "segment", type: "button", onClick: () => switchView("ask") }, "Ask");
+  inboxBadge = h("span", { className: "badge", hidden: true }, "0");
+  inboxNavBtn = h("button", { className: "segment", type: "button", onClick: () => switchView("inbox") }, "Inbox", inboxBadge);
+  segmentThumb = h("span", { className: "segment-thumb", "aria-hidden": "true" });
 
   const header = h(
     "header",
-    { className: "app-header" },
-    h("div", { className: "brand" }, logoMark(26), h("span", { className: "brand-name" }, "TrustLabel")),
-    h("nav", { className: "nav" }, navThumb, askNavBtn, inboxNavBtn),
+    { className: "toolbar" },
+    h("div", { className: "brand" }, logoMark(22), h("span", { className: "brand-name" }, "TrustLabel")),
+    h("nav", { className: "segmented", "aria-label": "Views" }, segmentThumb, askNavBtn, inboxNavBtn),
     h(
       "div",
-      { className: "user-area" },
-      h(
-        "span",
-        { className: "user-chip", title: me.user.title },
-        avatar(me.user.name),
-        h("span", { className: "user-text" }, h("span", { className: "user-name" }, me.user.name), h("span", { className: "user-role" }, me.user.title)),
-      ),
-      h("button", { className: "btn btn-text", type: "button", onClick: logout, title: "Log out", "aria-label": "Log out" }, icon("logout")),
+      { className: "account" },
+      monogram(me.user.name),
+      h("span", { className: "account-text" }, h("span", { className: "account-name" }, me.user.name), h("span", { className: "account-role" }, me.user.title)),
+      h("button", { className: "link-btn", type: "button", onClick: logout }, "Sign out"),
     ),
   );
 
@@ -376,19 +329,21 @@ function switchView(view) {
   state.view = view;
   askViewEl.hidden = view !== "ask";
   inboxViewEl.hidden = view !== "inbox";
-  askNavBtn.className = view === "ask" ? "nav-btn active" : "nav-btn";
-  inboxNavBtn.className = view === "inbox" ? "nav-btn active" : "nav-btn";
-  requestAnimationFrame(positionNavThumb);
+  askNavBtn.className = view === "ask" ? "segment active" : "segment";
+  inboxNavBtn.className = view === "inbox" ? "segment active" : "segment";
+  askNavBtn.setAttribute("aria-current", view === "ask" ? "page" : "false");
+  inboxNavBtn.setAttribute("aria-current", view === "inbox" ? "page" : "false");
+  placeSegmentThumb();
   if (view === "inbox") loadInbox();
 }
 
-function positionNavThumb() {
-  if (!navThumb || !navThumb.isConnected) return;
+function placeSegmentThumb() {
+  if (!segmentThumb || !segmentThumb.isConnected) return;
   const active = state.view === "inbox" ? inboxNavBtn : askNavBtn;
-  navThumb.style.setProperty("--x", `${active.offsetLeft}px`);
-  navThumb.style.setProperty("--w", `${active.offsetWidth}px`);
+  segmentThumb.style.width = `${active.offsetWidth}px`;
+  segmentThumb.style.transform = `translateX(${active.offsetLeft}px)`;
 }
-window.addEventListener("resize", () => requestAnimationFrame(positionNavThumb));
+window.addEventListener("resize", placeSegmentThumb);
 
 async function logout() {
   try {
@@ -404,8 +359,8 @@ function setInboxCount(items) {
   state.inboxCount = items.filter((v) => v.status === "open" && v.is_assignee).length;
   if (inboxBadge) {
     inboxBadge.textContent = String(state.inboxCount);
-    inboxBadge.className = state.inboxCount ? "nav-badge" : "nav-badge zero";
-    requestAnimationFrame(positionNavThumb);
+    inboxBadge.hidden = state.inboxCount === 0;
+    placeSegmentThumb();
   }
 }
 
@@ -439,12 +394,14 @@ function renderAskView() {
   );
   questionInput = h("input", {
     id: "question-input",
-    className: "question-input",
-    type: "text",
+    className: "search-input",
+    type: "search",
     maxLength: 300,
+    autocomplete: "off",
     placeholder: "e.g. What's the cut-off for submitting overtime for this month's payroll?",
+    "aria-label": "Question",
   });
-  const askBtn = h("button", { type: "submit", className: "btn btn-primary ask-submit", title: "Ask", "aria-label": "Ask" }, icon("arrowUp"));
+  const askBtn = h("button", { type: "submit", className: "btn btn-primary" }, "Ask");
 
   const form = h(
     "form",
@@ -460,76 +417,49 @@ function renderAskView() {
         runAsk({ question: q, topic_id: null }, askBtn);
       },
     },
-    h(
-      "div",
-      { className: "context-row" },
-      h(
-        "span",
-        { className: "context-pill" },
-        icon("pin"),
-        h("label", { htmlFor: "context-select", className: "ask-label" }, "Context"),
-        h("span", { className: "select-wrap" }, contextSelect),
-      ),
-    ),
-    h("div", { className: "search" }, icon("search"), questionInput, askBtn),
+    h("div", { className: "search-field" }, icon("search"), questionInput),
+    askBtn,
   );
 
-  const chips = h(
+  const head = h(
     "div",
-    { className: "chips" },
-    h("span", { className: "chips-label" }, "Try"),
+    { className: "page-head" },
+    h("h1", { className: "large-title" }, "Ask"),
+    h(
+      "div",
+      { className: "picker" },
+      h("label", { htmlFor: "context-select", className: "picker-label" }, "Context"),
+      h("span", { className: "picker-control" }, contextSelect, icon("chevronUpDown")),
+    ),
+  );
+
+  const suggestions = h(
+    "div",
+    { className: "suggestions" },
+    h("span", { className: "suggestions-label" }, "Topics"),
     me.topics.map((t) => topicChip(t)),
   );
 
-  const hero = h(
-    "div",
-    { className: "hero" },
-    h("span", { className: "hero-eyebrow" }, icon("shield"), "The trust layer for your knowledge"),
-    h("h1", { className: "hero-title" }, "Found it. ", h("span", { className: "gradient-text" }, "Can you rely on it?")),
-    h("p", { className: "hero-sub" }, "Every source graded A to G, conflicts triaged, and the right expert one tap away."),
-  );
-
-  const panel = h("section", { className: "card ask-card" }, form, chips);
-  if (me.features && me.features.capture) panel.appendChild(renderCapture());
-
-  resultEl = h("div", { className: "result-area" });
-  askViewEl.appendChild(hero);
-  askViewEl.appendChild(panel);
+  resultEl = h("div", { className: "result-area", "aria-live": "polite" });
+  askViewEl.appendChild(head);
+  askViewEl.appendChild(form);
+  askViewEl.appendChild(suggestions);
+  if (me.features && me.features.capture) askViewEl.appendChild(renderCapture());
   askViewEl.appendChild(resultEl);
-}
-
-function renderSkeleton() {
-  clear(resultEl);
-  resultEl.appendChild(
-    h(
-      "div",
-      { className: "skeleton", "aria-busy": "true", "aria-label": "Loading" },
-      h("div", { className: "skeleton-col" }, h("div", { className: "sk sk-1" }), h("div", { className: "sk sk-2" })),
-      h("div", { className: "skeleton-col" }, h("div", { className: "sk sk-3" }), h("div", { className: "sk sk-3" }), h("div", { className: "sk sk-3" })),
-    ),
-  );
-}
-
-function setButtonBusy(button, busy) {
-  button.disabled = busy;
-  clear(button);
-  button.appendChild(busy ? h("span", { className: "spinner", "aria-hidden": "true" }) : icon("arrowUp"));
 }
 
 function topicChip(topic) {
   return h(
     "button",
-    { type: "button", className: "chip", onClick: () => runAsk({ question: questionInput.value.trim(), topic_id: topic.id }) },
+    { type: "button", className: "capsule", onClick: () => runAsk({ question: questionInput.value.trim(), topic_id: topic.id }) },
     topic.label,
   );
 }
 
 async function runAsk({ question, topic_id }, button) {
   const ctx = currentContext();
-  if (button) setButtonBusy(button, true);
-  const hadResult = resultEl.firstChild !== null;
-  renderSkeleton();
-  if (!hadResult) resultEl.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
+  if (button) setBusy(button, true);
+  resultEl.classList.add("is-loading");
   try {
     const data = await api("/api/ask", {
       method: "POST",
@@ -537,10 +467,10 @@ async function runAsk({ question, topic_id }, button) {
     });
     renderAskResponse(data, { question: question || "" });
   } catch (err) {
-    clear(resultEl);
     showError(err);
   } finally {
-    if (button) setButtonBusy(button, false);
+    resultEl.classList.remove("is-loading");
+    if (button) setBusy(button, false);
   }
 }
 
@@ -550,9 +480,9 @@ function renderAskResponse(data, { question, newItemId = null }) {
     resultEl.appendChild(
       h(
         "section",
-        { className: "card no-match reveal" },
-        h("p", null, "No matching topic. Try one of:"),
-        h("div", { className: "chips" }, (data.suggestions || []).map((t) => topicChip(t))),
+        { className: "card no-match appear" },
+        h("p", null, "No matching topic. Try one of these:"),
+        h("div", { className: "suggestions" }, (data.suggestions || []).map((t) => topicChip(t))),
       ),
     );
     return;
@@ -566,6 +496,7 @@ function renderCapture() {
     maxLength: 1000,
     rows: 4,
     placeholder: "Paste a Teams message, e.g. \"From November meal voucher orders close on the 8th.\"",
+    "aria-label": "Teams message",
   });
   const btn = h("button", { type: "button", className: "btn btn-primary" }, "Capture");
   btn.addEventListener("click", async () => {
@@ -575,8 +506,8 @@ function renderCapture() {
       return;
     }
     const ctx = currentContext();
-    btn.disabled = true;
-    btn.textContent = "Capturing…";
+    setBusy(btn, true);
+    resultEl.classList.add("is-loading");
     try {
       const data = await api("/api/capture", {
         method: "POST",
@@ -587,157 +518,149 @@ function renderCapture() {
     } catch (err) {
       showError(err);
     } finally {
-      btn.disabled = false;
-      btn.textContent = "Capture";
+      resultEl.classList.remove("is-loading");
+      setBusy(btn, false);
     }
   });
   return h(
     "details",
-    { className: "capture" },
-    h("summary", null, icon("chat"), "Capture a Teams message", icon("chevronDown", "chev")),
-    h("div", { className: "capture-body" }, textarea, h("div", { className: "capture-actions" }, btn)),
+    { className: "card capture" },
+    h("summary", null, h("span", null, "Capture a Teams message"), icon("chevronRight", "disclosure")),
+    h("div", { className: "capture-body" }, textarea, h("div", { className: "actions" }, btn)),
   );
 }
 
 // ---------- result rendering ----------
 
-function renderResult(data, { question, newItemId }) {
-  const leftCards = [renderAnswer(data), renderLadder(data.answer), renderExperts(data, question)];
-  leftCards.forEach((c, i) => stagger(c, i).classList.add("reveal"));
-  const left = h("div", { className: "result-left" }, leftCards);
-  const right = h(
-    "div",
-    { className: "result-right" },
-    stagger(
-      h("h2", { className: "section-title sources-title reveal" }, "Sources", h("span", { className: "sources-count" }, String(data.sources.length))),
-      1,
-    ),
-    data.sources.map((s, i) => {
-      const card = renderSource(s, s.id === newItemId);
-      card.classList.add("reveal");
-      return stagger(card, i + 2);
-    }),
-  );
-  return h("div", { className: "result" }, left, right);
+function section(title, trailing, ...content) {
+  return h("section", { className: "section" }, h("h2", { className: "section-title" }, title, trailing ? h("span", { className: "section-count" }, trailing) : null), content);
 }
 
-const ANSWER_TONES = { use: "tone-use", verify: "tone-verify", ask_expert: "tone-ask" };
+function renderResult(data, { question, newItemId }) {
+  const left = h(
+    "div",
+    { className: "result-col" },
+    section("Answer", null, renderAnswer(data)),
+    section("Trust label", null, renderLadder(data.answer)),
+    section("Who can confirm", null, renderExperts(data, question)),
+  );
+  const right = h(
+    "div",
+    { className: "result-col" },
+    section("Sources", String(data.sources.length), data.sources.map((s) => renderSource(s, s.id === newItemId))),
+  );
+  return h("div", { className: "result appear" }, left, right);
+}
 
 function renderAnswer(data) {
   const a = data.answer;
-  const banner = BANNERS[a.action] || BANNERS.ask_expert;
+  const status = STATUSES[a.action] || STATUSES.ask_expert;
+  // The headline often repeats the status ("Don't act yet — sources disagree"); show the status once.
+  let headline = a.headline;
+  const prefix = `${status.text} — `;
+  if (headline.startsWith(prefix)) headline = headline.charAt(prefix.length).toUpperCase() + headline.slice(prefix.length + 1);
+
   const competing =
     a.competing && a.competing.length
       ? h(
           "ul",
-          { className: "competing" },
-          a.competing.map((c, i) =>
-            stagger(
-              h(
-                "li",
-                null,
-                gradeTile(c.best_grade, { small: true }),
-                h("span", { className: "competing-value" }, c.value_display),
-                h("span", { className: "muted-text" }, c.item_ids.join(", ")),
-              ),
-              i,
+          { className: "rows" },
+          a.competing.map((c) =>
+            h(
+              "li",
+              { className: "row" },
+              gradeTile(c.best_grade, { small: true }),
+              h("span", { className: "row-title" }, c.value_display),
+              h("span", { className: "row-detail mono" }, c.item_ids.join(", ")),
             ),
           ),
         )
       : null;
   return h(
-    "section",
-    { className: `card answer-card ${ANSWER_TONES[a.action] || "tone-ask"}` },
-    h("div", { className: `banner ${banner.cls}` }, h("span", { className: "banner-dot", "aria-hidden": "true" }), banner.text),
+    "div",
+    { className: "card answer" },
+    h("p", { className: `status ${status.cls}` }, symbol(status.symbol), status.text),
+    h("div", { className: "answer-head" }, a.grade ? gradeTile(a.grade, { large: true }) : null, h("h3", { className: "answer-headline" }, headline)),
+    h("p", { className: "answer-detail" }, a.detail),
+    competing,
     h(
-      "div",
-      { className: "answer-body" },
-      h(
-        "div",
-        { className: "answer-head" },
-        a.grade ? gradeTile(a.grade) : null,
-        h("h2", { className: "answer-headline" }, a.headline),
-      ),
-      h("p", { className: "answer-detail" }, a.detail),
-      competing,
-      h(
-        "p",
-        { className: "answer-meta" },
-        `Topic: ${data.topic.label} · Context: ${data.context.label}`,
-        data.matched_keywords && data.matched_keywords.length ? ` · Matched: ${data.matched_keywords.join(", ")}` : "",
-      ),
+      "p",
+      { className: "footnote" },
+      `Topic: ${data.topic.label} · Context: ${data.context.label}`,
+      data.matched_keywords && data.matched_keywords.length ? ` · Matched: ${data.matched_keywords.join(", ")}` : "",
     ),
   );
 }
 
 function renderLadder(answer) {
-  const pointers = {};
+  const markers = {};
   if ((answer.status === "verified" || answer.status === "consistent") && answer.grade) {
-    pointers[answer.grade] = [answer.value_display];
+    markers[answer.grade] = [answer.value_display];
   } else if (answer.status === "conflict") {
     for (const c of answer.competing || []) {
-      (pointers[c.best_grade] = pointers[c.best_grade] || []).push(c.value_display);
+      (markers[c.best_grade] = markers[c.best_grade] || []).push(c.value_display);
     }
   }
-  const rows = GRADES.map((g, i) =>
-    stagger(h(
+  const rows = GRADES.map((g) =>
+    h(
       "div",
-      { className: pointers[g] ? "ladder-row lit" : "ladder-row" },
-      h("div", { className: `ladder-bar ladder-${g} grade-${g}` }, h("span", { className: "ladder-letter" }, g)),
+      { className: "label-row" },
+      h("div", { className: "label-track" }, h("div", { className: `label-bar label-${g} grade-${g}` }, g)),
       h(
         "div",
-        { className: "ladder-pointers" },
-        (pointers[g] || []).map((label) => h("span", { className: "pointer" }, h("span", { className: "pointer-grade" }, g), label)),
+        { className: "label-markers" },
+        (markers[g] || []).map((value) =>
+          h("span", { className: "marker" }, h("span", { className: "marker-arrow" }, g), h("span", { className: "marker-value" }, value)),
+        ),
       ),
-    ), i),
+    ),
   );
   return h(
-    "section",
-    { className: "card ladder-card" },
-    h("h2", { className: "section-title" }, "Trust label"),
-    h("div", { className: Object.keys(pointers).length ? "ladder has-pointers" : "ladder" }, rows),
-    answer.status === "gap" ? h("p", { className: "ladder-note" }, "No applicable source") : null,
-    h("p", { className: "legend" }, LEGEND),
+    "div",
+    { className: "card" },
+    h("div", { className: "energy-label" }, rows),
+    answer.status === "gap" ? h("p", { className: "label-note" }, "No applicable source") : null,
+    h("p", { className: "footnote" }, LEGEND),
   );
 }
 
 function renderExperts(data, question) {
   const experts = data.experts || [];
-  const card = h("section", { className: "card experts-card" }, h("h2", { className: "section-title" }, "Who can confirm this"));
+  const card = h("div", { className: "card" });
   if (!experts.length) {
-    card.appendChild(h("p", { className: "muted-text" }, "No expert available for this topic and context."));
+    card.appendChild(h("p", { className: "secondary" }, "No expert available for this topic and context."));
     return card;
   }
   card.appendChild(
     h(
       "ol",
-      { className: "experts" },
+      { className: "rows" },
       experts.map((ex, i) =>
         h(
           "li",
-          { className: "expert" },
-          avatar(ex.name, true),
+          { className: "row expert" },
+          monogram(ex.name),
           h(
             "div",
-            { className: "expert-head" },
-            h("span", null, h("span", { className: "expert-name" }, ex.name), i === 0 ? h("span", { className: "expert-tag" }, "Best match") : null),
-            h("span", { className: "expert-score", title: "Routing score" }, String(ex.score)),
+            { className: "expert-body" },
+            h("div", null, h("span", { className: "row-title" }, ex.name), i === 0 ? h("span", { className: "tag" }, "Recommended") : null),
+            h("div", { className: "secondary" }, ex.title),
+            h("div", { className: "tertiary" }, ex.reasons.join(" · ")),
           ),
-          h("div", { className: "expert-title" }, ex.title),
-          h("ul", { className: "expert-reasons" }, ex.reasons.map((r) => h("li", null, r))),
+          h("span", { className: "expert-score", title: "Routing score" }, String(ex.score)),
         ),
       ),
     ),
   );
 
-  const actionArea = h("div", { className: "expert-action" });
-  const pendingText = (name) => h("p", { className: "pending" }, `Verification requested from ${name} — pending`);
+  const actionArea = h("div", { className: "card-action" });
+  const pendingText = (name) => h("p", { className: "pending" }, `Verification requested from ${name}. Waiting for an answer.`);
   if (data.open_request) {
     actionArea.appendChild(pendingText(data.open_request.assignee_name));
   } else if (data.answer.action !== "use") {
-    const btn = h("button", { type: "button", className: "btn btn-primary" }, `Ask ${firstName(experts[0].name)} to verify`);
+    const btn = h("button", { type: "button", className: "btn btn-primary btn-block" }, `Ask ${firstName(experts[0].name)} to verify`);
     btn.addEventListener("click", async () => {
-      btn.disabled = true;
+      setBusy(btn, true);
       try {
         const v = await api("/api/verifications", {
           method: "POST",
@@ -752,58 +675,63 @@ function renderExperts(data, question) {
         toast(`Verification request sent to ${v.assignee_name}.`);
         refreshInboxCount();
       } catch (err) {
-        btn.disabled = false;
+        setBusy(btn, false);
         showError(err);
       }
     });
     actionArea.appendChild(btn);
   }
-  card.appendChild(actionArea);
+  if (actionArea.firstChild) card.appendChild(actionArea);
   return card;
 }
 
-function pillClass(code) {
-  if (code === "applies") return "pill pill-applies";
-  if (code === "superseded" || code === "overridden") return "pill pill-warn";
-  if (NOT_APPLICABLE_CODES.has(code)) return "pill pill-na";
-  return "pill pill-na";
+function applicabilityClass(code) {
+  if (code === "applies") return "tone-good";
+  if (code === "superseded" || code === "overridden") return "tone-warn";
+  if (NOT_APPLICABLE_CODES.has(code)) return "tone-muted";
+  return "tone-muted";
 }
 
-function reasonBadge(r) {
-  if (r.code === "base" && r.delta !== null && r.delta !== undefined) {
-    return h("span", { className: "badge badge-base" }, String(r.delta));
-  }
+// A grading reason as one line of a ledger: what happened, and what it did to the score.
+function ledgerValue(r) {
+  if (r.code === "base" && r.delta !== null && r.delta !== undefined) return h("span", { className: "ledger-value" }, String(r.delta));
   if (r.delta !== null && r.delta !== undefined) {
-    const positive = r.delta > 0;
-    const text = positive ? `+${r.delta}` : r.delta < 0 ? `\u2212${Math.abs(r.delta)}` : "0";
-    return h("span", { className: positive ? "badge badge-plus" : "badge badge-minus" }, text);
+    if (r.delta > 0) return h("span", { className: "ledger-value tone-good" }, `+${r.delta}`);
+    if (r.delta < 0) return h("span", { className: "ledger-value tone-bad" }, `−${Math.abs(r.delta)}`);
+    return h("span", { className: "ledger-value" }, "0");
   }
-  if (r.cap) return h("span", { className: "badge badge-cap" }, `max ${r.cap}`);
+  if (r.cap) return h("span", { className: "ledger-value ledger-cap" }, `max ${r.cap}`);
   return null;
+}
+
+function fact(label, value) {
+  return h("div", { className: "fact" }, h("dt", null, label), h("dd", null, value));
 }
 
 function renderSource(s, isNew) {
   const muted = MUTED_STATUSES.has(s.status);
-  let owner;
-  if (s.kind === "teams_message") owner = h("span", null, `Posted by ${s.author_name || "unknown author"}`);
-  else if (s.owner_active) owner = h("span", null, `Owner: ${s.owner_name}`);
-  else owner = h("span", { className: "no-owner" }, "No active owner");
-  let dated;
-  if (s.kind === "teams_message") dated = `on ${s.created_on}`;
-  else if (s.last_reviewed_on) dated = `Last reviewed ${s.last_reviewed_on}`;
-  else dated = `Created ${s.created_on}`;
+  const facts = [];
+  if (s.kind === "teams_message") {
+    facts.push(fact("Posted by", s.author_name || "Unknown author"));
+    facts.push(fact("Posted", s.created_on));
+  } else {
+    facts.push(fact("Owner", s.owner_active ? s.owner_name : h("span", { className: "tone-bad" }, "No active owner")));
+    facts.push(s.last_reviewed_on ? fact("Last reviewed", s.last_reviewed_on) : fact("Created", s.created_on));
+  }
+  facts.push(fact("Scope", h("span", { className: applicabilityClass(s.applicability.code) }, s.applicability.text)));
 
-  const reasons = h(
+  const ledger = h(
     "ul",
-    { className: "reasons" },
-    s.reasons.map((r, i) => {
-      const badge = reasonBadge(r);
-      return stagger(h("li", { className: badge ? "reason" : "reason reason-info" }, badge, h("span", { className: "reason-text" }, r.text)), i);
+    { className: "ledger" },
+    s.reasons.map((r) => {
+      const value = ledgerValue(r);
+      return h("li", { className: value ? "ledger-row" : "ledger-row ledger-info" }, h("span", null, r.text), value);
     }),
+    h("li", { className: "ledger-row ledger-total" }, h("span", null, "Trust score"), h("span", { className: "ledger-value" }, `${s.score} · ${s.grade}`)),
   );
 
-  const cls = ["card", "source-card"];
-  if (muted) cls.push("source-muted");
+  const cls = ["card", "source"];
+  if (muted) cls.push("is-muted");
   if (isNew) cls.push("is-new");
   return h(
     "article",
@@ -815,38 +743,27 @@ function renderSource(s, isNew) {
       h(
         "div",
         { className: "source-titles" },
-        h(
-          "div",
-          { className: "source-kind" },
-          s.kind_label,
-          h("span", { className: "source-id" }, s.id),
-          isNew ? h("span", { className: "badge-new" }, "New") : null,
-        ),
+        h("p", { className: "overline" }, s.kind_label, " · ", h("span", { className: "mono" }, s.id), isNew ? h("span", { className: "tag" }, "New") : null),
         h("h3", { className: "source-title" }, s.title),
-        h("div", { className: "source-origin" }, s.source),
+        h("p", { className: "secondary" }, s.source),
       ),
-      scoreRing(s.score, muted ? null : s.grade),
+      h("div", { className: "score", title: "Trust score" }, h("span", { className: "score-value" }, String(s.score)), h("span", { className: "score-label" }, "Score")),
     ),
-    h("div", { className: "source-meta" }, owner, h("span", null, dated)),
     h("p", { className: "statement" }, s.statement),
     h("blockquote", { className: "quote" }, s.kind === "verified_answer" ? s.body : s.quote),
-    h("span", { className: pillClass(s.applicability.code) }, s.applicability.text),
-    h("details", { className: "why" }, h("summary", null, `Why ${s.grade}?`, icon("chevronRight", "chev")), reasons),
+    h("dl", { className: "facts" }, facts),
+    h("details", { className: "why" }, h("summary", null, h("span", null, `Why ${s.grade}?`), icon("chevronRight", "disclosure")), ledger),
   );
 }
 
 // ---------- inbox ----------
 
 async function loadInbox() {
-  if (!inboxViewEl.firstChild) {
-    inboxViewEl.appendChild(h("div", { className: "skeleton", "aria-busy": "true", "aria-label": "Loading" }, h("div", { className: "sk sk-2" }), h("div", { className: "sk sk-2" })));
-  }
   try {
     const data = await api("/api/verifications");
     setInboxCount(data.items);
     renderInbox(data.items);
   } catch (err) {
-    clear(inboxViewEl);
     showError(err);
   }
 }
@@ -857,54 +774,44 @@ function renderInbox(items) {
   inboxViewEl.appendChild(
     h(
       "div",
-      { className: "inbox-hero reveal" },
-      h("h2", { className: "inbox-title" }, "Verification requests"),
-      h("p", { className: "inbox-sub" }, open ? `${open} waiting for your answer. Your confirmation becomes a grade-A answer.` : "You're all caught up."),
+      { className: "page-head" },
+      h("div", null, h("h1", { className: "large-title" }, "Inbox"), h("p", { className: "page-sub" }, open ? `${open} ${open === 1 ? "request needs" : "requests need"} your answer` : "Nothing needs your answer")),
     ),
   );
   if (!items.length) {
-    inboxViewEl.appendChild(
-      stagger(h("section", { className: "card empty reveal" }, icon("check"), h("p", { className: "muted-text" }, "No verification requests yet.")), 1),
-    );
+    inboxViewEl.appendChild(h("section", { className: "card empty appear" }, h("p", { className: "secondary" }, "No verification requests yet.")));
     return;
   }
-  inboxViewEl.appendChild(
-    h(
-      "div",
-      { className: "inbox" },
-      items.map((v, i) => {
-        const card = renderRequestCard(v);
-        card.classList.add("reveal");
-        return stagger(card, i + 1);
-      }),
-    ),
-  );
+  inboxViewEl.appendChild(h("div", { className: "inbox appear" }, items.map(renderRequestCard)));
 }
 
 function renderRequestCard(v) {
-  const head = h(
-    "div",
-    { className: "request-head" },
-    h("span", { className: v.status === "open" ? "status status-open" : "status status-resolved" }, v.status === "open" ? "Open" : "Resolved"),
+  const isOpen = v.status === "open";
+  const card = h(
+    "article",
+    { className: "card request" },
+    h(
+      "div",
+      { className: "request-top" },
+      h("span", { className: isOpen ? "request-status tone-warn" : "request-status tone-good" }, isOpen ? "Open" : "Resolved"),
+      h("span", { className: "footnote" }, formatDateTime(v.created_at)),
+    ),
     h("h3", { className: "request-title" }, `${v.topic.label} — ${v.context_label}`),
+    h("p", { className: "secondary" }, `Requested by ${v.requester_name} for ${v.assignee_name}${v.is_assignee ? " (you)" : ""}`),
+    h("blockquote", { className: "quote" }, v.question),
   );
-  const meta = h(
-    "p",
-    { className: "request-meta" },
-    `Requested by ${v.requester_name} for ${v.assignee_name}${v.is_assignee ? " (you)" : ""} · ${formatDateTime(v.created_at)}`,
-  );
-  const card = h("article", { className: "card request-card" }, head, meta, h("p", { className: "request-question" }, `“${v.question}”`));
+
   if (v.status === "resolved" && v.resolution) {
     card.appendChild(renderResolution(v.resolution));
-  } else if (v.status === "open" && v.is_assignee) {
+  } else if (isOpen && v.is_assignee) {
     card.appendChild(renderResolveForm(v));
-  } else if (v.status === "open") {
+  } else if (isOpen) {
     card.appendChild(
       h(
         "div",
         null,
         h("p", { className: "pending" }, `Waiting for ${v.assignee_name}`),
-        v.candidates.length ? h("p", { className: "muted-text" }, `Candidates: ${v.candidates.map((c) => `${c.value_display} (${c.grade})`).join(" vs ")}`) : null,
+        v.candidates.length ? h("p", { className: "secondary" }, `Candidates: ${v.candidates.map((c) => `${c.value_display} (${c.grade})`).join(" vs ")}`) : null,
       ),
     );
   }
@@ -920,7 +827,7 @@ function renderResolution(r) {
     { className: "resolution" },
     h("div", { className: "resolution-value" }, gradeTile("A", { small: true }), h("strong", null, r.value_display)),
     r.note ? h("p", null, r.note) : null,
-    h("p", { className: "muted-text" }, `Valid until ${r.valid_until} · resolved ${formatDateTime(r.resolved_at)} · ${r.item_id}`),
+    h("p", { className: "footnote" }, `Valid until ${r.valid_until} · resolved ${formatDateTime(r.resolved_at)} · ${r.item_id}`),
   );
 }
 
@@ -928,7 +835,7 @@ function renderResolveForm(v) {
   const radioName = `cand-${v.id}`;
   const radios = [];
   const otherInput = h("input", { type: "number", min: 1, max: 31, step: 1, className: "other-input", placeholder: "e.g. 25", "aria-label": "Other value" });
-  const note = h("textarea", { className: "note-input", maxLength: 500, rows: 2, placeholder: "Note (e.g. contract addendum reference)" });
+  const note = h("textarea", { className: "note-input", maxLength: 500, rows: 2, placeholder: "e.g. contract addendum reference" });
   const validUntil = h("input", { type: "date", className: "date-input", value: addDays(180), min: addDays(1), max: addDays(730), required: true });
   const transcriptArea = h("div", { className: "transcript-area" });
 
@@ -938,6 +845,7 @@ function renderResolveForm(v) {
       name: radioName,
       value: c.value,
       id: `${radioName}-${i}`,
+      className: "choice-input",
       onChange: () => {
         otherInput.value = "";
       },
@@ -945,11 +853,11 @@ function renderResolveForm(v) {
     radios.push(radio);
     return h(
       "label",
-      { className: "candidate", htmlFor: `${radioName}-${i}` },
+      { className: "row choice", htmlFor: `${radioName}-${i}` },
       radio,
-      h("span", { className: "candidate-value" }, c.value_display),
       gradeTile(c.grade, { small: true }),
-      h("span", { className: "candidate-title" }, c.title),
+      h("span", { className: "choice-text" }, h("span", { className: "row-title" }, c.value_display), h("span", { className: "secondary" }, c.title)),
+      icon("check", "choice-check"),
     );
   });
   otherInput.addEventListener("input", () => {
@@ -977,7 +885,7 @@ function renderResolveForm(v) {
           toast("Set a valid-until date", true);
           return;
         }
-        resolveBtn.disabled = true;
+        setBusy(resolveBtn, true);
         try {
           await api(`/api/verifications/${encodeURIComponent(v.id)}/resolve`, {
             method: "POST",
@@ -986,19 +894,23 @@ function renderResolveForm(v) {
           toast(`Verified. Everyone asking this in ${v.context_label} now sees it.`);
           await loadInbox();
         } catch (err) {
-          resolveBtn.disabled = false;
+          setBusy(resolveBtn, false);
           showError(err);
         }
       },
     },
-    h("fieldset", { className: "candidates" }, h("legend", null, "Which value is correct?"), candidateRows,
-      h("label", { className: "candidate candidate-other" }, h("span", null, "Other value"), otherInput)),
+    h(
+      "fieldset",
+      { className: "choices" },
+      h("legend", null, "Which value is correct?"),
+      h("div", { className: "rows" }, candidateRows, h("label", { className: "row choice-other" }, h("span", { className: "row-title" }, "Other value"), otherInput)),
+    ),
     transcriptArea,
-    h("label", { className: "field-label" }, "Note", note),
-    h("label", { className: "field-label" }, "Valid until", validUntil),
+    h("label", { className: "field" }, "Note", note),
+    h("label", { className: "field" }, "Valid until", validUntil),
   );
 
-  const actions = h("div", { className: "resolve-actions" });
+  const actions = h("div", { className: "actions" });
   if (state.me.features && state.me.features.voice) {
     actions.appendChild(voiceButton(v, { radios, otherInput, validUntil, transcriptArea }));
   }
@@ -1018,8 +930,7 @@ function pickRecorderType() {
 
 function voiceButton(v, form) {
   const label = h("span", null, "Answer by voice");
-  const wave = h("span", { className: "wave", "aria-hidden": "true" }, h("span"), h("span"), h("span"), h("span"));
-  const btn = h("button", { type: "button", className: "btn btn-voice" }, icon("mic"), wave, label);
+  const btn = h("button", { type: "button", className: "btn btn-secondary btn-voice" }, icon("mic"), label);
   let recorder = null;
   let stream = null;
   let ticker = null;
@@ -1065,30 +976,30 @@ function voiceButton(v, form) {
     });
     recorder.addEventListener("stop", async () => {
       stopTracks();
-      btn.className = "btn btn-voice";
+      btn.classList.remove("recording");
       const blobType = (recorder.mimeType || type.mimeType || "audio/webm").split(";")[0];
       const blob = new Blob(chunks, { type: blobType });
       recorder = null;
-      await sendVoice(v, blob, type.filename, btn, form);
+      await sendVoice(v, blob, type.filename, { btn, label }, form);
     });
     seconds = 0;
     recorder.start();
-    btn.className = "btn btn-voice recording";
-    label.textContent = "Stop (0s)";
+    btn.classList.add("recording");
+    label.textContent = "Stop · 0:00";
     ticker = setInterval(() => {
       seconds += 1;
-      label.textContent = `Stop (${seconds}s)`;
+      label.textContent = `Stop · 0:${String(seconds).padStart(2, "0")}`;
     }, 1000);
     timeout = setTimeout(stopRecording, VOICE_MAX_SECONDS * 1000);
   });
   return btn;
 }
 
-async function sendVoice(v, blob, filename, btn, { radios, otherInput, validUntil, transcriptArea }) {
+async function sendVoice(v, blob, filename, { btn, label }, { radios, otherInput, validUntil, transcriptArea }) {
   btn.disabled = true;
-  btn.lastElementChild.textContent = "Transcribing…";
+  label.textContent = "Transcribing…";
   clear(transcriptArea);
-  transcriptArea.appendChild(h("p", { className: "muted-text" }, "Transcribing…"));
+  transcriptArea.appendChild(h("p", { className: "secondary" }, "Transcribing…"));
   const fd = new FormData();
   fd.append("audio", blob, filename);
   try {
@@ -1126,7 +1037,7 @@ async function sendVoice(v, blob, filename, btn, { radios, otherInput, validUnti
     showError(err);
   } finally {
     btn.disabled = false;
-    btn.lastElementChild.textContent = "Answer by voice";
+    label.textContent = "Answer by voice";
   }
 }
 
