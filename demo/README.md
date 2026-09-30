@@ -1,6 +1,6 @@
 # TrustLabel demo video
 
-A narrated, ~2:20 product video of TrustLabel, built with [Remotion](https://www.remotion.dev) (React → MP4).
+A narrated, ~2:35 product video of TrustLabel, built with [Remotion](https://www.remotion.dev) (React → MP4).
 Rendered output: `out/trustlabel-demo.mp4` (1920×1080, 30 fps).
 
 Nothing on screen is made up: every grade, score, reason, expert ranking and answer comes from the real engine,
@@ -46,9 +46,9 @@ Two narrators. Every cue in `src/narration/script.json` has a `speaker`:
 | **Rufina** (female) | hook, problem, reveal, verify by voice, verified answer, "Humans verify. TrustLabel." |
 | **Artiom** (male) | trust label, applicability, conflict triage, expert routing, team, "AI reads. Rules judge." |
 
-The target voices are Rufina's and Artiom's **ElevenLabs voice clones** on `eleven_v4`. Until those takes exist,
-the video uses local Kokoro stand-ins (`af_heart` and `am_michael`), so the split and timing can already be
-reviewed. `src/narration/manifest.json` records which voice each scene currently uses.
+Every scene is voiced by Rufina's and Artiom's **ElevenLabs voice clones** on `eleven_v4` (voice IDs
+`IKjOL6DF5xUQMihsrDMj` and `tZYHx3XprsArEZVsdYKX`). The local Kokoro voices (`af_heart` and `am_michael`) remain as
+stand-ins for drafting new lines without a key. `src/narration/manifest.json` records which take each scene uses.
 
 Scenes time their animations from the cue and word timings in the manifest (`cue()` / `cueWord()` in
 `src/timeline.ts`). Swap the voice, regenerate, render: everything re-syncs and scene lengths adapt.
