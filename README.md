@@ -61,7 +61,7 @@ uv run --env-file .env main.py            # then open http://127.0.0.1:8000
 
 Users: `lotte`, `jonas` (consultants); `ellen`, `pieter`, `anke`, `sanne` (experts).
 "Answer by voice" appears when both `OPENAI_API_KEY` and `ELEVENLABS_API_KEY` are set; "Capture a Teams message"
-needs `OPENAI_API_KEY`. `OPENAI_MODEL` defaults to `gpt-6-luna` (e.g. `gpt-5-mini` also works).
+needs `OPENAI_API_KEY`. `OPENAI_MODEL` defaults to `gpt-6-luna`; any model with Structured Outputs support can be set.
 
 Demo path: log in as lotte → context "Van Dam Logistics NV (BE)" → ask *"What's the cut-off for submitting overtime
 this month?"* → "Don't act yet: 20th (C) vs 25th (D)" → "Ask Ellen to verify". Log in as ellen in a private window →

@@ -1,4 +1,5 @@
 import json
+import secrets
 from datetime import date
 
 import pytest
@@ -11,10 +12,17 @@ from trustlabel.store import Store
 
 TODAY = date(2026, 9, 30)
 DATA_DIR = REPO_ROOT / "data"
+# Random per test run: no fixed credentials anywhere in the repo, not even for tests.
+_PASSWORDS = {
+    p["id"]: secrets.token_urlsafe(12)
+    for p in json.loads((DATA_DIR / "people.json").read_text(encoding="utf-8"))
+    if p["active"]
+}
+_SECRET_KEY = secrets.token_hex(32)
 
 
 def password_for(username: str) -> str:
-    return f"{username}-pass-123"
+    return _PASSWORDS[username]
 
 
 @pytest.fixture
@@ -24,10 +32,9 @@ def store() -> Store:
 
 @pytest.fixture(scope="session")
 def creds_file(tmp_path_factory):
-    people = json.loads((DATA_DIR / "people.json").read_text(encoding="utf-8"))
     path = tmp_path_factory.mktemp("creds") / "credentials.json"
     path.write_text(
-        json.dumps({p["id"]: hash_password(password_for(p["id"])) for p in people if p["active"]}),
+        json.dumps({user_id: hash_password(pw) for user_id, pw in _PASSWORDS.items()}),
         encoding="utf-8",
     )
     return path
@@ -36,7 +43,7 @@ def creds_file(tmp_path_factory):
 @pytest.fixture
 def make_client(creds_file):
     def factory(extractor=None, transcriber=None) -> TestClient:
-        settings = Settings(secret_key="k" * 40, credentials_file=creds_file, cookie_secure=False)
+        settings = Settings(secret_key=_SECRET_KEY, credentials_file=creds_file, cookie_secure=False)
         return TestClient(create_app(settings, extractor, transcriber, clock=lambda: TODAY))
 
     return factory
