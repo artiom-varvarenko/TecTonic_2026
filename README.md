@@ -47,6 +47,12 @@ whatever search or assistant SD Worx already uses; it is not another assistant.
 
 A client-specific formal source (policy, procedure or verified answer) overrides the general rule for that client only.
 
+## Demo video
+
+[`demo/out/trustlabel-demo.mp4`](demo/out/trustlabel-demo.mp4) is a narrated walkthrough of the demo path below,
+made with Remotion from the engine's real output. See [`demo/README.md`](demo/README.md) to re-render it, re-voice it
+(Kokoro or ElevenLabs v4) or add the team's photos.
+
 ## Run it
 
 Requires [uv](https://docs.astral.sh/uv/).

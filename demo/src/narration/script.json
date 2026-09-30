@@ -1,0 +1,183 @@
+{
+  "fps": 30,
+  "gap_seconds": 0.28,
+  "note": "`text` is what is spoken; spellings like 'Trust Label' or 'Lot-tuh' only steer Kokoro's pronunciation. `text_elevenlabs` overrides it for ElevenLabs. Cue ids are referenced by the scenes to time their animations.",
+  "scenes": {
+    "hook": [
+      {
+        "id": "intro",
+        "text": "An urgent customer question comes in."
+      },
+      {
+        "id": "ask",
+        "text": "Van Dam Logistics needs to know the overtime cut-off. Today."
+      }
+    ],
+    "problem": [
+      {
+        "id": "search",
+        "text": "Search finds three documents."
+      },
+      {
+        "id": "docs",
+        "text": "One was recently updated. One has an owner who left the company. And one might be for another country."
+      },
+      {
+        "id": "teams",
+        "text": "Then a colleague in Teams says something else entirely."
+      },
+      {
+        "id": "stuck",
+        "text": "Lot-tuh has found information, but she still can't act with confidence.",
+        "text_elevenlabs": "Lotte has found information, but she still can't act with confidence."
+      }
+    ],
+    "reveal": [
+      {
+        "id": "name",
+        "text": "This is Trust Label.",
+        "text_elevenlabs": "This is TrustLabel."
+      },
+      {
+        "id": "tagline",
+        "text": "Search finds it. Trust Label shows whether you can rely on it.",
+        "text_elevenlabs": "Search finds it. TrustLabel shows whether you can rely on it."
+      }
+    ],
+    "grading": [
+      {
+        "id": "intro",
+        "text": "Every source gets a grade from A to G, like an energy label, and every point is explained."
+      },
+      {
+        "id": "base",
+        "text": "This old handbook starts at seventy-five."
+      },
+      {
+        "id": "owner",
+        "text": "Minus twenty: its owner left."
+      },
+      {
+        "id": "review",
+        "text": "Minus fifteen: its review is five hundred and seventy-seven days overdue."
+      },
+      {
+        "id": "superseded",
+        "text": "And a newer procedure replaced it. Grade F."
+      }
+    ],
+    "applicability": [
+      {
+        "id": "intro",
+        "text": "Applicability is judged separately from quality."
+      },
+      {
+        "id": "nl",
+        "text": "A solid Dutch procedure, grade C, still doesn't apply to a Belgian client."
+      }
+    ],
+    "triage": [
+      {
+        "id": "intro",
+        "text": "When sources disagree, Trust Label sorts out why."
+      },
+      {
+        "id": "country",
+        "text": "Other country."
+      },
+      {
+        "id": "outdated",
+        "text": "Outdated."
+      },
+      {
+        "id": "exception",
+        "text": "A client exception, claimed only in chat."
+      },
+      {
+        "id": "verdict",
+        "text": "The verdict is honest: don't act yet. The twentieth, grade C, versus the twenty-fifth, grade D."
+      }
+    ],
+    "routing": [
+      {
+        "id": "intro",
+        "text": "The remaining doubt goes to the best-qualified expert."
+      },
+      {
+        "id": "ellen",
+        "text": "Ellen leads the Van Dam account, knows the topic, and owns the evidence."
+      },
+      {
+        "id": "others",
+        "text": "Client questions never leave the client's team."
+      },
+      {
+        "id": "click",
+        "text": "One click sends her the question, with every competing value and its grade."
+      }
+    ],
+    "voice": [
+      {
+        "id": "intro",
+        "text": "Ellen answers with a short voice note."
+      },
+      {
+        "id": "transcribe",
+        "text": "Eleven Labs transcribes it."
+      },
+      {
+        "id": "extract",
+        "text": "OpenAI extracts the value and a verbatim quote."
+      },
+      {
+        "id": "rules",
+        "text": "Then the rules check that the quote really is in the transcript, and really states the value."
+      },
+      {
+        "id": "confirm",
+        "text": "Ellen confirms."
+      }
+    ],
+    "verified": [
+      {
+        "id": "intro",
+        "text": "Lot-tuh asks again.",
+        "text_elevenlabs": "Lotte asks again."
+      },
+      {
+        "id": "answer",
+        "text": "The twenty-fifth. Grade A. Verified by Ellen, valid until March twenty twenty-seven."
+      },
+      {
+        "id": "scoped",
+        "text": "And it stays in its context. For Belgium, all clients, the answer is still the twentieth."
+      }
+    ],
+    "team": [
+      {
+        "id": "intro",
+        "text": "Trust Label was built by our team, for the S D Works challenge at Tectonic twenty twenty-six.",
+        "text_elevenlabs": "TrustLabel was built by our team, for the SD Worx challenge at Tectonic 2026."
+      }
+    ],
+    "outro": [
+      {
+        "id": "principle",
+        "text": "AI reads. Rules judge. Humans verify."
+      },
+      {
+        "id": "end",
+        "text": "Trust Label.",
+        "text_elevenlabs": "TrustLabel."
+      }
+    ]
+  },
+  "elevenlabs_takes": {
+    "note": "Exact prompts sent to ElevenLabs (eleven_v4, voice Talia xt1AC3mKnyqJYvD3KK90) for the locked scenes; one take per scene, 4 variations, best picked by scripts/import_takes.py.",
+    "hook": "[serious] An urgent customer question comes in. [short pause] Van Dam Logistics needs to know the overtime cut-off. Today.",
+    "problem": "Search finds three documents. [short pause] One was recently updated. One has an owner who left the company. And one might be for another country. [short pause] Then a colleague in Teams says something else entirely. [pause] /ˈlɔtə/ has found information, but she still can't act with confidence.",
+    "reveal": "[warmly] This is TrustLabel. [short pause] Search finds it. TrustLabel shows whether you can rely on it.",
+    "team": "[warmly] TrustLabel was built by our team, for the SD Worx challenge at Tectonic 2026.",
+    "outro": "[confident] AI reads. [short pause] Rules judge. [short pause] Humans verify. [pause] TrustLabel."
+  }
+}

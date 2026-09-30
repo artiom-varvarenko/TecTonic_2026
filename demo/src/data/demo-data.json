@@ -1,0 +1,1209 @@
+{
+  "today": "2026-09-30",
+  "question": "What's the cut-off for submitting overtime this month?",
+  "before": {
+    "topic": {
+      "id": "payroll.variables_cutoff",
+      "label": "Payroll variables cut-off"
+    },
+    "matched_keywords": [
+      "cut-off",
+      "overtime",
+      "submit"
+    ],
+    "context": {
+      "key": "vandam",
+      "label": "Van Dam Logistics NV (BE)",
+      "country": "BE",
+      "client_id": "vandam"
+    },
+    "answer": {
+      "status": "conflict",
+      "action": "ask_expert",
+      "headline": "Don't act yet — sources disagree",
+      "detail": "20th of the month (C) vs 25th of the month (D) for Van Dam Logistics NV (BE).",
+      "value": null,
+      "value_display": null,
+      "grade": null,
+      "competing": [
+        {
+          "value": "20",
+          "value_display": "20th of the month",
+          "best_grade": "C",
+          "item_ids": [
+            "DOC-BE-017",
+            "FAQ-BE-003"
+          ]
+        },
+        {
+          "value": "25",
+          "value_display": "25th of the month",
+          "best_grade": "D",
+          "item_ids": [
+            "TEAMS-4411"
+          ]
+        }
+      ],
+      "verified_by": null
+    },
+    "sources": [
+      {
+        "id": "DOC-BE-017",
+        "kind": "procedure",
+        "kind_label": "Procedure",
+        "title": "Payroll variables cut-off — Belgium",
+        "source": "SharePoint · Payroll Operations BE",
+        "author_name": "Pieter De Smet",
+        "owner_name": "Pieter De Smet",
+        "owner_active": true,
+        "created_on": "2026-06-20",
+        "last_reviewed_on": "2026-08-14",
+        "statement": "Payroll variables for Belgian clients must be submitted by the 20th of the month.",
+        "quote": "must be submitted by the 20th of the month",
+        "body": "From 1 July 2026, payroll variables (overtime, absences, bonuses) for Belgian clients must be submitted by the 20th of the month to be included in that month's payroll run. Variables received later are processed in the next run. This replaces the previous cut-off on the 22nd.",
+        "value": "20",
+        "value_display": "20th of the month",
+        "status": "effective",
+        "applicability": {
+          "code": "applies",
+          "text": "Applies to all clients in Belgium"
+        },
+        "score": 75,
+        "grade": "C",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Procedure: base 75",
+            "delta": 75,
+            "cap": null
+          },
+          {
+            "code": "possible_exception",
+            "text": "Client-specific exception (25th of the month) claimed in Teams · #payroll-be, not verified",
+            "delta": -10,
+            "cap": null
+          },
+          {
+            "code": "corroborated",
+            "text": "Corroborated by 1 independent source(s): Payroll calendar 2026 — Belgium (FAQ)",
+            "delta": 10,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "FAQ-BE-003",
+        "kind": "faq",
+        "kind_label": "FAQ",
+        "title": "Payroll calendar 2026 — Belgium (FAQ)",
+        "source": "SharePoint · Payroll Services BE",
+        "author_name": "Ellen Maes",
+        "owner_name": "Ellen Maes",
+        "owner_active": true,
+        "created_on": "2026-01-05",
+        "last_reviewed_on": "2026-07-03",
+        "statement": "The monthly cut-off for payroll variables is the 20th of each month since July 2026.",
+        "quote": "The 20th of each month, since July 2026",
+        "body": "Q: What is the monthly cut-off for payroll variables? A: The 20th of each month, since July 2026. Late variables move to the next payroll run.",
+        "value": "20",
+        "value_display": "20th of the month",
+        "status": "effective",
+        "applicability": {
+          "code": "applies",
+          "text": "Applies to all clients in Belgium"
+        },
+        "score": 65,
+        "grade": "D",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "FAQ: base 65",
+            "delta": 65,
+            "cap": null
+          },
+          {
+            "code": "possible_exception",
+            "text": "Client-specific exception (25th of the month) claimed in Teams · #payroll-be, not verified",
+            "delta": -10,
+            "cap": null
+          },
+          {
+            "code": "corroborated",
+            "text": "Corroborated by 1 independent source(s): Payroll variables cut-off — Belgium",
+            "delta": 10,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "TEAMS-4411",
+        "kind": "teams_message",
+        "kind_label": "Teams message",
+        "title": "Jonas Wouters in #payroll-be",
+        "source": "Teams · #payroll-be",
+        "author_name": "Jonas Wouters",
+        "owner_name": null,
+        "owner_active": false,
+        "created_on": "2026-09-12",
+        "last_reviewed_on": null,
+        "statement": "For Van Dam Logistics the payroll variables cut-off is the 25th.",
+        "quote": "for Van Dam Logistics the cut-off is the 25th",
+        "body": "Heads-up: for Van Dam Logistics the cut-off is the 25th, not the 20th. They negotiated an exception in their contract.",
+        "value": "25",
+        "value_display": "25th of the month",
+        "status": "effective",
+        "applicability": {
+          "code": "applies",
+          "text": "Applies to Van Dam Logistics NV"
+        },
+        "score": 60,
+        "grade": "D",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Teams message: base 60",
+            "delta": 60,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "DOC-BE-009",
+        "kind": "procedure",
+        "kind_label": "Procedure",
+        "title": "Client onboarding handbook — Belgium",
+        "source": "SharePoint · Client Onboarding",
+        "author_name": "Marc Peeters",
+        "owner_name": "Marc Peeters",
+        "owner_active": false,
+        "created_on": "2023-02-10",
+        "last_reviewed_on": "2024-03-02",
+        "statement": "Payroll variables must reach SD Worx by the 22nd of the month.",
+        "quote": "must reach SD Worx by the 22nd of the month",
+        "body": "Chapter 4 — Monthly cycle. Payroll variables must reach SD Worx by the 22nd of the month. Corrections after payroll closing are handled in the next run.",
+        "value": "22",
+        "value_display": "22nd of the month",
+        "status": "superseded",
+        "applicability": {
+          "code": "superseded",
+          "text": "Superseded by Payroll variables cut-off — Belgium (effective 2026-07-01)"
+        },
+        "score": 40,
+        "grade": "F",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Procedure: base 75",
+            "delta": 75,
+            "cap": null
+          },
+          {
+            "code": "orphaned",
+            "text": "Owner Marc Peeters left SD Worx on 2025-11-30",
+            "delta": -20,
+            "cap": null
+          },
+          {
+            "code": "review_overdue",
+            "text": "Review overdue by 577 days (last reviewed 2024-03-02)",
+            "delta": -15,
+            "cap": null
+          },
+          {
+            "code": "superseded",
+            "text": "Superseded by Payroll variables cut-off — Belgium (effective 2026-07-01)",
+            "delta": null,
+            "cap": "F"
+          }
+        ]
+      },
+      {
+        "id": "DOC-NL-004",
+        "kind": "procedure",
+        "kind_label": "Procedure",
+        "title": "Aanleverdeadlines salarisverwerking — Nederland",
+        "source": "SharePoint · Payroll Operations NL",
+        "author_name": "Sanne de Vries",
+        "owner_name": "Sanne de Vries",
+        "owner_active": true,
+        "created_on": "2025-12-01",
+        "last_reviewed_on": "2026-06-01",
+        "statement": "Payroll variables for Dutch clients must be delivered by the 15th of the month.",
+        "quote": "must be delivered by the 15th of the month",
+        "body": "For Dutch clients, payroll variables must be delivered by the 15th of the month. Later changes are processed as a correction in the following period.",
+        "value": "15",
+        "value_display": "15th of the month",
+        "status": "not_applicable",
+        "applicability": {
+          "code": "country_mismatch",
+          "text": "Applies to Netherlands only"
+        },
+        "score": 75,
+        "grade": "C",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Procedure: base 75",
+            "delta": 75,
+            "cap": null
+          }
+        ]
+      }
+    ],
+    "experts": [
+      {
+        "id": "ellen",
+        "name": "Ellen Maes",
+        "title": "Client Lead, Payroll Services BE",
+        "country": "BE",
+        "score": 9,
+        "reasons": [
+          "Client lead for Van Dam Logistics NV",
+          "Listed expertise: Payroll variables cut-off",
+          "Owns 1 applicable source(s) on this topic",
+          "Based in Belgium"
+        ]
+      }
+    ],
+    "open_request": null
+  },
+  "general_before": {
+    "topic": {
+      "id": "payroll.variables_cutoff",
+      "label": "Payroll variables cut-off"
+    },
+    "matched_keywords": [
+      "cut-off",
+      "overtime",
+      "submit"
+    ],
+    "context": {
+      "key": "general",
+      "label": "Belgium — all clients",
+      "country": "BE",
+      "client_id": null
+    },
+    "answer": {
+      "status": "consistent",
+      "action": "use",
+      "headline": "20th of the month",
+      "detail": "2 applicable source(s) agree. Strongest evidence: Payroll variables cut-off — Belgium (grade B).",
+      "value": "20",
+      "value_display": "20th of the month",
+      "grade": "B",
+      "competing": [],
+      "verified_by": null
+    },
+    "sources": [
+      {
+        "id": "DOC-BE-017",
+        "kind": "procedure",
+        "kind_label": "Procedure",
+        "title": "Payroll variables cut-off — Belgium",
+        "source": "SharePoint · Payroll Operations BE",
+        "author_name": "Pieter De Smet",
+        "owner_name": "Pieter De Smet",
+        "owner_active": true,
+        "created_on": "2026-06-20",
+        "last_reviewed_on": "2026-08-14",
+        "statement": "Payroll variables for Belgian clients must be submitted by the 20th of the month.",
+        "quote": "must be submitted by the 20th of the month",
+        "body": "From 1 July 2026, payroll variables (overtime, absences, bonuses) for Belgian clients must be submitted by the 20th of the month to be included in that month's payroll run. Variables received later are processed in the next run. This replaces the previous cut-off on the 22nd.",
+        "value": "20",
+        "value_display": "20th of the month",
+        "status": "effective",
+        "applicability": {
+          "code": "applies",
+          "text": "Applies to all clients in Belgium"
+        },
+        "score": 85,
+        "grade": "B",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Procedure: base 75",
+            "delta": 75,
+            "cap": null
+          },
+          {
+            "code": "corroborated",
+            "text": "Corroborated by 1 independent source(s): Payroll calendar 2026 — Belgium (FAQ)",
+            "delta": 10,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "FAQ-BE-003",
+        "kind": "faq",
+        "kind_label": "FAQ",
+        "title": "Payroll calendar 2026 — Belgium (FAQ)",
+        "source": "SharePoint · Payroll Services BE",
+        "author_name": "Ellen Maes",
+        "owner_name": "Ellen Maes",
+        "owner_active": true,
+        "created_on": "2026-01-05",
+        "last_reviewed_on": "2026-07-03",
+        "statement": "The monthly cut-off for payroll variables is the 20th of each month since July 2026.",
+        "quote": "The 20th of each month, since July 2026",
+        "body": "Q: What is the monthly cut-off for payroll variables? A: The 20th of each month, since July 2026. Late variables move to the next payroll run.",
+        "value": "20",
+        "value_display": "20th of the month",
+        "status": "effective",
+        "applicability": {
+          "code": "applies",
+          "text": "Applies to all clients in Belgium"
+        },
+        "score": 75,
+        "grade": "C",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "FAQ: base 65",
+            "delta": 65,
+            "cap": null
+          },
+          {
+            "code": "corroborated",
+            "text": "Corroborated by 1 independent source(s): Payroll variables cut-off — Belgium",
+            "delta": 10,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "DOC-BE-009",
+        "kind": "procedure",
+        "kind_label": "Procedure",
+        "title": "Client onboarding handbook — Belgium",
+        "source": "SharePoint · Client Onboarding",
+        "author_name": "Marc Peeters",
+        "owner_name": "Marc Peeters",
+        "owner_active": false,
+        "created_on": "2023-02-10",
+        "last_reviewed_on": "2024-03-02",
+        "statement": "Payroll variables must reach SD Worx by the 22nd of the month.",
+        "quote": "must reach SD Worx by the 22nd of the month",
+        "body": "Chapter 4 — Monthly cycle. Payroll variables must reach SD Worx by the 22nd of the month. Corrections after payroll closing are handled in the next run.",
+        "value": "22",
+        "value_display": "22nd of the month",
+        "status": "superseded",
+        "applicability": {
+          "code": "superseded",
+          "text": "Superseded by Payroll variables cut-off — Belgium (effective 2026-07-01)"
+        },
+        "score": 40,
+        "grade": "F",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Procedure: base 75",
+            "delta": 75,
+            "cap": null
+          },
+          {
+            "code": "orphaned",
+            "text": "Owner Marc Peeters left SD Worx on 2025-11-30",
+            "delta": -20,
+            "cap": null
+          },
+          {
+            "code": "review_overdue",
+            "text": "Review overdue by 577 days (last reviewed 2024-03-02)",
+            "delta": -15,
+            "cap": null
+          },
+          {
+            "code": "superseded",
+            "text": "Superseded by Payroll variables cut-off — Belgium (effective 2026-07-01)",
+            "delta": null,
+            "cap": "F"
+          }
+        ]
+      },
+      {
+        "id": "DOC-NL-004",
+        "kind": "procedure",
+        "kind_label": "Procedure",
+        "title": "Aanleverdeadlines salarisverwerking — Nederland",
+        "source": "SharePoint · Payroll Operations NL",
+        "author_name": "Sanne de Vries",
+        "owner_name": "Sanne de Vries",
+        "owner_active": true,
+        "created_on": "2025-12-01",
+        "last_reviewed_on": "2026-06-01",
+        "statement": "Payroll variables for Dutch clients must be delivered by the 15th of the month.",
+        "quote": "must be delivered by the 15th of the month",
+        "body": "For Dutch clients, payroll variables must be delivered by the 15th of the month. Later changes are processed as a correction in the following period.",
+        "value": "15",
+        "value_display": "15th of the month",
+        "status": "not_applicable",
+        "applicability": {
+          "code": "country_mismatch",
+          "text": "Applies to Netherlands only"
+        },
+        "score": 75,
+        "grade": "C",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Procedure: base 75",
+            "delta": 75,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "TEAMS-4411",
+        "kind": "teams_message",
+        "kind_label": "Teams message",
+        "title": "Jonas Wouters in #payroll-be",
+        "source": "Teams · #payroll-be",
+        "author_name": "Jonas Wouters",
+        "owner_name": null,
+        "owner_active": false,
+        "created_on": "2026-09-12",
+        "last_reviewed_on": null,
+        "statement": "For Van Dam Logistics the payroll variables cut-off is the 25th.",
+        "quote": "for Van Dam Logistics the cut-off is the 25th",
+        "body": "Heads-up: for Van Dam Logistics the cut-off is the 25th, not the 20th. They negotiated an exception in their contract.",
+        "value": "25",
+        "value_display": "25th of the month",
+        "status": "not_applicable",
+        "applicability": {
+          "code": "client_mismatch",
+          "text": "Specific to Van Dam Logistics NV"
+        },
+        "score": 60,
+        "grade": "D",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Teams message: base 60",
+            "delta": 60,
+            "cap": null
+          }
+        ]
+      }
+    ],
+    "experts": [
+      {
+        "id": "ellen",
+        "name": "Ellen Maes",
+        "title": "Client Lead, Payroll Services BE",
+        "country": "BE",
+        "score": 6,
+        "reasons": [
+          "Listed expertise: Payroll variables cut-off",
+          "Owns 1 applicable source(s) on this topic",
+          "Based in Belgium"
+        ]
+      },
+      {
+        "id": "pieter",
+        "name": "Pieter De Smet",
+        "title": "Payroll Operations Lead BE",
+        "country": "BE",
+        "score": 6,
+        "reasons": [
+          "Listed expertise: Payroll variables cut-off",
+          "Owns 1 applicable source(s) on this topic",
+          "Based in Belgium"
+        ]
+      }
+    ],
+    "open_request": null
+  },
+  "request": {
+    "topic": {
+      "id": "payroll.variables_cutoff",
+      "label": "Payroll variables cut-off"
+    },
+    "context_label": "Van Dam Logistics NV (BE)",
+    "question": "What's the cut-off for submitting overtime this month?",
+    "requester_name": "Lotte Janssens",
+    "assignee_name": "Ellen Maes",
+    "is_assignee": false,
+    "status": "open",
+    "candidates": [
+      {
+        "value": "20",
+        "value_display": "20th of the month",
+        "item_id": "DOC-BE-017",
+        "title": "Payroll variables cut-off — Belgium",
+        "grade": "C"
+      },
+      {
+        "value": "20",
+        "value_display": "20th of the month",
+        "item_id": "FAQ-BE-003",
+        "title": "Payroll calendar 2026 — Belgium (FAQ)",
+        "grade": "D"
+      },
+      {
+        "value": "25",
+        "value_display": "25th of the month",
+        "item_id": "TEAMS-4411",
+        "title": "Jonas Wouters in #payroll-be",
+        "grade": "D"
+      }
+    ],
+    "voice_transcript": null,
+    "resolution": null
+  },
+  "inbox": [
+    {
+      "topic": {
+        "id": "payroll.variables_cutoff",
+        "label": "Payroll variables cut-off"
+      },
+      "context_label": "Van Dam Logistics NV (BE)",
+      "question": "What's the cut-off for submitting overtime this month?",
+      "requester_name": "Lotte Janssens",
+      "assignee_name": "Ellen Maes",
+      "is_assignee": true,
+      "status": "open",
+      "candidates": [
+        {
+          "value": "20",
+          "value_display": "20th of the month",
+          "item_id": "DOC-BE-017",
+          "title": "Payroll variables cut-off — Belgium",
+          "grade": "C"
+        },
+        {
+          "value": "20",
+          "value_display": "20th of the month",
+          "item_id": "FAQ-BE-003",
+          "title": "Payroll calendar 2026 — Belgium (FAQ)",
+          "grade": "D"
+        },
+        {
+          "value": "25",
+          "value_display": "25th of the month",
+          "item_id": "TEAMS-4411",
+          "title": "Jonas Wouters in #payroll-be",
+          "grade": "D"
+        }
+      ],
+      "voice_transcript": null,
+      "resolution": null
+    }
+  ],
+  "voice": {
+    "transcript": "Yes, Van Dam Logistics really has the 25th as cut-off, valid until 31 March 2027.",
+    "suggestion": {
+      "value": "25",
+      "value_display": "25th of the month",
+      "valid_until": "2027-03-31",
+      "quote": "the 25th as cut-off"
+    }
+  },
+  "resolved": {
+    "topic": {
+      "id": "payroll.variables_cutoff",
+      "label": "Payroll variables cut-off"
+    },
+    "context_label": "Van Dam Logistics NV (BE)",
+    "question": "What's the cut-off for submitting overtime this month?",
+    "requester_name": "Lotte Janssens",
+    "assignee_name": "Ellen Maes",
+    "is_assignee": true,
+    "status": "resolved",
+    "candidates": [
+      {
+        "value": "20",
+        "value_display": "20th of the month",
+        "item_id": "DOC-BE-017",
+        "title": "Payroll variables cut-off — Belgium",
+        "grade": "C"
+      },
+      {
+        "value": "20",
+        "value_display": "20th of the month",
+        "item_id": "FAQ-BE-003",
+        "title": "Payroll calendar 2026 — Belgium (FAQ)",
+        "grade": "D"
+      },
+      {
+        "value": "25",
+        "value_display": "25th of the month",
+        "item_id": "TEAMS-4411",
+        "title": "Jonas Wouters in #payroll-be",
+        "grade": "D"
+      }
+    ],
+    "voice_transcript": "Yes, Van Dam Logistics really has the 25th as cut-off, valid until 31 March 2027.",
+    "resolution": {
+      "value": "25",
+      "value_display": "25th of the month",
+      "note": "",
+      "valid_until": "2027-03-31",
+      "resolved_at": "2026-09-30T10:42:00+02:00",
+      "item_id": "VER-3F9A2C71"
+    }
+  },
+  "after": {
+    "topic": {
+      "id": "payroll.variables_cutoff",
+      "label": "Payroll variables cut-off"
+    },
+    "matched_keywords": [
+      "cut-off",
+      "overtime",
+      "submit"
+    ],
+    "context": {
+      "key": "vandam",
+      "label": "Van Dam Logistics NV (BE)",
+      "country": "BE",
+      "client_id": "vandam"
+    },
+    "answer": {
+      "status": "verified",
+      "action": "use",
+      "headline": "25th of the month — verified",
+      "detail": "Verified by Ellen Maes (Client Lead, Payroll Services BE) on 2026-09-30, valid until 2027-03-31. Applies to Van Dam Logistics NV (BE).",
+      "value": "25",
+      "value_display": "25th of the month",
+      "grade": "A",
+      "competing": [],
+      "verified_by": {
+        "id": "ellen",
+        "name": "Ellen Maes",
+        "title": "Client Lead, Payroll Services BE"
+      }
+    },
+    "sources": [
+      {
+        "id": "VER-3F9A2C71",
+        "kind": "verified_answer",
+        "kind_label": "Verified answer",
+        "title": "Verified: Payroll variables cut-off — Van Dam Logistics NV (BE)",
+        "source": "TrustLabel · Expert verification",
+        "author_name": "Ellen Maes",
+        "owner_name": "Ellen Maes",
+        "owner_active": true,
+        "created_on": "2026-09-30",
+        "last_reviewed_on": "2026-09-30",
+        "statement": "Payroll variables cut-off for Van Dam Logistics NV (BE): 25th of the month.",
+        "quote": "25th of the month",
+        "body": "Payroll variables cut-off: 25th of the month. Voice statement by Ellen Maes: “Yes, Van Dam Logistics really has the 25th as cut-off, valid until 31 March 2027.”",
+        "value": "25",
+        "value_display": "25th of the month",
+        "status": "effective",
+        "applicability": {
+          "code": "applies",
+          "text": "Applies to Van Dam Logistics NV"
+        },
+        "score": 100,
+        "grade": "A",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Verified answer: base 95",
+            "delta": 95,
+            "cap": null
+          },
+          {
+            "code": "verified",
+            "text": "Verified by Ellen Maes on 2026-09-30; valid until 2027-03-31",
+            "delta": null,
+            "cap": null
+          },
+          {
+            "code": "corroborated",
+            "text": "Corroborated by 1 independent source(s): Jonas Wouters in #payroll-be",
+            "delta": 10,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "TEAMS-4411",
+        "kind": "teams_message",
+        "kind_label": "Teams message",
+        "title": "Jonas Wouters in #payroll-be",
+        "source": "Teams · #payroll-be",
+        "author_name": "Jonas Wouters",
+        "owner_name": null,
+        "owner_active": false,
+        "created_on": "2026-09-12",
+        "last_reviewed_on": null,
+        "statement": "For Van Dam Logistics the payroll variables cut-off is the 25th.",
+        "quote": "for Van Dam Logistics the cut-off is the 25th",
+        "body": "Heads-up: for Van Dam Logistics the cut-off is the 25th, not the 20th. They negotiated an exception in their contract.",
+        "value": "25",
+        "value_display": "25th of the month",
+        "status": "effective",
+        "applicability": {
+          "code": "applies",
+          "text": "Applies to Van Dam Logistics NV"
+        },
+        "score": 75,
+        "grade": "C",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Teams message: base 60",
+            "delta": 60,
+            "cap": null
+          },
+          {
+            "code": "confirmed_by_verification",
+            "text": "Confirmed by Ellen Maes's verification on 2026-09-30",
+            "delta": 15,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "DOC-BE-009",
+        "kind": "procedure",
+        "kind_label": "Procedure",
+        "title": "Client onboarding handbook — Belgium",
+        "source": "SharePoint · Client Onboarding",
+        "author_name": "Marc Peeters",
+        "owner_name": "Marc Peeters",
+        "owner_active": false,
+        "created_on": "2023-02-10",
+        "last_reviewed_on": "2024-03-02",
+        "statement": "Payroll variables must reach SD Worx by the 22nd of the month.",
+        "quote": "must reach SD Worx by the 22nd of the month",
+        "body": "Chapter 4 — Monthly cycle. Payroll variables must reach SD Worx by the 22nd of the month. Corrections after payroll closing are handled in the next run.",
+        "value": "22",
+        "value_display": "22nd of the month",
+        "status": "superseded",
+        "applicability": {
+          "code": "superseded",
+          "text": "Superseded by Payroll variables cut-off — Belgium (effective 2026-07-01)"
+        },
+        "score": 40,
+        "grade": "F",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Procedure: base 75",
+            "delta": 75,
+            "cap": null
+          },
+          {
+            "code": "orphaned",
+            "text": "Owner Marc Peeters left SD Worx on 2025-11-30",
+            "delta": -20,
+            "cap": null
+          },
+          {
+            "code": "review_overdue",
+            "text": "Review overdue by 577 days (last reviewed 2024-03-02)",
+            "delta": -15,
+            "cap": null
+          },
+          {
+            "code": "superseded",
+            "text": "Superseded by Payroll variables cut-off — Belgium (effective 2026-07-01)",
+            "delta": null,
+            "cap": "F"
+          }
+        ]
+      },
+      {
+        "id": "DOC-BE-017",
+        "kind": "procedure",
+        "kind_label": "Procedure",
+        "title": "Payroll variables cut-off — Belgium",
+        "source": "SharePoint · Payroll Operations BE",
+        "author_name": "Pieter De Smet",
+        "owner_name": "Pieter De Smet",
+        "owner_active": true,
+        "created_on": "2026-06-20",
+        "last_reviewed_on": "2026-08-14",
+        "statement": "Payroll variables for Belgian clients must be submitted by the 20th of the month.",
+        "quote": "must be submitted by the 20th of the month",
+        "body": "From 1 July 2026, payroll variables (overtime, absences, bonuses) for Belgian clients must be submitted by the 20th of the month to be included in that month's payroll run. Variables received later are processed in the next run. This replaces the previous cut-off on the 22nd.",
+        "value": "20",
+        "value_display": "20th of the month",
+        "status": "overridden",
+        "applicability": {
+          "code": "overridden",
+          "text": "Overridden for Van Dam Logistics NV by Verified: Payroll variables cut-off — Van Dam Logistics NV (BE)"
+        },
+        "score": 75,
+        "grade": "C",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Procedure: base 75",
+            "delta": 75,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "FAQ-BE-003",
+        "kind": "faq",
+        "kind_label": "FAQ",
+        "title": "Payroll calendar 2026 — Belgium (FAQ)",
+        "source": "SharePoint · Payroll Services BE",
+        "author_name": "Ellen Maes",
+        "owner_name": "Ellen Maes",
+        "owner_active": true,
+        "created_on": "2026-01-05",
+        "last_reviewed_on": "2026-07-03",
+        "statement": "The monthly cut-off for payroll variables is the 20th of each month since July 2026.",
+        "quote": "The 20th of each month, since July 2026",
+        "body": "Q: What is the monthly cut-off for payroll variables? A: The 20th of each month, since July 2026. Late variables move to the next payroll run.",
+        "value": "20",
+        "value_display": "20th of the month",
+        "status": "overridden",
+        "applicability": {
+          "code": "overridden",
+          "text": "Overridden for Van Dam Logistics NV by Verified: Payroll variables cut-off — Van Dam Logistics NV (BE)"
+        },
+        "score": 65,
+        "grade": "D",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "FAQ: base 65",
+            "delta": 65,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "DOC-NL-004",
+        "kind": "procedure",
+        "kind_label": "Procedure",
+        "title": "Aanleverdeadlines salarisverwerking — Nederland",
+        "source": "SharePoint · Payroll Operations NL",
+        "author_name": "Sanne de Vries",
+        "owner_name": "Sanne de Vries",
+        "owner_active": true,
+        "created_on": "2025-12-01",
+        "last_reviewed_on": "2026-06-01",
+        "statement": "Payroll variables for Dutch clients must be delivered by the 15th of the month.",
+        "quote": "must be delivered by the 15th of the month",
+        "body": "For Dutch clients, payroll variables must be delivered by the 15th of the month. Later changes are processed as a correction in the following period.",
+        "value": "15",
+        "value_display": "15th of the month",
+        "status": "not_applicable",
+        "applicability": {
+          "code": "country_mismatch",
+          "text": "Applies to Netherlands only"
+        },
+        "score": 75,
+        "grade": "C",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Procedure: base 75",
+            "delta": 75,
+            "cap": null
+          }
+        ]
+      }
+    ],
+    "experts": [
+      {
+        "id": "ellen",
+        "name": "Ellen Maes",
+        "title": "Client Lead, Payroll Services BE",
+        "country": "BE",
+        "score": 9,
+        "reasons": [
+          "Client lead for Van Dam Logistics NV",
+          "Listed expertise: Payroll variables cut-off",
+          "Owns 1 applicable source(s) on this topic",
+          "Based in Belgium"
+        ]
+      }
+    ],
+    "open_request": null
+  },
+  "general_after": {
+    "topic": {
+      "id": "payroll.variables_cutoff",
+      "label": "Payroll variables cut-off"
+    },
+    "matched_keywords": [
+      "cut-off",
+      "overtime",
+      "submit"
+    ],
+    "context": {
+      "key": "general",
+      "label": "Belgium — all clients",
+      "country": "BE",
+      "client_id": null
+    },
+    "answer": {
+      "status": "consistent",
+      "action": "use",
+      "headline": "20th of the month",
+      "detail": "2 applicable source(s) agree. Strongest evidence: Payroll variables cut-off — Belgium (grade B).",
+      "value": "20",
+      "value_display": "20th of the month",
+      "grade": "B",
+      "competing": [],
+      "verified_by": null
+    },
+    "sources": [
+      {
+        "id": "DOC-BE-017",
+        "kind": "procedure",
+        "kind_label": "Procedure",
+        "title": "Payroll variables cut-off — Belgium",
+        "source": "SharePoint · Payroll Operations BE",
+        "author_name": "Pieter De Smet",
+        "owner_name": "Pieter De Smet",
+        "owner_active": true,
+        "created_on": "2026-06-20",
+        "last_reviewed_on": "2026-08-14",
+        "statement": "Payroll variables for Belgian clients must be submitted by the 20th of the month.",
+        "quote": "must be submitted by the 20th of the month",
+        "body": "From 1 July 2026, payroll variables (overtime, absences, bonuses) for Belgian clients must be submitted by the 20th of the month to be included in that month's payroll run. Variables received later are processed in the next run. This replaces the previous cut-off on the 22nd.",
+        "value": "20",
+        "value_display": "20th of the month",
+        "status": "effective",
+        "applicability": {
+          "code": "applies",
+          "text": "Applies to all clients in Belgium"
+        },
+        "score": 85,
+        "grade": "B",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Procedure: base 75",
+            "delta": 75,
+            "cap": null
+          },
+          {
+            "code": "corroborated",
+            "text": "Corroborated by 1 independent source(s): Payroll calendar 2026 — Belgium (FAQ)",
+            "delta": 10,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "FAQ-BE-003",
+        "kind": "faq",
+        "kind_label": "FAQ",
+        "title": "Payroll calendar 2026 — Belgium (FAQ)",
+        "source": "SharePoint · Payroll Services BE",
+        "author_name": "Ellen Maes",
+        "owner_name": "Ellen Maes",
+        "owner_active": true,
+        "created_on": "2026-01-05",
+        "last_reviewed_on": "2026-07-03",
+        "statement": "The monthly cut-off for payroll variables is the 20th of each month since July 2026.",
+        "quote": "The 20th of each month, since July 2026",
+        "body": "Q: What is the monthly cut-off for payroll variables? A: The 20th of each month, since July 2026. Late variables move to the next payroll run.",
+        "value": "20",
+        "value_display": "20th of the month",
+        "status": "effective",
+        "applicability": {
+          "code": "applies",
+          "text": "Applies to all clients in Belgium"
+        },
+        "score": 75,
+        "grade": "C",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "FAQ: base 65",
+            "delta": 65,
+            "cap": null
+          },
+          {
+            "code": "corroborated",
+            "text": "Corroborated by 1 independent source(s): Payroll variables cut-off — Belgium",
+            "delta": 10,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "DOC-BE-009",
+        "kind": "procedure",
+        "kind_label": "Procedure",
+        "title": "Client onboarding handbook — Belgium",
+        "source": "SharePoint · Client Onboarding",
+        "author_name": "Marc Peeters",
+        "owner_name": "Marc Peeters",
+        "owner_active": false,
+        "created_on": "2023-02-10",
+        "last_reviewed_on": "2024-03-02",
+        "statement": "Payroll variables must reach SD Worx by the 22nd of the month.",
+        "quote": "must reach SD Worx by the 22nd of the month",
+        "body": "Chapter 4 — Monthly cycle. Payroll variables must reach SD Worx by the 22nd of the month. Corrections after payroll closing are handled in the next run.",
+        "value": "22",
+        "value_display": "22nd of the month",
+        "status": "superseded",
+        "applicability": {
+          "code": "superseded",
+          "text": "Superseded by Payroll variables cut-off — Belgium (effective 2026-07-01)"
+        },
+        "score": 40,
+        "grade": "F",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Procedure: base 75",
+            "delta": 75,
+            "cap": null
+          },
+          {
+            "code": "orphaned",
+            "text": "Owner Marc Peeters left SD Worx on 2025-11-30",
+            "delta": -20,
+            "cap": null
+          },
+          {
+            "code": "review_overdue",
+            "text": "Review overdue by 577 days (last reviewed 2024-03-02)",
+            "delta": -15,
+            "cap": null
+          },
+          {
+            "code": "superseded",
+            "text": "Superseded by Payroll variables cut-off — Belgium (effective 2026-07-01)",
+            "delta": null,
+            "cap": "F"
+          }
+        ]
+      },
+      {
+        "id": "VER-3F9A2C71",
+        "kind": "verified_answer",
+        "kind_label": "Verified answer",
+        "title": "Verified: Payroll variables cut-off — Van Dam Logistics NV (BE)",
+        "source": "TrustLabel · Expert verification",
+        "author_name": "Ellen Maes",
+        "owner_name": "Ellen Maes",
+        "owner_active": true,
+        "created_on": "2026-09-30",
+        "last_reviewed_on": "2026-09-30",
+        "statement": "Payroll variables cut-off for Van Dam Logistics NV (BE): 25th of the month.",
+        "quote": "25th of the month",
+        "body": "Payroll variables cut-off: 25th of the month. Voice statement by Ellen Maes: “Yes, Van Dam Logistics really has the 25th as cut-off, valid until 31 March 2027.”",
+        "value": "25",
+        "value_display": "25th of the month",
+        "status": "not_applicable",
+        "applicability": {
+          "code": "client_mismatch",
+          "text": "Specific to Van Dam Logistics NV"
+        },
+        "score": 95,
+        "grade": "A",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Verified answer: base 95",
+            "delta": 95,
+            "cap": null
+          },
+          {
+            "code": "verified",
+            "text": "Verified by Ellen Maes on 2026-09-30; valid until 2027-03-31",
+            "delta": null,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "DOC-NL-004",
+        "kind": "procedure",
+        "kind_label": "Procedure",
+        "title": "Aanleverdeadlines salarisverwerking — Nederland",
+        "source": "SharePoint · Payroll Operations NL",
+        "author_name": "Sanne de Vries",
+        "owner_name": "Sanne de Vries",
+        "owner_active": true,
+        "created_on": "2025-12-01",
+        "last_reviewed_on": "2026-06-01",
+        "statement": "Payroll variables for Dutch clients must be delivered by the 15th of the month.",
+        "quote": "must be delivered by the 15th of the month",
+        "body": "For Dutch clients, payroll variables must be delivered by the 15th of the month. Later changes are processed as a correction in the following period.",
+        "value": "15",
+        "value_display": "15th of the month",
+        "status": "not_applicable",
+        "applicability": {
+          "code": "country_mismatch",
+          "text": "Applies to Netherlands only"
+        },
+        "score": 75,
+        "grade": "C",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Procedure: base 75",
+            "delta": 75,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "TEAMS-4411",
+        "kind": "teams_message",
+        "kind_label": "Teams message",
+        "title": "Jonas Wouters in #payroll-be",
+        "source": "Teams · #payroll-be",
+        "author_name": "Jonas Wouters",
+        "owner_name": null,
+        "owner_active": false,
+        "created_on": "2026-09-12",
+        "last_reviewed_on": null,
+        "statement": "For Van Dam Logistics the payroll variables cut-off is the 25th.",
+        "quote": "for Van Dam Logistics the cut-off is the 25th",
+        "body": "Heads-up: for Van Dam Logistics the cut-off is the 25th, not the 20th. They negotiated an exception in their contract.",
+        "value": "25",
+        "value_display": "25th of the month",
+        "status": "not_applicable",
+        "applicability": {
+          "code": "client_mismatch",
+          "text": "Specific to Van Dam Logistics NV"
+        },
+        "score": 60,
+        "grade": "D",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Teams message: base 60",
+            "delta": 60,
+            "cap": null
+          }
+        ]
+      }
+    ],
+    "experts": [
+      {
+        "id": "ellen",
+        "name": "Ellen Maes",
+        "title": "Client Lead, Payroll Services BE",
+        "country": "BE",
+        "score": 6,
+        "reasons": [
+          "Listed expertise: Payroll variables cut-off",
+          "Owns 1 applicable source(s) on this topic",
+          "Based in Belgium"
+        ]
+      },
+      {
+        "id": "pieter",
+        "name": "Pieter De Smet",
+        "title": "Payroll Operations Lead BE",
+        "country": "BE",
+        "score": 6,
+        "reasons": [
+          "Listed expertise: Payroll variables cut-off",
+          "Owns 1 applicable source(s) on this topic",
+          "Based in Belgium"
+        ]
+      }
+    ],
+    "open_request": null
+  }
+}
