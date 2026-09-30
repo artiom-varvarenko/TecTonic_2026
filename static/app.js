@@ -613,9 +613,10 @@ function reasonBadge(r) {
 
 function renderSource(s, isNew) {
   const muted = MUTED_STATUSES.has(s.status);
-  const owner = s.owner_active
-    ? h("span", null, `Owner: ${s.owner_name}`)
-    : h("span", { className: "no-owner" }, "No active owner");
+  let owner;
+  if (s.kind === "teams_message") owner = h("span", null, `Posted by ${s.author_name || "unknown author"}`);
+  else if (s.owner_active) owner = h("span", null, `Owner: ${s.owner_name}`);
+  else owner = h("span", { className: "no-owner" }, "No active owner");
   let dated;
   if (s.kind === "teams_message") dated = `Posted ${s.created_on}`;
   else if (s.last_reviewed_on) dated = `Last reviewed ${s.last_reviewed_on}`;

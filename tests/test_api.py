@@ -70,3 +70,14 @@ def test_logout_revokes_the_session_server_side(make_client):
 
     replay = TestClient(lotte.app, cookies={"trustlabel_session": stolen_cookie})
     assert replay.get("/api/me").status_code == 401
+
+
+def test_resolve_rejects_validity_beyond_two_years(make_client):
+    client = make_client()
+    created = login(client, "lotte").post(
+        "/api/verifications",
+        json={"topic_id": "payroll.variables_cutoff", "client_id": "vandam", "question": "Cut-off?"},
+    )
+    too_late = {"value": "25", "valid_until": str(TODAY + timedelta(days=731))}
+    response = login(client, "ellen").post(f"/api/verifications/{created.json()['id']}/resolve", json=too_late)
+    assert response.status_code == 422

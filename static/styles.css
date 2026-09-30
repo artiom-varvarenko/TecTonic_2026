@@ -111,6 +111,7 @@ textarea { width: 100%; resize: vertical; }
 .tagline { font-size: 13px; opacity: 0.8; }
 .nav { display: flex; gap: 4px; flex: 1; }
 .nav-btn {
+  white-space: nowrap;
   background: transparent;
   border: none;
   color: rgba(255, 255, 255, 0.8);
@@ -371,10 +372,11 @@ textarea { width: 100%; resize: vertical; }
 .toast-error { background: var(--red); }
 
 @media (max-width: 899px) {
-  .app-header { padding: 10px 14px; gap: 10px; }
+  .app-header { padding: 10px 14px; gap: 10px; justify-content: space-between; }
+  .nav { order: 3; flex: 1 1 100%; }
   .view { padding: 14px; }
   .ask-row { flex-wrap: wrap; }
-  .question-input { flex-basis: 100%; }
+  .ask-row .question-input { flex: 1 1 200px; }
   .ladder-A { width: 36%; }
   .ladder-B { width: 42%; }
   .ladder-C { width: 48%; }

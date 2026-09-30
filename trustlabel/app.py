@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import re
 import secrets
 import threading
 import time
@@ -10,7 +12,7 @@ from collections.abc import Callable, Hashable
 from datetime import date, datetime, timedelta
 from urllib.parse import urlsplit
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,6 +20,14 @@ from starlette.datastructures import Headers, MutableHeaders
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from .ai import (
+    AI_SERVICE_ERRORS,
+    ElevenLabsTranscriber,
+    Extractor,
+    OpenAIExtractor,
+    Transcriber,
+    validate_extracted,
+)
 from .config import REPO_ROOT, Settings
 from .credentials import load_credentials, verify_password
 from .engine import (
@@ -56,6 +66,11 @@ LOGIN_MAX_FAILURES = 5
 LOGIN_WINDOW_SECONDS = 300
 MAX_OPEN_REQUESTS_PER_USER = 10
 MAX_VALIDITY_DAYS = 730
+MAX_AUDIO_BYTES = 2_000_000
+MAX_TRANSCRIPT_CHARS = 5_000
+AI_CALLS_PER_HOUR = 20
+AI_FAILED = "Speech or AI service failed; try again or answer manually"
+logger = logging.getLogger("trustlabel")
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 SECURITY_HEADERS = {
     "Content-Security-Policy": (
@@ -233,8 +248,8 @@ def expert_view(match: ExpertMatch) -> dict:
 
 def create_app(
     settings: Settings,
-    extractor: object | None = None,
-    transcriber: object | None = None,
+    extractor: Extractor | None = None,
+    transcriber: Transcriber | None = None,
     *,
     clock: Callable[[], date] = date.today,
 ) -> FastAPI:
@@ -242,6 +257,11 @@ def create_app(
     credentials = load_credentials(settings.credentials_file)
     sessions: dict[str, str] = {}
     login_failures = SlidingWindow(LOGIN_WINDOW_SECONDS)
+    ai_budget = SlidingWindow(3600)
+    if extractor is None and settings.openai_api_key:
+        extractor = OpenAIExtractor(settings.openai_api_key, settings.openai_model)
+    if transcriber is None and settings.elevenlabs_api_key:
+        transcriber = ElevenLabsTranscriber(settings.elevenlabs_api_key, settings.elevenlabs_stt_model)
 
     app = FastAPI(title="TrustLabel", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.store = store
@@ -394,7 +414,7 @@ def create_app(
             "user": user_view(user),
             "contexts": contexts,
             "topics": [topic_view(t) for t in store.topics],
-            "features": {"voice": False, "capture": False},
+            "features": {"voice": extractor is not None and transcriber is not None, "capture": False},
         }
 
     @app.post("/api/ask")
@@ -512,7 +532,7 @@ def create_app(
                 value_display=value_display(topic, value),
                 note=note,
                 valid_until=body.valid_until,
-                resolved_at=datetime.now().astimezone(),
+                resolved_at=datetime.now().astimezone().replace(microsecond=0),
                 item_id=item.id,
             )
             key = (verification.topic_id, verification.country, verification.client_id)
@@ -521,6 +541,57 @@ def create_app(
                     other.status = "resolved"
                     other.resolution = resolution
             return verification_view(verification, user)
+
+    @app.post("/api/verifications/{vid}/voice")
+    def voice_answer(
+        vid: str, audio: UploadFile = File(), user: Person = Depends(current_user)
+    ) -> dict:
+        """Expert answers by voice: ElevenLabs transcribes, OpenAI extracts, rules validate, expert confirms."""
+        today = clock()
+        with store.lock:
+            topic = store.topics_by_id[assigned_open_request(vid, user).topic_id]
+        if extractor is None or transcriber is None:
+            raise HTTPException(503, "Voice verification is not configured")
+        content_type = (audio.content_type or "").split(";", 1)[0].strip().lower()
+        if not content_type.startswith("audio/"):
+            raise HTTPException(415, "Upload an audio recording")
+        data = audio.file.read(MAX_AUDIO_BYTES + 1)
+        if len(data) > MAX_AUDIO_BYTES:
+            raise HTTPException(413, "Audio too large (max 2 MB)")
+        if not data:
+            raise HTTPException(422, "No speech detected")
+        if not ai_budget.try_add(user.id, AI_CALLS_PER_HOUR):
+            raise HTTPException(429, "AI usage limit reached; try again later")
+        filename = re.sub(r"[^A-Za-z0-9._-]", "", audio.filename or "")[:64] or "answer.webm"
+        try:
+            transcript = transcriber.transcribe(data, filename, content_type).strip()[:MAX_TRANSCRIPT_CHARS]
+        except AI_SERVICE_ERRORS as exc:
+            logger.warning("Transcription failed: %s", exc)
+            raise HTTPException(502, AI_FAILED) from None
+        if not transcript:
+            raise HTTPException(422, "No speech detected")
+        try:
+            claims = extractor.extract(transcript, [topic], today)
+        except AI_SERVICE_ERRORS as exc:
+            logger.warning("Claim extraction failed: %s", exc)
+            raise HTTPException(502, AI_FAILED) from None
+        valid = validate_extracted(claims, transcript, {topic.id: topic}, today)
+        suggestion = next((c for c in valid if c.topic.id == topic.id), None)
+        with store.lock:
+            assigned_open_request(vid, user).voice_transcript = transcript
+        return {
+            "transcript": transcript,
+            "suggestion": (
+                {
+                    "value": suggestion.value,
+                    "value_display": suggestion.value_display,
+                    "valid_until": suggestion.valid_until.isoformat() if suggestion.valid_until else None,
+                    "quote": suggestion.quote,
+                }
+                if suggestion
+                else None
+            ),
+        }
 
     @app.get("/", include_in_schema=False)
     def index() -> FileResponse:
