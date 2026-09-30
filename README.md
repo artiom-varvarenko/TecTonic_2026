@@ -50,8 +50,8 @@ A client-specific formal source (policy, procedure or verified answer) overrides
 ## Demo video
 
 [`demo/out/trustlabel-demo.mp4`](demo/out/trustlabel-demo.mp4) is a narrated walkthrough of the demo path below,
-made with Remotion from the engine's real output. See [`demo/README.md`](demo/README.md) to re-render it, re-voice it
-(Kokoro or ElevenLabs v4) or add the team's photos.
+made with Remotion from the engine's real output and narrated by two voices, Rufina and Artiom. See
+[`demo/README.md`](demo/README.md) to re-render it, voice it with the ElevenLabs voice clones, or add the team's photos.
 
 ## Run it
 

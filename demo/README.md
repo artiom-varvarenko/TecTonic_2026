@@ -19,7 +19,7 @@ snapshotted in `src/data/demo-data.json` by running the README demo path against
 | 7 | Expert routing | Ellen scores 9; Pieter (not on the client team) and Marc (left) excluded; request sent |
 | 8 | Verify by voice | ElevenLabs Scribe → OpenAI → rules check the quote → Ellen confirms |
 | 9 | Verified answer | 25th, grade A for Van Dam; "Belgium — all clients" still 20th (B) |
-| 10 | Team | Team photos (from `src/team.json`) |
+| 10 | Team | Rufina and Artiom (photos and roles from `src/team.json`) |
 | 11 | Outro | AI reads. Rules judge. Humans verify. |
 
 ## Commands
@@ -39,37 +39,49 @@ Remotion downloads its own headless Chrome on first render. To use an installed 
 
 ## Voice-over
 
-Current voices:
+Two narrators. Every cue in `src/narration/script.json` has a `speaker`:
 
-| Scenes | Voice |
+| Speaker | Scenes |
 |---|---|
-| hook, problem, reveal, team, outro (the locked-in story) | ElevenLabs `eleven_v4`, voice Talia |
-| grading → verified (the product walkthrough, waiting on the new UI) | Kokoro `af_heart` (open-source, local) |
+| **Rufina** (female) | hook, problem, reveal, verify by voice, verified answer, "Humans verify. TrustLabel." |
+| **Artiom** (male) | trust label, applicability, conflict triage, expert routing, team, "AI reads. Rules judge." |
 
-`src/narration/manifest.json` records the source of every scene.
+The target voices are Rufina's and Artiom's **ElevenLabs voice clones** on `eleven_v4`. Until those takes exist,
+the video uses local Kokoro stand-ins (`af_heart` and `am_michael`), so the split and timing can already be
+reviewed. `src/narration/manifest.json` records which voice each scene currently uses.
 
-The narration lives in `src/narration/script.json`, split into short **cues**. Scenes time their animations from
-the cue timings in `src/narration/manifest.json` (`cue()` / `cueWord()` in `src/timeline.ts`). Change the script or
-the voice, regenerate, render: everything re-syncs and scene lengths adapt.
+Scenes time their animations from the cue and word timings in the manifest (`cue()` / `cueWord()` in
+`src/timeline.ts`). Swap the voice, regenerate, render: everything re-syncs and scene lengths adapt.
 
-**Whole-scene takes (how the ElevenLabs scenes were made).** Generate one take per scene, for example with the
-ElevenLabs connector. The exact prompts are under `elevenlabs_takes` in `script.json`. Save the takes as
-`<scene>.<n>.mp3` and import them:
+### Voice-clone takes (ElevenLabs)
+
+1. `elevenlabs_takes` in `script.json` lists, per scene, each part's speaker and the exact prompt, including audio
+   tags and IPA for "Lotte". Generate every part with `eleven_v4` and that speaker's clone. Four variations per part
+   let the importer keep the best one.
+2. Save the takes as `<scene>.<n>.mp3`. A scene that switches speaker (only the outro: part 1 Artiom, part 2 Rufina)
+   uses `<scene>.p<k>.<n>.mp3`.
+3. Import, then render:
+
+   ```bash
+   uv run demo/scripts/import_takes.py path/to/takes \
+       --scenes hook problem reveal grading applicability triage routing voice verified team outro \
+       --label "ElevenLabs eleven_v4 · Rufina & Artiom voice clones"
+   npm run render
+   ```
+
+   For every part, the importer transcribes each take with Whisper and keeps the one closest to the script. It then
+   places each cue and word from the timestamps, joins the parts, and marks the scene `locked`.
+
+In a Claude session with the ElevenLabs connector, "generate and import the voice-clone takes" covers steps 1–3.
+
+### Per-cue synthesis
+
+Fully scripted. It skips `locked` scenes unless they are named with `--only`.
 
 ```bash
-uv run demo/scripts/import_takes.py path/to/takes --scenes hook problem reveal team outro \
-    --label "ElevenLabs eleven_v4 · Talia"
-```
-
-For each scene, the importer transcribes every take with Whisper and keeps the one closest to the script. It then
-places each cue, and each word, from the word timestamps, and marks the scene `locked`.
-
-**Per-cue synthesis** (fully scripted, skips locked scenes unless named with `--only`):
-
-```bash
-npm run narration                                    # Kokoro, local, no key
-ELEVENLABS_API_KEY=... npm run narration -- --engine elevenlabs --voice <voice_id> --only grading triage
-# other options: --model eleven_multilingual_v2 · --speed 1.05
+npm run narration                                                    # Kokoro stand-ins, local, no key
+ELEVENLABS_API_KEY=... npm run narration -- --engine elevenlabs --voices rufina=<voice_id> artiom=<voice_id>
+# other options: --model eleven_multilingual_v2 · --speed 1.05 · --only grading triage
 ```
 
 Spellings like "Trust Label" or "Lot-tuh" in `text` only steer Kokoro's pronunciation; `text_elevenlabs` overrides
@@ -77,7 +89,8 @@ the text for ElevenLabs.
 
 ## Team photos
 
-Put the photos in `public/team/` (square-ish JPG/PNG, at least 600×600) and list the members in `src/team.json`:
+Put the photos in `public/team/` (square-ish JPG/PNG, at least 600×600) and reference them in `src/team.json`,
+adding roles and any other team members:
 
 ```json
 {"name": "Artiom Varvarenko", "role": "Engine & API", "photo": "artiom.jpg"}

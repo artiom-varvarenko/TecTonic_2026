@@ -7,9 +7,9 @@ import {Wordmark} from './Reveal';
 import {cue, cueWord} from '../timeline';
 
 const PRINCIPLES = [
-	{head: 'AI reads.', word: 'AI reads', body: 'Speech-to-text and claim extraction. Every quote is checked verbatim.', color: '#6ea8ff'},
-	{head: 'Rules judge.', word: 'Rules', body: 'Deterministic grades. No model ever assigns one or answers a question.', color: GRADE_BG.C},
-	{head: 'Humans verify.', word: 'Humans', body: 'Experts confirm. Verified answers expire and stay in their context.', color: GRADE_BG.A},
+	{head: 'AI reads.', cue: 'principle', word: 'AI reads', body: 'Speech-to-text and claim extraction. Every quote is checked verbatim.', color: '#6ea8ff'},
+	{head: 'Rules judge.', cue: 'principle', word: 'Rules', body: 'Deterministic grades. No model ever assigns one or answers a question.', color: GRADE_BG.C},
+	{head: 'Humans verify.', cue: 'humans', word: 'Humans', body: 'Experts confirm. Verified answers expire and stay in their context.', color: GRADE_BG.A},
 ];
 
 export const Outro: React.FC = () => {
@@ -25,7 +25,7 @@ export const Outro: React.FC = () => {
 			<Sfx at={endAt} src="whoosh" volume={0.35} />
 			<div style={{display: 'flex', gap: 44, opacity: out, transform: `scale(${0.94 + 0.06 * out})`, position: 'absolute'}}>
 				{PRINCIPLES.map((p) => {
-					const at = cueWord('outro', 'principle', p.word) - 4;
+					const at = cueWord('outro', p.cue, p.word) - 4;
 					const s = useEnter(at);
 					const b = useEnter(at + 14);
 					return (
