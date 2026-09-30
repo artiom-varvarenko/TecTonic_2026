@@ -18,7 +18,7 @@ class StubExtractor:
     def extract(self, text, topics, today):
         return [
             ExtractedClaim(
-                topic_id=CUTOFF, value="25", quote=self.quote, client_specific=True, valid_until="2027-03-31"
+                topic_id=CUTOFF, value="25", quote=self.quote, valid_until="2027-03-31"
             )
         ]
 
@@ -72,3 +72,17 @@ def test_extracted_quote_not_in_transcript_gives_no_suggestion(make_client):
     assert voice.status_code == 200
     assert voice.json()["suggestion"] is None
     assert voice.json()["transcript"] == TRANSCRIPT
+
+
+def test_voice_statement_stays_private_and_is_dropped_when_expert_confirms_another_value(make_client):
+    client = make_client(StubExtractor("the 25th as cut-off"), StubTranscriber())
+    lotte, vid = open_van_dam_request(client)
+    ellen = login(client, "ellen")
+    assert upload(ellen, vid).status_code == 200
+    assert lotte.get("/api/verifications").json()["items"][0]["voice_transcript"] is None
+
+    resolved = ellen.post(f"/api/verifications/{vid}/resolve", json={"value": "20", "valid_until": "2027-03-31"})
+    assert resolved.status_code == 200
+    sources = lotte.post("/api/ask", json={"topic_id": CUTOFF, "client_id": "vandam"}).json()["sources"]
+    verified = next(s for s in sources if s["kind"] == "verified_answer")
+    assert "Voice statement" not in verified["body"]

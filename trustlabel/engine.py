@@ -528,13 +528,19 @@ def rank_experts(
     clients: Mapping[str, Client],
     requester_id: str,
 ) -> list[ExpertMatch]:
-    """Top 3 active experts (never the requester) by client, topic and ownership signals."""
+    """Top 3 active experts (never the requester) by client, topic and ownership signals.
+
+    A client-specific question only goes to experts on that client's team, so client-only
+    knowledge (and the request itself) never leaves the team.
+    """
     owned = Counter(
         s.item.owner_id for s in assessment.sources if s.status == "effective" and s.item.owner_id
     )
     matches: list[ExpertMatch] = []
     for person in people.values():
         if not person.active or person.role != "expert" or person.id == requester_id:
+            continue
+        if ctx.client_id and ctx.client_id not in person.client_ids:
             continue
         score = 0
         reasons: list[str] = []

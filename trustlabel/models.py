@@ -96,6 +96,7 @@ class Verification(BaseModel):
     created_at: datetime
     candidates: list[Candidate]
     voice_transcript: str | None = None
+    voice_value: str | None = None
     resolution: Resolution | None = None
 
 

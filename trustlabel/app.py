@@ -66,6 +66,7 @@ MAX_BODY_BYTES = 3_000_000
 SESSION_COOKIE = "trustlabel_session"
 SESSION_MAX_AGE_SECONDS = 8 * 3600
 LOGIN_MAX_FAILURES = 5
+LOGIN_MAX_FAILURES_PER_IP = 30
 LOGIN_WINDOW_SECONDS = 300
 MAX_OPEN_REQUESTS_PER_USER = 10
 MAX_VALIDITY_DAYS = 730
@@ -104,18 +105,31 @@ class SlidingWindow:
             events.popleft()
         return events
 
+    def _prune(self, now: float) -> None:
+        if len(self._events) > self.MAX_KEYS:
+            for stale in [k for k, ev in self._events.items() if not ev or now - ev[-1] >= self._window]:
+                del self._events[stale]
+
     def try_add(self, key: Hashable, limit: int) -> bool:
         """Record an event unless `limit` events already happened inside the window."""
         with self._lock:
             now = self._clock()
-            if len(self._events) > self.MAX_KEYS:
-                for stale in [k for k, ev in self._events.items() if not ev or now - ev[-1] >= self._window]:
-                    del self._events[stale]
+            self._prune(now)
             events = self._recent(key, now)
             if len(events) >= limit:
                 return False
             events.append(now)
             return True
+
+    def add(self, key: Hashable) -> None:
+        with self._lock:
+            now = self._clock()
+            self._prune(now)
+            self._recent(key, now).append(now)
+
+    def count(self, key: Hashable) -> int:
+        with self._lock:
+            return len(self._recent(key, self._clock())) if key in self._events else 0
 
     def clear(self, key: Hashable) -> None:
         with self._lock:
@@ -259,7 +273,8 @@ def create_app(
     store = Store(settings.data_dir)
     credentials = load_credentials(settings.credentials_file)
     sessions: dict[str, str] = {}
-    login_failures = SlidingWindow(LOGIN_WINDOW_SECONDS)
+    login_attempts = SlidingWindow(LOGIN_WINDOW_SECONDS)  # per (username, IP)
+    ip_failures = SlidingWindow(LOGIN_WINDOW_SECONDS)  # per IP, across usernames
     ai_budget = SlidingWindow(3600)
     if extractor is None and settings.openai_api_key:
         extractor = OpenAIExtractor(settings.openai_api_key, settings.openai_model)
@@ -357,7 +372,8 @@ def create_app(
             "status": v.status,
             "created_at": v.created_at.isoformat(timespec="seconds"),
             "candidates": [c.model_dump() for c in v.candidates],
-            "voice_transcript": v.voice_transcript,
+            # Draft voice statements stay with the expert until they confirm a value.
+            "voice_transcript": v.voice_transcript if v.assignee_id == user.id or v.status == "resolved" else None,
             "resolution": v.resolution.model_dump(mode="json") if v.resolution else None,
         }
 
@@ -383,15 +399,20 @@ def create_app(
     @app.post("/api/login")
     def login(body: LoginBody, request: Request) -> dict:
         username = body.username.strip().lower()
-        key = (username, request.client.host if request.client else "unknown")
+        ip = request.client.host if request.client else "unknown"
+        key = (username, ip)
         # Each attempt takes a slot up front; a successful login frees them again.
-        if not login_failures.try_add(key, LOGIN_MAX_FAILURES):
+        # The per-IP failure cap stops cycling through usernames (each attempt costs a scrypt).
+        if ip_failures.count(ip) >= LOGIN_MAX_FAILURES_PER_IP or not login_attempts.try_add(
+            key, LOGIN_MAX_FAILURES
+        ):
             raise HTTPException(429, "Too many failed attempts. Try again in 5 minutes.")
         person = store.people.get(username)
         encoded = credentials.get(username) if person is not None and person.active else None
         if not verify_password(body.password, encoded) or person is None:
+            ip_failures.add(ip)
             raise HTTPException(401, "Invalid username or password")
-        login_failures.clear(key)
+        login_attempts.clear(key)
         previous = request.session.get("sid")
         if isinstance(previous, str):
             sessions.pop(previous, None)
@@ -522,6 +543,9 @@ def create_app(
             if not today < body.valid_until <= today + timedelta(days=MAX_VALIDITY_DAYS):
                 raise HTTPException(422, "Valid until must be after today and at most 2 years ahead")
             note = body.note.strip()
+            if value != verification.voice_value:
+                # A voice statement is only evidence for the value it was recognised as stating.
+                verification.voice_transcript = verification.voice_value = None
             item = make_verified_item(
                 verification,
                 value,
@@ -584,7 +608,9 @@ def create_app(
         valid = validate_extracted(claims, transcript, {topic.id: topic}, today)
         suggestion = next((c for c in valid if c.topic.id == topic.id), None)
         with store.lock:
-            assigned_open_request(vid, user).voice_transcript = transcript
+            request = assigned_open_request(vid, user)
+            request.voice_transcript = transcript
+            request.voice_value = suggestion.value if suggestion else None
         return {
             "transcript": transcript,
             "suggestion": (
@@ -621,7 +647,6 @@ def create_app(
         if not claims:
             raise HTTPException(422, "No verifiable claim found in the text (quotes must appear verbatim)")
         item_id = "CAP-" + secrets.token_hex(4).upper()
-        client_specific = ctx.client_id is not None and any(c.client_specific for c in claims.values())
         item = Item(
             id=item_id,
             kind="teams_message",
@@ -633,7 +658,8 @@ def create_app(
             last_reviewed_on=None,
             review_cycle_days=None,
             countries=[ctx.country],
-            client_ids=[ctx.client_id] if client_specific and ctx.client_id else [],
+            # Scope comes from the capture context the user chose, never from the model.
+            client_ids=[ctx.client_id] if ctx.client_id else [],
             effective_from=None,
             effective_to=None,
             supersedes=[],

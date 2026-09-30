@@ -12,6 +12,7 @@ import json
 import os
 import secrets
 import sys
+import threading
 from pathlib import Path
 
 from .config import REPO_ROOT, credentials_path_from_env
@@ -20,12 +21,15 @@ SCRYPT_N = 2**14
 SCRYPT_R = 8
 SCRYPT_P = 1
 KEY_LEN = 32
+# Each scrypt call needs ~16 MiB; cap concurrency so a login flood cannot exhaust memory.
+_SCRYPT_SLOTS = threading.BoundedSemaphore(4)
 
 
 def _derive(password: str, salt: bytes) -> bytes:
-    return hashlib.scrypt(
-        password.encode(), salt=salt, n=SCRYPT_N, r=SCRYPT_R, p=SCRYPT_P, dklen=KEY_LEN
-    )
+    with _SCRYPT_SLOTS:
+        return hashlib.scrypt(
+            password.encode(), salt=salt, n=SCRYPT_N, r=SCRYPT_R, p=SCRYPT_P, dklen=KEY_LEN
+        )
 
 
 def hash_password(password: str) -> str:

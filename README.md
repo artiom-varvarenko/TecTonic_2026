@@ -18,13 +18,14 @@ whatever search or assistant SD Worx already uses; it is not another assistant.
   (claimed only in chat, or formally overridden) and true conflict. The answer says *use*, *use with caution* or
   *don't act yet*.
 - **Expert routing.** Remaining doubt goes to the best-qualified active expert (client lead, listed expertise, owner
-  of the evidence, same country). The request is pre-packaged with the competing values and their grades.
+  of the evidence, same country); client-specific questions only go to that client's team. The request is
+  pre-packaged with the competing values and their grades.
 - **Verified answers.** The expert's confirmation becomes an expiring, grade-A answer for everyone asking in that
   context, and only in that context (a Van Dam exception never leaks into "Belgium — all clients").
 - **Verify by voice.** The expert answers with a short voice note: ElevenLabs Scribe transcribes it, OpenAI
   structured outputs extract value, valid-until and a verbatim quote, the form is prefilled and the expert confirms.
 - **Capture from chat.** Paste a Teams message; OpenAI extracts claims, the server keeps only claims whose quote
-  appears verbatim, and the rules grade and conflict-check it instantly.
+  appears verbatim and states the value, and the rules grade and conflict-check it instantly.
 
 **AI reads, rules judge, humans verify.** No model ever assigns a grade or answers a question.
 
@@ -74,13 +75,19 @@ Verification inbox → resolve (by voice or form). Lotte asks again → 25th, gr
 - Server-side sessions: a random session id in a signed, `HttpOnly`, `SameSite=Strict` cookie (8 h); logout revokes
   it on the server. A new session id on every login.
 - CSRF: SameSite=Strict plus an `Origin` check on every state-changing request.
-- Login rate limit: 5 failures per username and IP per 5 minutes. AI budget: 20 voice/capture calls per user per hour.
-- Authorization: client-specific knowledge is only visible to that client's team; the verifier is chosen by the
-  server, never by the client; only the assigned expert can resolve or answer by voice (others get 404, same as a
-  missing id); a context can only be asked about for clients in your own portfolio.
+- Login rate limits: 5 failures per username and IP, and 30 failures per IP across usernames, per 5 minutes; the
+  server ignores `X-Forwarded-For`, and concurrent scrypt checks are capped. AI budget: 20 voice/capture calls per
+  user per hour.
+- Authorization: client-specific knowledge is only visible to that client's team, and verification requests for a
+  client only go to experts on that client's team; the verifier is chosen by the server, never by the client; only
+  the assigned expert can resolve or answer by voice (others get 404, same as a missing id); a context can only be
+  asked about for clients in your own portfolio.
 - Input limits: 3 MB request cap, 2 MB audio-only uploads, strict request schemas (`extra="forbid"`), validation
   errors never echo input back.
-- LLM output is never trusted: topic, value range and a verbatim quote from the input are all checked server-side.
+- LLM output is never trusted: the topic, the value range, a verbatim quote from the input and that the quote states
+  the value are all checked server-side. A model never decides who can see a claim (a capture takes the scope of the
+  context it was made in). A voice statement is only shown to the requester, and kept as evidence, once the expert
+  confirms the value it states.
 - Strict CSP (`script-src 'self'`, no inline code), `nosniff`, `frame-ancestors 'none'`, no `innerHTML` in the UI,
   no API docs endpoints, `Cache-Control: no-store` on API responses.
 

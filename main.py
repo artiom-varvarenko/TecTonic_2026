@@ -6,4 +6,5 @@ from trustlabel.app import create_app
 from trustlabel.config import Settings
 
 if __name__ == "__main__":
-    uvicorn.run(create_app(Settings.from_env()), host="127.0.0.1", port=8000)
+    # No reverse proxy in front: never let X-Forwarded-For rewrite the client IP (login rate limit).
+    uvicorn.run(create_app(Settings.from_env()), host="127.0.0.1", port=8000, proxy_headers=False)

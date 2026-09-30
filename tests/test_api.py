@@ -81,3 +81,22 @@ def test_resolve_rejects_validity_beyond_two_years(make_client):
     too_late = {"value": "25", "valid_until": str(TODAY + timedelta(days=731))}
     response = login(client, "ellen").post(f"/api/verifications/{created.json()['id']}/resolve", json=too_late)
     assert response.status_code == 422
+
+
+def test_client_request_is_never_routed_outside_the_client_team(make_client):
+    # Ellen is the only expert on the Van Dam team, so her own request must not go to Pieter.
+    ellen = login(make_client(), "ellen")
+    response = ellen.post(
+        "/api/verifications",
+        json={"topic_id": "payroll.variables_cutoff", "client_id": "vandam", "question": "Cut-off?"},
+    )
+    assert response.status_code == 422
+
+
+def test_cycling_usernames_from_one_ip_is_capped(make_client):
+    client = make_client()
+    for attempt in range(30):
+        response = client.post("/api/login", json={"username": f"nobody{attempt}", "password": "x"})
+        assert response.status_code == 401
+    blocked = client.post("/api/login", json={"username": "lotte", "password": password_for("lotte")})
+    assert blocked.status_code == 429

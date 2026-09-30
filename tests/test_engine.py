@@ -66,7 +66,8 @@ def test_van_dam_story_is_triaged_into_a_conflict_with_explained_grades(store):
     experts = rank_experts(
         store.topics_by_id[CUTOFF], VAN_DAM, result, store.people, store.clients, "lotte"
     )
-    assert [(m.person.id, m.score) for m in experts] == [("ellen", 9), ("pieter", 6)]
+    # Pieter (topic expert, owner of DOC-BE-017) is not on the Van Dam team, so he is not asked.
+    assert [(m.person.id, m.score) for m in experts] == [("ellen", 9)]
 
 
 def test_general_belgian_context_ignores_client_exception(store):
