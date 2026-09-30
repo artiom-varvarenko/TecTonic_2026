@@ -155,6 +155,114 @@ function gradeTile(grade, { muted = false, small = false } = {}) {
   return h("span", { className: cls.join(" "), title: grade ? `Grade ${grade}` : "No grade" }, grade || "–");
 }
 
+// ---------- visual helpers (SVG via createElementNS, styles via CSSOM only: CSP-safe) ----------
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+const ICONS = {
+  search: ["M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z", "m16 16 5 5"],
+  arrowUp: ["M12 19V5", "m5 12 7-7 7 7"],
+  pin: ["M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z", "M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"],
+  chat: ["M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12Z"],
+  chevronDown: ["m6 9 6 6 6-6"],
+  chevronRight: ["m9 6 6 6-6 6"],
+  mic: ["M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z", "M19 11a7 7 0 0 1-14 0", "M12 18v3"],
+  shield: ["M12 3 4.5 6v5.5c0 4.6 3.2 8.3 7.5 9.5 4.3-1.2 7.5-4.9 7.5-9.5V6L12 3Z", "m9 12 2 2 4-4"],
+  check: ["M20 6 9 17l-5-5"],
+  logout: ["M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3", "M10 17l-5-5 5-5", "M5 12h11"],
+};
+const prefersReducedMotion = () => window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function svgEl(tag, attrs, ...children) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, String(v));
+  for (const c of children) el.appendChild(c);
+  return el;
+}
+
+function icon(name, className = "") {
+  return svgEl(
+    "svg",
+    { viewBox: "0 0 24 24", class: `icon ${className}`.trim(), "aria-hidden": "true", focusable: "false" },
+    ...ICONS[name].map((d) => svgEl("path", { d })),
+  );
+}
+
+// The TrustLabel mark: the seven bars of an energy label.
+function logoMark(size = 28) {
+  const bars = GRADES.map((_, i) => svgEl("rect", { x: 2, y: 2.4 + i * 3.4, width: 11 + i * 2.1, height: 2.4, rx: 1.2 }));
+  return svgEl("svg", { viewBox: "0 0 28 28", width: size, height: size, class: "logo", "aria-hidden": "true" }, ...bars);
+}
+
+function initials(name) {
+  const parts = String(name || "?").trim().split(/\s+/);
+  return ((parts[0] || "?")[0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+}
+
+function avatar(name, large = false) {
+  let hash = 0;
+  for (const ch of String(name || "")) hash = (hash * 31 + ch.charCodeAt(0)) % 360;
+  const el = h("span", { className: large ? "avatar avatar-lg" : "avatar", "aria-hidden": "true" }, initials(name));
+  el.style.setProperty("--hue", String(hash));
+  return el;
+}
+
+// Stagger index for entrance animations.
+function stagger(el, i) {
+  el.style.setProperty("--i", String(i));
+  return el;
+}
+
+function countUp(el, to, duration = 1100) {
+  if (prefersReducedMotion() || !Number.isFinite(to)) {
+    el.textContent = String(to);
+    return;
+  }
+  const start = performance.now();
+  const step = (now) => {
+    const t = Math.min(1, (now - start) / duration);
+    el.textContent = String(Math.round(to * (1 - Math.pow(1 - t, 3))));
+    if (t < 1) requestAnimationFrame(step);
+  };
+  el.textContent = "0";
+  requestAnimationFrame(step);
+}
+
+// Circular trust-score gauge, coloured by grade, animated from empty.
+function scoreRing(score, grade) {
+  const r = 20;
+  const circumference = 2 * Math.PI * r;
+  const value = svgEl("circle", { class: "ring-value", cx: 24, cy: 24, r, "stroke-dasharray": circumference.toFixed(2) });
+  value.style.strokeDashoffset = String(circumference);
+  const num = h("span", { className: "ring-num" }, "0");
+  const wrap = h(
+    "span",
+    { className: `ring ${grade ? `grade-${grade}` : "grade-none"}`, title: "Trust score", role: "img", "aria-label": `Trust score ${score}` },
+    svgEl("svg", { viewBox: "0 0 48 48", "aria-hidden": "true" }, svgEl("circle", { class: "ring-track", cx: 24, cy: 24, r }), value),
+    num,
+  );
+  const pct = Math.max(0, Math.min(100, Number(score) || 0)) / 100;
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      value.style.strokeDashoffset = String(circumference * (1 - pct));
+      countUp(num, Number(score) || 0, 1400);
+    }),
+  );
+  return wrap;
+}
+
+// Soft spotlight that follows the pointer across cards.
+document.addEventListener(
+  "pointermove",
+  (e) => {
+    const card = e.target instanceof Element ? e.target.closest(".card") : null;
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    card.style.setProperty("--mx", `${e.clientX - rect.left}px`);
+    card.style.setProperty("--my", `${e.clientY - rect.top}px`);
+  },
+  { passive: true },
+);
+
 // ---------- boot / login ----------
 
 async function boot() {
@@ -203,6 +311,7 @@ function renderLogin() {
         }
       },
     },
+    logoMark(56),
     h("h1", { className: "login-title" }, "TrustLabel"),
     h("p", { className: "tagline-dark" }, "Search finds it. TrustLabel shows whether you can rely on it."),
     h("label", { htmlFor: "login-username" }, "Username"),
@@ -213,7 +322,8 @@ function renderLogin() {
     submit,
     h("p", { className: "hint" }, "lotte, jonas (consultants) · ellen, pieter, anke (experts)"),
   );
-  root.appendChild(h("div", { className: "login-wrap" }, form));
+  const aurora = h("div", { className: "aurora", "aria-hidden": "true" }, h("span"), h("span"), h("span"));
+  root.appendChild(h("div", { className: "login-wrap" }, aurora, form));
   username.focus();
 }
 
@@ -223,28 +333,32 @@ let askViewEl = null;
 let inboxViewEl = null;
 let inboxNavBtn = null;
 let askNavBtn = null;
+let inboxBadge = null;
+let navThumb = null;
 
 function renderShell() {
   clear(root);
   const me = state.me;
   askNavBtn = h("button", { className: "nav-btn", type: "button", onClick: () => switchView("ask") }, "Ask");
-  inboxNavBtn = h("button", { className: "nav-btn", type: "button", onClick: () => switchView("inbox") }, "Verification inbox (0)");
+  inboxBadge = h("span", { className: "nav-badge zero", "aria-label": "open requests" }, "0");
+  inboxNavBtn = h("button", { className: "nav-btn", type: "button", onClick: () => switchView("inbox") }, "Verification inbox", inboxBadge);
+  navThumb = h("span", { className: "nav-thumb", "aria-hidden": "true" });
 
   const header = h(
     "header",
     { className: "app-header" },
-    h(
-      "div",
-      { className: "brand" },
-      h("span", { className: "brand-name" }, "TrustLabel"),
-      h("span", { className: "tagline" }, "Search finds it. TrustLabel shows whether you can rely on it."),
-    ),
-    h("nav", { className: "nav" }, askNavBtn, inboxNavBtn),
+    h("div", { className: "brand" }, logoMark(26), h("span", { className: "brand-name" }, "TrustLabel")),
+    h("nav", { className: "nav" }, navThumb, askNavBtn, inboxNavBtn),
     h(
       "div",
       { className: "user-area" },
-      h("span", { className: "user-chip", title: me.user.title }, me.user.name, h("span", { className: "user-role" }, me.user.title)),
-      h("button", { className: "btn btn-ghost", type: "button", onClick: logout }, "Log out"),
+      h(
+        "span",
+        { className: "user-chip", title: me.user.title },
+        avatar(me.user.name),
+        h("span", { className: "user-text" }, h("span", { className: "user-name" }, me.user.name), h("span", { className: "user-role" }, me.user.title)),
+      ),
+      h("button", { className: "btn btn-text", type: "button", onClick: logout, title: "Log out", "aria-label": "Log out" }, icon("logout")),
     ),
   );
 
@@ -264,8 +378,17 @@ function switchView(view) {
   inboxViewEl.hidden = view !== "inbox";
   askNavBtn.className = view === "ask" ? "nav-btn active" : "nav-btn";
   inboxNavBtn.className = view === "inbox" ? "nav-btn active" : "nav-btn";
+  requestAnimationFrame(positionNavThumb);
   if (view === "inbox") loadInbox();
 }
+
+function positionNavThumb() {
+  if (!navThumb || !navThumb.isConnected) return;
+  const active = state.view === "inbox" ? inboxNavBtn : askNavBtn;
+  navThumb.style.setProperty("--x", `${active.offsetLeft}px`);
+  navThumb.style.setProperty("--w", `${active.offsetWidth}px`);
+}
+window.addEventListener("resize", () => requestAnimationFrame(positionNavThumb));
 
 async function logout() {
   try {
@@ -279,7 +402,11 @@ async function logout() {
 
 function setInboxCount(items) {
   state.inboxCount = items.filter((v) => v.status === "open" && v.is_assignee).length;
-  if (inboxNavBtn) inboxNavBtn.textContent = `Verification inbox (${state.inboxCount})`;
+  if (inboxBadge) {
+    inboxBadge.textContent = String(state.inboxCount);
+    inboxBadge.className = state.inboxCount ? "nav-badge" : "nav-badge zero";
+    requestAnimationFrame(positionNavThumb);
+  }
 }
 
 async function refreshInboxCount() {
@@ -317,7 +444,7 @@ function renderAskView() {
     maxLength: 300,
     placeholder: "e.g. What's the cut-off for submitting overtime for this month's payroll?",
   });
-  const askBtn = h("button", { type: "submit", className: "btn btn-primary" }, "Ask");
+  const askBtn = h("button", { type: "submit", className: "btn btn-primary ask-submit", title: "Ask", "aria-label": "Ask" }, icon("arrowUp"));
 
   const form = h(
     "form",
@@ -333,23 +460,60 @@ function renderAskView() {
         runAsk({ question: q, topic_id: null }, askBtn);
       },
     },
-    h("div", { className: "ask-row" }, h("label", { htmlFor: "context-select", className: "ask-label" }, "Context"), contextSelect),
-    h("div", { className: "ask-row" }, questionInput, askBtn),
+    h(
+      "div",
+      { className: "context-row" },
+      h(
+        "span",
+        { className: "context-pill" },
+        icon("pin"),
+        h("label", { htmlFor: "context-select", className: "ask-label" }, "Context"),
+        h("span", { className: "select-wrap" }, contextSelect),
+      ),
+    ),
+    h("div", { className: "search" }, icon("search"), questionInput, askBtn),
   );
 
   const chips = h(
     "div",
     { className: "chips" },
-    h("span", { className: "chips-label" }, "Topics:"),
+    h("span", { className: "chips-label" }, "Try"),
     me.topics.map((t) => topicChip(t)),
+  );
+
+  const hero = h(
+    "div",
+    { className: "hero" },
+    h("span", { className: "hero-eyebrow" }, icon("shield"), "The trust layer for your knowledge"),
+    h("h1", { className: "hero-title" }, "Found it. ", h("span", { className: "gradient-text" }, "Can you rely on it?")),
+    h("p", { className: "hero-sub" }, "Every source graded A to G, conflicts triaged, and the right expert one tap away."),
   );
 
   const panel = h("section", { className: "card ask-card" }, form, chips);
   if (me.features && me.features.capture) panel.appendChild(renderCapture());
 
   resultEl = h("div", { className: "result-area" });
+  askViewEl.appendChild(hero);
   askViewEl.appendChild(panel);
   askViewEl.appendChild(resultEl);
+}
+
+function renderSkeleton() {
+  clear(resultEl);
+  resultEl.appendChild(
+    h(
+      "div",
+      { className: "skeleton", "aria-busy": "true", "aria-label": "Loading" },
+      h("div", { className: "skeleton-col" }, h("div", { className: "sk sk-1" }), h("div", { className: "sk sk-2" })),
+      h("div", { className: "skeleton-col" }, h("div", { className: "sk sk-3" }), h("div", { className: "sk sk-3" }), h("div", { className: "sk sk-3" })),
+    ),
+  );
+}
+
+function setButtonBusy(button, busy) {
+  button.disabled = busy;
+  clear(button);
+  button.appendChild(busy ? h("span", { className: "spinner", "aria-hidden": "true" }) : icon("arrowUp"));
 }
 
 function topicChip(topic) {
@@ -362,10 +526,10 @@ function topicChip(topic) {
 
 async function runAsk({ question, topic_id }, button) {
   const ctx = currentContext();
-  if (button) {
-    button.disabled = true;
-    button.textContent = "Asking…";
-  }
+  if (button) setButtonBusy(button, true);
+  const hadResult = resultEl.firstChild !== null;
+  renderSkeleton();
+  if (!hadResult) resultEl.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
   try {
     const data = await api("/api/ask", {
       method: "POST",
@@ -373,12 +537,10 @@ async function runAsk({ question, topic_id }, button) {
     });
     renderAskResponse(data, { question: question || "" });
   } catch (err) {
+    clear(resultEl);
     showError(err);
   } finally {
-    if (button) {
-      button.disabled = false;
-      button.textContent = "Ask";
-    }
+    if (button) setButtonBusy(button, false);
   }
 }
 
@@ -388,7 +550,7 @@ function renderAskResponse(data, { question, newItemId = null }) {
     resultEl.appendChild(
       h(
         "section",
-        { className: "card no-match" },
+        { className: "card no-match reveal" },
         h("p", null, "No matching topic. Try one of:"),
         h("div", { className: "chips" }, (data.suggestions || []).map((t) => topicChip(t))),
       ),
@@ -432,7 +594,7 @@ function renderCapture() {
   return h(
     "details",
     { className: "capture" },
-    h("summary", null, "Capture a Teams message"),
+    h("summary", null, icon("chat"), "Capture a Teams message", icon("chevronDown", "chev")),
     h("div", { className: "capture-body" }, textarea, h("div", { className: "capture-actions" }, btn)),
   );
 }
@@ -440,21 +602,26 @@ function renderCapture() {
 // ---------- result rendering ----------
 
 function renderResult(data, { question, newItemId }) {
-  const left = h(
-    "div",
-    { className: "result-left" },
-    renderAnswer(data),
-    renderLadder(data.answer),
-    renderExperts(data, question),
-  );
+  const leftCards = [renderAnswer(data), renderLadder(data.answer), renderExperts(data, question)];
+  leftCards.forEach((c, i) => stagger(c, i).classList.add("reveal"));
+  const left = h("div", { className: "result-left" }, leftCards);
   const right = h(
     "div",
     { className: "result-right" },
-    h("h2", { className: "section-title" }, `Sources (${data.sources.length})`),
-    data.sources.map((s) => renderSource(s, s.id === newItemId)),
+    stagger(
+      h("h2", { className: "section-title sources-title reveal" }, "Sources", h("span", { className: "sources-count" }, String(data.sources.length))),
+      1,
+    ),
+    data.sources.map((s, i) => {
+      const card = renderSource(s, s.id === newItemId);
+      card.classList.add("reveal");
+      return stagger(card, i + 2);
+    }),
   );
   return h("div", { className: "result" }, left, right);
 }
+
+const ANSWER_TONES = { use: "tone-use", verify: "tone-verify", ask_expert: "tone-ask" };
 
 function renderAnswer(data) {
   const a = data.answer;
@@ -464,21 +631,24 @@ function renderAnswer(data) {
       ? h(
           "ul",
           { className: "competing" },
-          a.competing.map((c) =>
-            h(
-              "li",
-              null,
-              gradeTile(c.best_grade, { small: true }),
-              h("span", { className: "competing-value" }, c.value_display),
-              h("span", { className: "muted-text" }, ` — ${c.item_ids.join(", ")}`),
+          a.competing.map((c, i) =>
+            stagger(
+              h(
+                "li",
+                null,
+                gradeTile(c.best_grade, { small: true }),
+                h("span", { className: "competing-value" }, c.value_display),
+                h("span", { className: "muted-text" }, c.item_ids.join(", ")),
+              ),
+              i,
             ),
           ),
         )
       : null;
   return h(
     "section",
-    { className: "card answer-card" },
-    h("div", { className: `banner ${banner.cls}` }, banner.text),
+    { className: `card answer-card ${ANSWER_TONES[a.action] || "tone-ask"}` },
+    h("div", { className: `banner ${banner.cls}` }, h("span", { className: "banner-dot", "aria-hidden": "true" }), banner.text),
     h(
       "div",
       { className: "answer-body" },
@@ -509,23 +679,23 @@ function renderLadder(answer) {
       (pointers[c.best_grade] = pointers[c.best_grade] || []).push(c.value_display);
     }
   }
-  const rows = GRADES.map((g) =>
-    h(
+  const rows = GRADES.map((g, i) =>
+    stagger(h(
       "div",
-      { className: "ladder-row" },
+      { className: pointers[g] ? "ladder-row lit" : "ladder-row" },
       h("div", { className: `ladder-bar ladder-${g} grade-${g}` }, h("span", { className: "ladder-letter" }, g)),
       h(
         "div",
         { className: "ladder-pointers" },
         (pointers[g] || []).map((label) => h("span", { className: "pointer" }, h("span", { className: "pointer-grade" }, g), label)),
       ),
-    ),
+    ), i),
   );
   return h(
     "section",
     { className: "card ladder-card" },
     h("h2", { className: "section-title" }, "Trust label"),
-    h("div", { className: "ladder" }, rows),
+    h("div", { className: Object.keys(pointers).length ? "ladder has-pointers" : "ladder" }, rows),
     answer.status === "gap" ? h("p", { className: "ladder-note" }, "No applicable source") : null,
     h("p", { className: "legend" }, LEGEND),
   );
@@ -542,14 +712,15 @@ function renderExperts(data, question) {
     h(
       "ol",
       { className: "experts" },
-      experts.map((ex) =>
+      experts.map((ex, i) =>
         h(
           "li",
           { className: "expert" },
+          avatar(ex.name, true),
           h(
             "div",
             { className: "expert-head" },
-            h("span", { className: "expert-name" }, ex.name),
+            h("span", null, h("span", { className: "expert-name" }, ex.name), i === 0 ? h("span", { className: "expert-tag" }, "Best match") : null),
             h("span", { className: "expert-score", title: "Routing score" }, String(ex.score)),
           ),
           h("div", { className: "expert-title" }, ex.title),
@@ -625,15 +796,18 @@ function renderSource(s, isNew) {
   const reasons = h(
     "ul",
     { className: "reasons" },
-    s.reasons.map((r) => {
+    s.reasons.map((r, i) => {
       const badge = reasonBadge(r);
-      return h("li", { className: badge ? "reason" : "reason reason-info" }, badge, h("span", { className: "reason-text" }, r.text));
+      return stagger(h("li", { className: badge ? "reason" : "reason reason-info" }, badge, h("span", { className: "reason-text" }, r.text)), i);
     }),
   );
 
+  const cls = ["card", "source-card"];
+  if (muted) cls.push("source-muted");
+  if (isNew) cls.push("is-new");
   return h(
     "article",
-    { className: muted ? "card source-card source-muted" : "card source-card" },
+    { className: cls.join(" ") },
     h(
       "div",
       { className: "source-head" },
@@ -651,21 +825,22 @@ function renderSource(s, isNew) {
         h("h3", { className: "source-title" }, s.title),
         h("div", { className: "source-origin" }, s.source),
       ),
-      h("span", { className: "source-score", title: "Trust score" }, String(s.score)),
+      scoreRing(s.score, muted ? null : s.grade),
     ),
     h("div", { className: "source-meta" }, owner, h("span", null, dated)),
     h("p", { className: "statement" }, s.statement),
     h("blockquote", { className: "quote" }, s.kind === "verified_answer" ? s.body : s.quote),
     h("span", { className: pillClass(s.applicability.code) }, s.applicability.text),
-    h("details", { className: "why" }, h("summary", null, `Why ${s.grade}?`), reasons),
+    h("details", { className: "why" }, h("summary", null, `Why ${s.grade}?`, icon("chevronRight", "chev")), reasons),
   );
 }
 
 // ---------- inbox ----------
 
 async function loadInbox() {
-  clear(inboxViewEl);
-  inboxViewEl.appendChild(h("p", { className: "muted-text" }, "Loading…"));
+  if (!inboxViewEl.firstChild) {
+    inboxViewEl.appendChild(h("div", { className: "skeleton", "aria-busy": "true", "aria-label": "Loading" }, h("div", { className: "sk sk-2" }), h("div", { className: "sk sk-2" })));
+  }
   try {
     const data = await api("/api/verifications");
     setInboxCount(data.items);
@@ -678,12 +853,32 @@ async function loadInbox() {
 
 function renderInbox(items) {
   clear(inboxViewEl);
-  inboxViewEl.appendChild(h("h2", { className: "section-title" }, "Verification requests"));
+  const open = items.filter((v) => v.status === "open" && v.is_assignee).length;
+  inboxViewEl.appendChild(
+    h(
+      "div",
+      { className: "inbox-hero reveal" },
+      h("h2", { className: "inbox-title" }, "Verification requests"),
+      h("p", { className: "inbox-sub" }, open ? `${open} waiting for your answer. Your confirmation becomes a grade-A answer.` : "You're all caught up."),
+    ),
+  );
   if (!items.length) {
-    inboxViewEl.appendChild(h("section", { className: "card" }, h("p", { className: "muted-text" }, "No verification requests yet.")));
+    inboxViewEl.appendChild(
+      stagger(h("section", { className: "card empty reveal" }, icon("check"), h("p", { className: "muted-text" }, "No verification requests yet.")), 1),
+    );
     return;
   }
-  inboxViewEl.appendChild(h("div", { className: "inbox" }, items.map(renderRequestCard)));
+  inboxViewEl.appendChild(
+    h(
+      "div",
+      { className: "inbox" },
+      items.map((v, i) => {
+        const card = renderRequestCard(v);
+        card.classList.add("reveal");
+        return stagger(card, i + 1);
+      }),
+    ),
+  );
 }
 
 function renderRequestCard(v) {
@@ -699,7 +894,6 @@ function renderRequestCard(v) {
     `Requested by ${v.requester_name} for ${v.assignee_name}${v.is_assignee ? " (you)" : ""} · ${formatDateTime(v.created_at)}`,
   );
   const card = h("article", { className: "card request-card" }, head, meta, h("p", { className: "request-question" }, `“${v.question}”`));
-
   if (v.status === "resolved" && v.resolution) {
     card.appendChild(renderResolution(v.resolution));
   } else if (v.status === "open" && v.is_assignee) {
@@ -823,7 +1017,9 @@ function pickRecorderType() {
 }
 
 function voiceButton(v, form) {
-  const btn = h("button", { type: "button", className: "btn btn-voice" }, "Answer by voice");
+  const label = h("span", null, "Answer by voice");
+  const wave = h("span", { className: "wave", "aria-hidden": "true" }, h("span"), h("span"), h("span"), h("span"));
+  const btn = h("button", { type: "button", className: "btn btn-voice" }, icon("mic"), wave, label);
   let recorder = null;
   let stream = null;
   let ticker = null;
@@ -878,10 +1074,10 @@ function voiceButton(v, form) {
     seconds = 0;
     recorder.start();
     btn.className = "btn btn-voice recording";
-    btn.textContent = "Stop (0s)";
+    label.textContent = "Stop (0s)";
     ticker = setInterval(() => {
       seconds += 1;
-      btn.textContent = `Stop (${seconds}s)`;
+      label.textContent = `Stop (${seconds}s)`;
     }, 1000);
     timeout = setTimeout(stopRecording, VOICE_MAX_SECONDS * 1000);
   });
@@ -890,7 +1086,7 @@ function voiceButton(v, form) {
 
 async function sendVoice(v, blob, filename, btn, { radios, otherInput, validUntil, transcriptArea }) {
   btn.disabled = true;
-  btn.textContent = "Transcribing…";
+  btn.lastElementChild.textContent = "Transcribing…";
   clear(transcriptArea);
   transcriptArea.appendChild(h("p", { className: "muted-text" }, "Transcribing…"));
   const fd = new FormData();
@@ -930,7 +1126,7 @@ async function sendVoice(v, blob, filename, btn, { radios, otherInput, validUnti
     showError(err);
   } finally {
     btn.disabled = false;
-    btn.textContent = "Answer by voice";
+    btn.lastElementChild.textContent = "Answer by voice";
   }
 }
 
