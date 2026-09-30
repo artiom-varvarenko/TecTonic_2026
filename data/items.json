@@ -1,0 +1,210 @@
+[
+  {
+    "id": "DOC-BE-017",
+    "kind": "procedure",
+    "title": "Payroll variables cut-off — Belgium",
+    "source": "SharePoint · Payroll Operations BE",
+    "author_id": "pieter",
+    "owner_id": "pieter",
+    "created_on": "2026-06-20",
+    "last_reviewed_on": "2026-08-14",
+    "review_cycle_days": 180,
+    "countries": ["BE"],
+    "client_ids": [],
+    "effective_from": "2026-07-01",
+    "effective_to": null,
+    "supersedes": ["DOC-BE-009"],
+    "body": "From 1 July 2026, payroll variables (overtime, absences, bonuses) for Belgian clients must be submitted by the 20th of the month to be included in that month's payroll run. Variables received later are processed in the next run. This replaces the previous cut-off on the 22nd.",
+    "claims": [
+      {
+        "id": "DOC-BE-017-1",
+        "topic_id": "payroll.variables_cutoff",
+        "value": "20",
+        "statement": "Payroll variables for Belgian clients must be submitted by the 20th of the month.",
+        "quote": "must be submitted by the 20th of the month"
+      }
+    ]
+  },
+  {
+    "id": "FAQ-BE-003",
+    "kind": "faq",
+    "title": "Payroll calendar 2026 — Belgium (FAQ)",
+    "source": "SharePoint · Payroll Services BE",
+    "author_id": "ellen",
+    "owner_id": "ellen",
+    "created_on": "2026-01-05",
+    "last_reviewed_on": "2026-07-03",
+    "review_cycle_days": 365,
+    "countries": ["BE"],
+    "client_ids": [],
+    "effective_from": "2026-07-01",
+    "effective_to": null,
+    "supersedes": [],
+    "body": "Q: What is the monthly cut-off for payroll variables? A: The 20th of each month, since July 2026. Late variables move to the next payroll run.",
+    "claims": [
+      {
+        "id": "FAQ-BE-003-1",
+        "topic_id": "payroll.variables_cutoff",
+        "value": "20",
+        "statement": "The monthly cut-off for payroll variables is the 20th of each month since July 2026.",
+        "quote": "The 20th of each month, since July 2026"
+      }
+    ]
+  },
+  {
+    "id": "DOC-BE-009",
+    "kind": "procedure",
+    "title": "Client onboarding handbook — Belgium",
+    "source": "SharePoint · Client Onboarding",
+    "author_id": "marc",
+    "owner_id": "marc",
+    "created_on": "2023-02-10",
+    "last_reviewed_on": "2024-03-02",
+    "review_cycle_days": 365,
+    "countries": ["BE"],
+    "client_ids": [],
+    "effective_from": "2023-03-01",
+    "effective_to": null,
+    "supersedes": [],
+    "body": "Chapter 4 — Monthly cycle. Payroll variables must reach SD Worx by the 22nd of the month. Corrections after payroll closing are handled in the next run.",
+    "claims": [
+      {
+        "id": "DOC-BE-009-1",
+        "topic_id": "payroll.variables_cutoff",
+        "value": "22",
+        "statement": "Payroll variables must reach SD Worx by the 22nd of the month.",
+        "quote": "must reach SD Worx by the 22nd of the month"
+      }
+    ]
+  },
+  {
+    "id": "DOC-NL-004",
+    "kind": "procedure",
+    "title": "Aanleverdeadlines salarisverwerking — Nederland",
+    "source": "SharePoint · Payroll Operations NL",
+    "author_id": "sanne",
+    "owner_id": "sanne",
+    "created_on": "2025-12-01",
+    "last_reviewed_on": "2026-06-01",
+    "review_cycle_days": 180,
+    "countries": ["NL"],
+    "client_ids": [],
+    "effective_from": "2026-01-01",
+    "effective_to": null,
+    "supersedes": [],
+    "body": "For Dutch clients, payroll variables must be delivered by the 15th of the month. Later changes are processed as a correction in the following period.",
+    "claims": [
+      {
+        "id": "DOC-NL-004-1",
+        "topic_id": "payroll.variables_cutoff",
+        "value": "15",
+        "statement": "Payroll variables for Dutch clients must be delivered by the 15th of the month.",
+        "quote": "must be delivered by the 15th of the month"
+      }
+    ]
+  },
+  {
+    "id": "TEAMS-4411",
+    "kind": "teams_message",
+    "title": "Jonas Wouters in #payroll-be",
+    "source": "Teams · #payroll-be",
+    "author_id": "jonas",
+    "owner_id": null,
+    "created_on": "2026-09-12",
+    "last_reviewed_on": null,
+    "review_cycle_days": null,
+    "countries": ["BE"],
+    "client_ids": ["vandam"],
+    "effective_from": null,
+    "effective_to": null,
+    "supersedes": [],
+    "body": "Heads-up: for Van Dam Logistics the cut-off is the 25th, not the 20th. They negotiated an exception in their contract.",
+    "claims": [
+      {
+        "id": "TEAMS-4411-1",
+        "topic_id": "payroll.variables_cutoff",
+        "value": "25",
+        "statement": "For Van Dam Logistics the payroll variables cut-off is the 25th.",
+        "quote": "for Van Dam Logistics the cut-off is the 25th"
+      }
+    ]
+  },
+  {
+    "id": "POL-BE-021",
+    "kind": "policy",
+    "title": "Meal vouchers — ordering procedure (Belgium)",
+    "source": "SharePoint · HR Policies BE",
+    "author_id": "anke",
+    "owner_id": "anke",
+    "created_on": "2025-12-15",
+    "last_reviewed_on": "2026-05-20",
+    "review_cycle_days": 365,
+    "countries": ["BE"],
+    "client_ids": [],
+    "effective_from": "2026-01-01",
+    "effective_to": null,
+    "supersedes": [],
+    "body": "Meal voucher orders for the next month must be placed in the client portal by the 10th of the month. Orders placed later are delivered one month later.",
+    "claims": [
+      {
+        "id": "POL-BE-021-1",
+        "topic_id": "payroll.meal_vouchers_order",
+        "value": "10",
+        "statement": "Meal voucher orders for the next month must be placed by the 10th of the month.",
+        "quote": "by the 10th of the month"
+      }
+    ]
+  },
+  {
+    "id": "TEAMS-3920",
+    "kind": "teams_message",
+    "title": "Ellen Maes in #payroll-be",
+    "source": "Teams · #payroll-be",
+    "author_id": "ellen",
+    "owner_id": null,
+    "created_on": "2026-08-28",
+    "last_reviewed_on": null,
+    "review_cycle_days": null,
+    "countries": ["BE"],
+    "client_ids": [],
+    "effective_from": null,
+    "effective_to": null,
+    "supersedes": [],
+    "body": "Reminder: meal voucher orders close on the 10th. Please remind your clients before the weekend.",
+    "claims": [
+      {
+        "id": "TEAMS-3920-1",
+        "topic_id": "payroll.meal_vouchers_order",
+        "value": "10",
+        "statement": "Meal voucher orders close on the 10th.",
+        "quote": "meal voucher orders close on the 10th"
+      }
+    ]
+  },
+  {
+    "id": "DOC-NL-011",
+    "kind": "procedure",
+    "title": "Ziekmelding en medische attesten — Nederland",
+    "source": "SharePoint · Payroll Operations NL",
+    "author_id": "sanne",
+    "owner_id": "sanne",
+    "created_on": "2026-02-01",
+    "last_reviewed_on": "2026-04-10",
+    "review_cycle_days": 365,
+    "countries": ["NL"],
+    "client_ids": [],
+    "effective_from": "2026-02-01",
+    "effective_to": null,
+    "supersedes": [],
+    "body": "Employees of Dutch clients report sickness on the first day. A medical certificate must be submitted within 2 working days of the first sick day.",
+    "claims": [
+      {
+        "id": "DOC-NL-011-1",
+        "topic_id": "leave.sick_certificate",
+        "value": "2",
+        "statement": "For Dutch clients a medical certificate must be submitted within 2 working days of the first sick day.",
+        "quote": "must be submitted within 2 working days"
+      }
+    ]
+  }
+]

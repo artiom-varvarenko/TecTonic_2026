@@ -1,0 +1,5 @@
+[
+  {"id": "vandam", "name": "Van Dam Logistics NV", "country": "BE", "sector": "Logistics"},
+  {"id": "brightwave", "name": "Brightwave Retail BV", "country": "BE", "sector": "Retail"},
+  {"id": "noordhaven", "name": "Noordhaven Zorg B.V.", "country": "NL", "sector": "Healthcare"}
+]

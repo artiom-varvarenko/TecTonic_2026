@@ -1,0 +1,20 @@
+[
+  {
+    "id": "payroll.variables_cutoff",
+    "label": "Payroll variables cut-off",
+    "value_type": "day_of_month",
+    "keywords": ["cut-off", "cutoff", "cut off", "deadline", "variables", "overtime", "absences", "submit", "payroll run", "hours"]
+  },
+  {
+    "id": "payroll.meal_vouchers_order",
+    "label": "Meal voucher order deadline",
+    "value_type": "day_of_month",
+    "keywords": ["meal voucher", "voucher", "maaltijdcheque"]
+  },
+  {
+    "id": "leave.sick_certificate",
+    "label": "Sick leave certificate deadline",
+    "value_type": "working_days",
+    "keywords": ["sick", "illness", "medical certificate", "certificate", "doctor"]
+  }
+]

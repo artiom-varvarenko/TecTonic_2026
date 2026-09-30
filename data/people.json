@@ -1,0 +1,79 @@
+[
+  {
+    "id": "lotte",
+    "name": "Lotte Janssens",
+    "title": "Payroll Consultant",
+    "country": "BE",
+    "role": "consultant",
+    "active": true,
+    "left_on": null,
+    "client_ids": ["vandam", "brightwave"],
+    "expertise_topics": []
+  },
+  {
+    "id": "jonas",
+    "name": "Jonas Wouters",
+    "title": "Payroll Consultant",
+    "country": "BE",
+    "role": "consultant",
+    "active": true,
+    "left_on": null,
+    "client_ids": ["vandam"],
+    "expertise_topics": []
+  },
+  {
+    "id": "ellen",
+    "name": "Ellen Maes",
+    "title": "Client Lead, Payroll Services BE",
+    "country": "BE",
+    "role": "expert",
+    "active": true,
+    "left_on": null,
+    "client_ids": ["vandam", "brightwave"],
+    "expertise_topics": ["payroll.variables_cutoff"]
+  },
+  {
+    "id": "pieter",
+    "name": "Pieter De Smet",
+    "title": "Payroll Operations Lead BE",
+    "country": "BE",
+    "role": "expert",
+    "active": true,
+    "left_on": null,
+    "client_ids": [],
+    "expertise_topics": ["payroll.variables_cutoff"]
+  },
+  {
+    "id": "anke",
+    "name": "Anke Claes",
+    "title": "HR Policy Officer BE",
+    "country": "BE",
+    "role": "expert",
+    "active": true,
+    "left_on": null,
+    "client_ids": [],
+    "expertise_topics": ["payroll.meal_vouchers_order", "leave.sick_certificate"]
+  },
+  {
+    "id": "sanne",
+    "name": "Sanne de Vries",
+    "title": "Payroll Operations Lead NL",
+    "country": "NL",
+    "role": "expert",
+    "active": true,
+    "left_on": null,
+    "client_ids": ["noordhaven"],
+    "expertise_topics": ["leave.sick_certificate"]
+  },
+  {
+    "id": "marc",
+    "name": "Marc Peeters",
+    "title": "Payroll Process Owner BE",
+    "country": "BE",
+    "role": "expert",
+    "active": false,
+    "left_on": "2025-11-30",
+    "client_ids": [],
+    "expertise_topics": ["payroll.variables_cutoff"]
+  }
+]
