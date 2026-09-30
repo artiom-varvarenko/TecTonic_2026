@@ -1,15 +1,23 @@
-// TrustLabel frontend: vanilla ES module, DOM built via h(); text only through text nodes.
+// TrustLabel frontend: vanilla ES module, DOM built via h()/icon(); text only through text nodes.
 
 const GRADES = ["A", "B", "C", "D", "E", "F", "G"];
-const LEGEND = "A expert-verified · B strong · C fair · D weak · E poor · F outdated · G contradicted";
+const LEGEND = [
+  ["A", "expert-verified"],
+  ["B", "strong"],
+  ["C", "fair"],
+  ["D", "weak"],
+  ["E", "poor"],
+  ["F", "outdated"],
+  ["G", "contradicted"],
+];
 const BANNERS = {
-  use: { text: "Safe to use", cls: "banner-use" },
-  verify: { text: "Use with caution — ask for verification", cls: "banner-verify" },
-  ask_expert: { text: "Don't act yet", cls: "banner-ask" },
+  use: { text: "Safe to use", tone: "tone-use", icon: "check" },
+  verify: { text: "Use with caution — ask for verification", tone: "tone-verify", icon: "alert" },
+  ask_expert: { text: "Don't act yet", tone: "tone-ask", icon: "alert" },
 };
 const MUTED_STATUSES = new Set(["not_applicable", "overridden"]);
-const NOT_APPLICABLE_CODES = new Set(["country_mismatch", "client_mismatch", "not_yet_effective", "expired"]);
 const VOICE_MAX_SECONDS = 30;
+const SKELETON_DELAY_MS = 150;
 
 const state = {
   me: null,
@@ -107,17 +115,75 @@ function clear(el) {
   while (el.firstChild) el.removeChild(el.firstChild);
 }
 
+// ---------- icons (hand-drawn 24px strokes; presentation attributes only, CSP-safe) ----------
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+const ICONS = {
+  search: [["circle", { cx: 11, cy: 11, r: 7 }], ["path", { d: "m20 20-3.5-3.5" }]],
+  arrowRight: [["path", { d: "M5 12h14" }], ["path", { d: "m13 6 6 6-6 6" }]],
+  check: [["path", { d: "m5 12.5 4.5 4.5L19 7.5" }]],
+  clock: [["circle", { cx: 12, cy: 12, r: 9 }], ["path", { d: "M12 7v5l3 2" }]],
+  alert: [
+    ["path", { d: "M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" }],
+    ["path", { d: "M12 9v4" }],
+    ["path", { d: "M12 17h.01" }],
+  ],
+  mic: [["rect", { x: 9, y: 3, width: 6, height: 11, rx: 3 }], ["path", { d: "M5 11a7 7 0 0 0 14 0" }], ["path", { d: "M12 18v3" }]],
+  logout: [["path", { d: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" }], ["path", { d: "m16 17 5-5-5-5" }], ["path", { d: "M21 12H9" }]],
+  chevronDown: [["path", { d: "m6 9 6 6 6-6" }]],
+  message: [["path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" }]],
+  user: [["circle", { cx: 12, cy: 8, r: 4 }], ["path", { d: "M4 21a8 8 0 0 1 16 0" }]],
+  calendar: [["rect", { x: 3, y: 4, width: 18, height: 17, rx: 2 }], ["path", { d: "M16 2v4M8 2v4M3 10h18" }]],
+  briefcase: [["rect", { x: 3, y: 7, width: 18, height: 13, rx: 2 }], ["path", { d: "M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18" }]],
+  inbox: [
+    ["path", { d: "M22 12h-6l-2 3h-4l-2-3H2" }],
+    ["path", { d: "M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1Z" }],
+  ],
+};
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, String(value));
+  return el;
+}
+
+function icon(name, cls = "") {
+  const el = svgEl("svg", { viewBox: "0 0 24 24", class: cls ? `icon ${cls}` : "icon", "aria-hidden": "true", focusable: "false" });
+  for (const [tag, attrs] of ICONS[name]) el.appendChild(svgEl(tag, attrs));
+  return el;
+}
+
+function brandMark() {
+  // Four arrows of the EU energy label (A, C, E, G) on a rounded tile.
+  const el = svgEl("svg", { viewBox: "0 0 28 28", class: "brand-mark", "aria-hidden": "true", focusable: "false" });
+  el.appendChild(svgEl("rect", { width: 28, height: 28, rx: 8, fill: "currentColor" }));
+  [["#00A651", 9], ["#BFD730", 12], ["#FDB913", 15], ["#ED1C24", 18]].forEach(([fill, w], i) => {
+    const y = 6.5 + i * 4;
+    const x = 5;
+    el.appendChild(svgEl("polygon", { fill, points: `${x},${y} ${x + w - 2.5},${y} ${x + w},${y + 1.5} ${x + w - 2.5},${y + 3} ${x},${y + 3}` }));
+  });
+  return el;
+}
+
+function brand() {
+  return h("div", { className: "brand" }, brandMark(), h("span", null, "TrustLabel"));
+}
+
+// ---------- small helpers ----------
+
 function toast(message, isError = false) {
   let el = document.getElementById("toast");
   if (!el) {
     el = h("div", { id: "toast", role: "status", "aria-live": "polite" });
     document.body.appendChild(el);
   }
-  el.textContent = message;
+  clear(el);
+  el.appendChild(icon(isError ? "alert" : "check", "icon-sm"));
+  el.appendChild(h("span", null, message));
   el.className = isError ? "toast toast-show toast-error" : "toast toast-show";
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => {
-    el.className = "toast";
+    el.className = isError ? "toast toast-error" : "toast";
   }, isError ? 6000 : 4500);
 }
 
@@ -141,17 +207,37 @@ function addDays(days) {
 
 function formatDateTime(iso) {
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 function firstName(name) {
   return String(name || "").split(" ")[0];
 }
 
-function gradeTile(grade, { muted = false, small = false } = {}) {
+function initials(name) {
+  const parts = String(name || "").split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return (parts[0][0] + last).toUpperCase();
+}
+
+function avatar(name) {
+  return h("span", { className: "avatar", "aria-hidden": "true" }, initials(name));
+}
+
+function greeting(name) {
+  const hour = new Date().getHours();
+  const part = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  return `${part}, ${firstName(name)}`;
+}
+
+function gradeTile(grade, { muted = false, small = false, large = false } = {}) {
   const cls = ["grade-tile", grade ? `grade-${grade}` : "grade-none"];
   if (muted) cls.push("muted");
   if (small) cls.push("grade-tile-small");
+  if (large) cls.push("grade-tile-lg");
   return h("span", { className: cls.join(" "), title: grade ? `Grade ${grade}` : "No grade" }, grade || "–");
 }
 
@@ -176,10 +262,10 @@ async function boot() {
 
 function renderLogin() {
   clear(root);
-  const username = h("input", { id: "login-username", name: "username", autocomplete: "username", required: true, maxLength: 64 });
-  const password = h("input", { id: "login-password", name: "password", type: "password", autocomplete: "current-password", required: true, maxLength: 256 });
+  const username = h("input", { id: "login-username", className: "field", name: "username", autocomplete: "username", required: true, maxLength: 64 });
+  const password = h("input", { id: "login-password", className: "field", name: "password", type: "password", autocomplete: "current-password", required: true, maxLength: 256 });
   const errorLine = h("p", { className: "form-error", role: "alert" });
-  const submit = h("button", { type: "submit", className: "btn btn-primary" }, "Log in");
+  const submit = h("button", { type: "submit", className: "btn btn-primary btn-block" }, "Log in");
 
   const form = h(
     "form",
@@ -203,17 +289,29 @@ function renderLogin() {
         }
       },
     },
-    h("h1", { className: "login-title" }, "TrustLabel"),
-    h("p", { className: "tagline-dark" }, "Search finds it. TrustLabel shows whether you can rely on it."),
-    h("label", { htmlFor: "login-username" }, "Username"),
-    username,
-    h("label", { htmlFor: "login-password" }, "Password"),
-    password,
+    h("h2", { className: "login-title" }, "Sign in"),
+    h("p", { className: "login-sub" }, "Use your TrustLabel demo account."),
+    h("label", { htmlFor: "login-username" }, "Username", username),
+    h("label", { htmlFor: "login-password" }, "Password", password),
     errorLine,
     submit,
     h("p", { className: "hint" }, "lotte, jonas (consultants) · ellen, pieter, anke (experts)"),
   );
-  root.appendChild(h("div", { className: "login-wrap" }, form));
+
+  const aside = h(
+    "aside",
+    { className: "login-aside" },
+    brand(),
+    h(
+      "div",
+      { className: "login-hero" },
+      h("div", { className: "login-ladder", "aria-hidden": "true" }, GRADES.map((g) => h("span", null, g))),
+      h("h1", null, "Search finds it. ", h("em", null, "TrustLabel shows whether you can rely on it.")),
+      h("p", null, "Every source graded A to G, every grade explained, and every doubt routed to the expert who can settle it."),
+    ),
+    h("p", { className: "login-foot" }, "SD Worx challenge · Tectonic Hackathon 2026"),
+  );
+  root.appendChild(h("div", { className: "login-wrap" }, aside, h("main", { className: "login-main" }, form)));
   username.focus();
 }
 
@@ -222,34 +320,38 @@ function renderLogin() {
 let askViewEl = null;
 let inboxViewEl = null;
 let inboxNavBtn = null;
+let inboxCountEl = null;
 let askNavBtn = null;
 
 function renderShell() {
   clear(root);
   const me = state.me;
-  askNavBtn = h("button", { className: "nav-btn", type: "button", onClick: () => switchView("ask") }, "Ask");
-  inboxNavBtn = h("button", { className: "nav-btn", type: "button", onClick: () => switchView("inbox") }, "Verification inbox (0)");
+  askNavBtn = h("button", { className: "nav-btn", type: "button", onClick: () => switchView("ask") }, icon("search", "icon-sm"), "Ask");
+  inboxCountEl = h("span", { className: "nav-count zero" }, "0");
+  inboxNavBtn = h(
+    "button",
+    { className: "nav-btn", type: "button", onClick: () => switchView("inbox") },
+    icon("inbox", "icon-sm"),
+    "Verification inbox",
+    inboxCountEl,
+  );
 
   const header = h(
     "header",
     { className: "app-header" },
-    h(
-      "div",
-      { className: "brand" },
-      h("span", { className: "brand-name" }, "TrustLabel"),
-      h("span", { className: "tagline" }, "Search finds it. TrustLabel shows whether you can rely on it."),
-    ),
-    h("nav", { className: "nav" }, askNavBtn, inboxNavBtn),
+    brand(),
+    h("nav", { className: "nav", "aria-label": "Main" }, askNavBtn, inboxNavBtn),
     h(
       "div",
       { className: "user-area" },
-      h("span", { className: "user-chip", title: me.user.title }, me.user.name, h("span", { className: "user-role" }, me.user.title)),
-      h("button", { className: "btn btn-ghost", type: "button", onClick: logout }, "Log out"),
+      avatar(me.user.name),
+      h("div", { className: "user-meta" }, h("span", { className: "user-name" }, me.user.name), h("span", { className: "user-role" }, me.user.title)),
+      h("button", { className: "btn btn-icon", type: "button", title: "Log out", "aria-label": "Log out", onClick: logout }, icon("logout")),
     ),
   );
 
-  askViewEl = h("main", { className: "view" });
-  inboxViewEl = h("main", { className: "view" });
+  askViewEl = h("main", { className: "view view-ask" });
+  inboxViewEl = h("main", { className: "view view-inbox" });
   root.appendChild(header);
   root.appendChild(askViewEl);
   root.appendChild(inboxViewEl);
@@ -264,6 +366,8 @@ function switchView(view) {
   inboxViewEl.hidden = view !== "inbox";
   askNavBtn.className = view === "ask" ? "nav-btn active" : "nav-btn";
   inboxNavBtn.className = view === "inbox" ? "nav-btn active" : "nav-btn";
+  askNavBtn.setAttribute("aria-current", view === "ask" ? "page" : "false");
+  inboxNavBtn.setAttribute("aria-current", view === "inbox" ? "page" : "false");
   if (view === "inbox") loadInbox();
 }
 
@@ -279,7 +383,10 @@ async function logout() {
 
 function setInboxCount(items) {
   state.inboxCount = items.filter((v) => v.status === "open" && v.is_assignee).length;
-  if (inboxNavBtn) inboxNavBtn.textContent = `Verification inbox (${state.inboxCount})`;
+  if (inboxCountEl) {
+    inboxCountEl.textContent = String(state.inboxCount);
+    inboxCountEl.className = state.inboxCount ? "nav-count" : "nav-count zero";
+  }
 }
 
 async function refreshInboxCount() {
@@ -290,6 +397,16 @@ async function refreshInboxCount() {
     showError(err);
   }
 }
+
+// "/" focuses the question field, like a search box.
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+  const t = e.target;
+  if (t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  if (!questionInput || !askViewEl || askViewEl.hidden || !questionInput.isConnected) return;
+  e.preventDefault();
+  questionInput.focus();
+});
 
 // ---------- ask view ----------
 
@@ -307,7 +424,7 @@ function renderAskView() {
 
   contextSelect = h(
     "select",
-    { id: "context-select", onChange: () => (state.contextKey = contextSelect.value) },
+    { id: "context-select", "aria-label": "Context", onChange: () => (state.contextKey = contextSelect.value) },
     me.contexts.map((c) => h("option", { value: c.key, selected: c.key === state.contextKey }, c.label)),
   );
   questionInput = h("input", {
@@ -315,9 +432,11 @@ function renderAskView() {
     className: "question-input",
     type: "text",
     maxLength: 300,
+    autocomplete: "off",
+    "aria-label": "Question",
     placeholder: "e.g. What's the cut-off for submitting overtime for this month's payroll?",
   });
-  const askBtn = h("button", { type: "submit", className: "btn btn-primary" }, "Ask");
+  const askBtn = h("button", { type: "submit", className: "btn btn-primary ask-btn" }, "Ask");
 
   const form = h(
     "form",
@@ -333,21 +452,26 @@ function renderAskView() {
         runAsk({ question: q, topic_id: null }, askBtn);
       },
     },
-    h("div", { className: "ask-row" }, h("label", { htmlFor: "context-select", className: "ask-label" }, "Context"), contextSelect),
-    h("div", { className: "ask-row" }, questionInput, askBtn),
+    h("div", { className: "select-wrap" }, icon("briefcase", "icon-sm"), contextSelect, icon("chevronDown", "icon-sm chev")),
+    h("div", { className: "search" }, icon("search"), questionInput, h("kbd", { className: "kbd", "aria-hidden": "true" }, "/")),
+    askBtn,
   );
 
-  const chips = h(
-    "div",
-    { className: "chips" },
-    h("span", { className: "chips-label" }, "Topics:"),
-    me.topics.map((t) => topicChip(t)),
-  );
-
-  const panel = h("section", { className: "card ask-card" }, form, chips);
+  const chips = h("div", { className: "chips" }, h("span", { className: "chips-label" }, "Topics"), me.topics.map((t) => topicChip(t)));
+  const panel = h("section", { className: "ask-card" }, form, chips);
   if (me.features && me.features.capture) panel.appendChild(renderCapture());
 
-  resultEl = h("div", { className: "result-area" });
+  const intro = h(
+    "header",
+    { className: "intro" },
+    h("p", { className: "eyebrow" }, greeting(me.user.name)),
+    h("h1", null, "Ask before you act."),
+    h("p", null, "Pick a client or country and ask. You'll see which sources apply, how far each can be trusted, and why."),
+  );
+
+  resultEl = h("div", { className: "result-area", "aria-live": "polite" });
+  askViewEl.classList.remove("has-result");
+  askViewEl.appendChild(intro);
   askViewEl.appendChild(panel);
   askViewEl.appendChild(resultEl);
 }
@@ -360,6 +484,35 @@ function topicChip(topic) {
   );
 }
 
+function renderSkeleton() {
+  clear(resultEl);
+  askViewEl.classList.add("has-result");
+  resultEl.appendChild(
+    h(
+      "div",
+      { className: "skeleton", "aria-hidden": "true" },
+      h("div", { className: "sk sk-hero" }),
+      h("div", { className: "sk-row" }, h("div", { className: "sk sk-side" }), h("div", { className: "sk-col" }, h("div", { className: "sk sk-card" }), h("div", { className: "sk sk-card" }))),
+    ),
+  );
+}
+
+async function withSkeleton(work) {
+  const previous = Array.from(resultEl.childNodes);
+  const hadResult = askViewEl.classList.contains("has-result");
+  const timer = setTimeout(renderSkeleton, SKELETON_DELAY_MS);
+  try {
+    return await work();
+  } catch (err) {
+    clear(resultEl);
+    previous.forEach((n) => resultEl.appendChild(n));
+    askViewEl.classList.toggle("has-result", hadResult);
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function runAsk({ question, topic_id }, button) {
   const ctx = currentContext();
   if (button) {
@@ -367,10 +520,12 @@ async function runAsk({ question, topic_id }, button) {
     button.textContent = "Asking…";
   }
   try {
-    const data = await api("/api/ask", {
-      method: "POST",
-      body: { question: question || "", client_id: ctx ? ctx.client_id : null, topic_id: topic_id || null },
-    });
+    const data = await withSkeleton(() =>
+      api("/api/ask", {
+        method: "POST",
+        body: { question: question || "", client_id: ctx ? ctx.client_id : null, topic_id: topic_id || null },
+      }),
+    );
     renderAskResponse(data, { question: question || "" });
   } catch (err) {
     showError(err);
@@ -384,12 +539,14 @@ async function runAsk({ question, topic_id }, button) {
 
 function renderAskResponse(data, { question, newItemId = null }) {
   clear(resultEl);
+  askViewEl.classList.add("has-result");
   if (!data.topic) {
     resultEl.appendChild(
       h(
         "section",
         { className: "card no-match" },
-        h("p", null, "No matching topic. Try one of:"),
+        h("h2", { className: "card-title" }, "No matching topic"),
+        h("p", { className: "muted-text" }, "TrustLabel covers a few payroll topics in this demo. Try one of these:"),
         h("div", { className: "chips" }, (data.suggestions || []).map((t) => topicChip(t))),
       ),
     );
@@ -400,9 +557,10 @@ function renderAskResponse(data, { question, newItemId = null }) {
 
 function renderCapture() {
   const textarea = h("textarea", {
-    className: "capture-text",
+    className: "field capture-text",
     maxLength: 1000,
-    rows: 4,
+    rows: 3,
+    "aria-label": "Teams message",
     placeholder: "Paste a Teams message, e.g. \"From November meal voucher orders close on the 8th.\"",
   });
   const btn = h("button", { type: "button", className: "btn btn-primary" }, "Capture");
@@ -416,10 +574,12 @@ function renderCapture() {
     btn.disabled = true;
     btn.textContent = "Capturing…";
     try {
-      const data = await api("/api/capture", {
-        method: "POST",
-        body: { text, client_id: ctx ? ctx.client_id : null },
-      });
+      const data = await withSkeleton(() =>
+        api("/api/capture", {
+          method: "POST",
+          body: { text, client_id: ctx ? ctx.client_id : null },
+        }),
+      );
       renderAskResponse(data.result, { question: "", newItemId: data.captured_item_id });
       toast("Captured, graded and checked against existing knowledge.");
     } catch (err) {
@@ -432,28 +592,47 @@ function renderCapture() {
   return h(
     "details",
     { className: "capture" },
-    h("summary", null, "Capture a Teams message"),
-    h("div", { className: "capture-body" }, textarea, h("div", { className: "capture-actions" }, btn)),
+    h(
+      "summary",
+      null,
+      icon("message", "icon-sm"),
+      h("span", null, "Capture a Teams message"),
+      h("span", { className: "sub" }, "AI reads it, the rules grade it"),
+      icon("chevronDown", "icon-sm chev"),
+    ),
+    h(
+      "div",
+      { className: "capture-body" },
+      textarea,
+      h(
+        "div",
+        { className: "capture-actions" },
+        h("span", { className: "muted-text" }, "Only claims quoted word for word are kept. The claim applies to the selected context."),
+        btn,
+      ),
+    ),
   );
 }
 
 // ---------- result rendering ----------
 
 function renderResult(data, { question, newItemId }) {
-  const left = h(
+  return h(
     "div",
-    { className: "result-left" },
+    { className: "result" },
     renderAnswer(data),
-    renderLadder(data.answer),
-    renderExperts(data, question),
+    h(
+      "div",
+      { className: "result-grid" },
+      h("div", { className: "result-side" }, renderLadder(data.answer), renderExperts(data, question)),
+      h(
+        "div",
+        { className: "result-main" },
+        h("div", { className: "section-head" }, h("h2", null, "Sources"), h("span", { className: "count-pill" }, String(data.sources.length))),
+        data.sources.map((s) => renderSource(s, s.id === newItemId)),
+      ),
+    ),
   );
-  const right = h(
-    "div",
-    { className: "result-right" },
-    h("h2", { className: "section-title" }, `Sources (${data.sources.length})`),
-    data.sources.map((s) => renderSource(s, s.id === newItemId)),
-  );
-  return h("div", { className: "result" }, left, right);
 }
 
 function renderAnswer(data) {
@@ -462,40 +641,50 @@ function renderAnswer(data) {
   const competing =
     a.competing && a.competing.length
       ? h(
-          "ul",
+          "div",
           { className: "competing" },
-          a.competing.map((c) =>
-            h(
-              "li",
-              null,
-              gradeTile(c.best_grade, { small: true }),
-              h("span", { className: "competing-value" }, c.value_display),
-              h("span", { className: "muted-text" }, ` — ${c.item_ids.join(", ")}`),
+          h("p", { className: "competing-label" }, "Competing answers"),
+          h(
+            "ul",
+            null,
+            a.competing.map((c) =>
+              h(
+                "li",
+                null,
+                gradeTile(c.best_grade, { small: true }),
+                h("span", { className: "competing-value" }, c.value_display),
+                h("span", { className: "competing-ids" }, c.item_ids.join(", ")),
+              ),
             ),
           ),
         )
       : null;
   return h(
     "section",
-    { className: "card answer-card" },
-    h("div", { className: `banner ${banner.cls}` }, banner.text),
+    { className: `card answer-card ${banner.tone}` },
     h(
       "div",
-      { className: "answer-body" },
+      { className: "answer-top" },
       h(
         "div",
-        { className: "answer-head" },
-        a.grade ? gradeTile(a.grade) : null,
-        h("h2", { className: "answer-headline" }, a.headline),
+        { className: "answer-main" },
+        a.grade ? gradeTile(a.grade, { large: true }) : null,
+        h(
+          "div",
+          { className: "answer-text" },
+          h("span", { className: "status" }, icon(banner.icon), banner.text),
+          h("h2", { className: "answer-headline" }, a.headline),
+          h("p", { className: "answer-detail" }, a.detail),
+        ),
       ),
-      h("p", { className: "answer-detail" }, a.detail),
       competing,
-      h(
-        "p",
-        { className: "answer-meta" },
-        `Topic: ${data.topic.label} · Context: ${data.context.label}`,
-        data.matched_keywords && data.matched_keywords.length ? ` · Matched: ${data.matched_keywords.join(", ")}` : "",
-      ),
+    ),
+    h(
+      "div",
+      { className: "answer-meta" },
+      h("span", null, "Topic ", h("b", null, data.topic.label)),
+      h("span", null, "Context ", h("b", null, data.context.label)),
+      data.matched_keywords && data.matched_keywords.length ? h("span", null, "Matched ", h("b", null, data.matched_keywords.join(", "))) : null,
     ),
   );
 }
@@ -509,10 +698,11 @@ function renderLadder(answer) {
       (pointers[c.best_grade] = pointers[c.best_grade] || []).push(c.value_display);
     }
   }
+  const pointed = Object.keys(pointers).length > 0;
   const rows = GRADES.map((g) =>
     h(
       "div",
-      { className: "ladder-row" },
+      { className: pointers[g] ? "ladder-row is-pointed" : "ladder-row" },
       h("div", { className: `ladder-bar ladder-${g} grade-${g}` }, h("span", { className: "ladder-letter" }, g)),
       h(
         "div",
@@ -521,19 +711,22 @@ function renderLadder(answer) {
       ),
     ),
   );
+  const ladderCls = ["ladder"];
+  if (pointed) ladderCls.push("has-pointer");
+  if (answer.status === "gap") ladderCls.push("is-gap");
   return h(
     "section",
     { className: "card ladder-card" },
-    h("h2", { className: "section-title" }, "Trust label"),
-    h("div", { className: "ladder" }, rows),
+    h("h2", { className: "card-title" }, "Trust label", h("small", null, "EU energy-label scale")),
+    h("div", { className: ladderCls.join(" ") }, rows),
     answer.status === "gap" ? h("p", { className: "ladder-note" }, "No applicable source") : null,
-    h("p", { className: "legend" }, LEGEND),
+    h("ul", { className: "legend" }, LEGEND.map(([g, text]) => h("li", null, h("i", { className: `grade-${g}` }), `${g} ${text}`))),
   );
 }
 
 function renderExperts(data, question) {
   const experts = data.experts || [];
-  const card = h("section", { className: "card experts-card" }, h("h2", { className: "section-title" }, "Who can confirm this"));
+  const card = h("section", { className: "card experts-card" }, h("h2", { className: "card-title" }, "Who can confirm this"));
   if (!experts.length) {
     card.appendChild(h("p", { className: "muted-text" }, "No expert available for this topic and context."));
     return card;
@@ -549,22 +742,27 @@ function renderExperts(data, question) {
           h(
             "div",
             { className: "expert-head" },
-            h("span", { className: "expert-name" }, ex.name),
+            avatar(ex.name),
+            h("div", { className: "expert-id" }, h("div", { className: "expert-name" }, ex.name), h("div", { className: "expert-title" }, ex.title)),
             h("span", { className: "expert-score", title: "Routing score" }, String(ex.score)),
           ),
-          h("div", { className: "expert-title" }, ex.title),
-          h("ul", { className: "expert-reasons" }, ex.reasons.map((r) => h("li", null, r))),
+          h("ul", { className: "expert-reasons" }, ex.reasons.map((r) => h("li", null, icon("check", "icon-xs"), h("span", null, r)))),
         ),
       ),
     ),
   );
 
   const actionArea = h("div", { className: "expert-action" });
-  const pendingText = (name) => h("p", { className: "pending" }, `Verification requested from ${name} — pending`);
+  const pendingText = (name) => h("p", { className: "pending" }, icon("clock", "icon-sm"), `Verification requested from ${name} — pending`);
   if (data.open_request) {
     actionArea.appendChild(pendingText(data.open_request.assignee_name));
   } else if (data.answer.action !== "use") {
-    const btn = h("button", { type: "button", className: "btn btn-primary" }, `Ask ${firstName(experts[0].name)} to verify`);
+    const btn = h(
+      "button",
+      { type: "button", className: "btn btn-primary btn-block" },
+      `Ask ${firstName(experts[0].name)} to verify`,
+      icon("arrowRight", "icon-sm"),
+    );
     btn.addEventListener("click", async () => {
       btn.disabled = true;
       try {
@@ -594,7 +792,6 @@ function renderExperts(data, question) {
 function pillClass(code) {
   if (code === "applies") return "pill pill-applies";
   if (code === "superseded" || code === "overridden") return "pill pill-warn";
-  if (NOT_APPLICABLE_CODES.has(code)) return "pill pill-na";
   return "pill pill-na";
 }
 
@@ -614,11 +811,11 @@ function reasonBadge(r) {
 function renderSource(s, isNew) {
   const muted = MUTED_STATUSES.has(s.status);
   let owner;
-  if (s.kind === "teams_message") owner = h("span", null, `Posted by ${s.author_name || "unknown author"}`);
-  else if (s.owner_active) owner = h("span", null, `Owner: ${s.owner_name}`);
-  else owner = h("span", { className: "no-owner" }, "No active owner");
+  if (s.kind === "teams_message") owner = h("span", null, icon("message", "icon-xs"), `Posted by ${s.author_name || "unknown author"}`);
+  else if (s.owner_active) owner = h("span", null, icon("user", "icon-xs"), `Owner: ${s.owner_name}`);
+  else owner = h("span", { className: "no-owner" }, icon("alert", "icon-xs"), "No active owner");
   let dated;
-  if (s.kind === "teams_message") dated = `on ${s.created_on}`;
+  if (s.kind === "teams_message") dated = `Posted ${s.created_on}`;
   else if (s.last_reviewed_on) dated = `Last reviewed ${s.last_reviewed_on}`;
   else dated = `Created ${s.created_on}`;
 
@@ -627,13 +824,17 @@ function renderSource(s, isNew) {
     { className: "reasons" },
     s.reasons.map((r) => {
       const badge = reasonBadge(r);
-      return h("li", { className: badge ? "reason" : "reason reason-info" }, badge, h("span", { className: "reason-text" }, r.text));
+      return h("li", { className: badge ? "reason" : "reason reason-info" }, h("span", { className: "reason-text" }, r.text), badge);
     }),
+    h("li", { className: "reason reason-total" }, h("span", null, "Trust score"), h("span", { className: "badge badge-total" }, `${s.score} → ${s.grade}`)),
   );
 
+  const cls = ["card", "source-card"];
+  if (muted) cls.push("source-muted");
+  if (isNew) cls.push("is-new");
   return h(
     "article",
-    { className: muted ? "card source-card source-muted" : "card source-card" },
+    { className: cls.join(" ") },
     h(
       "div",
       { className: "source-head" },
@@ -651,13 +852,18 @@ function renderSource(s, isNew) {
         h("h3", { className: "source-title" }, s.title),
         h("div", { className: "source-origin" }, s.source),
       ),
-      h("span", { className: "source-score", title: "Trust score" }, String(s.score)),
+      h("div", { className: "source-score", title: "Trust score" }, String(s.score), h("small", null, "score")),
     ),
-    h("div", { className: "source-meta" }, owner, h("span", null, dated)),
+    h(
+      "div",
+      { className: "source-meta" },
+      owner,
+      h("span", null, icon("calendar", "icon-xs"), dated),
+      h("span", { className: pillClass(s.applicability.code) }, s.applicability.text),
+    ),
     h("p", { className: "statement" }, s.statement),
     h("blockquote", { className: "quote" }, s.kind === "verified_answer" ? s.body : s.quote),
-    h("span", { className: pillClass(s.applicability.code) }, s.applicability.text),
-    h("details", { className: "why" }, h("summary", null, `Why ${s.grade}?`), reasons),
+    h("details", { className: "why" }, h("summary", null, `Why ${s.grade}?`, icon("chevronDown", "icon-xs")), reasons),
   );
 }
 
@@ -665,7 +871,7 @@ function renderSource(s, isNew) {
 
 async function loadInbox() {
   clear(inboxViewEl);
-  inboxViewEl.appendChild(h("p", { className: "muted-text" }, "Loading…"));
+  inboxViewEl.appendChild(h("div", { className: "inbox" }, h("div", { className: "sk sk-card" }), h("div", { className: "sk sk-card" })));
   try {
     const data = await api("/api/verifications");
     setInboxCount(data.items);
@@ -678,9 +884,18 @@ async function loadInbox() {
 
 function renderInbox(items) {
   clear(inboxViewEl);
-  inboxViewEl.appendChild(h("h2", { className: "section-title" }, "Verification requests"));
+  const open = items.filter((v) => v.status === "open").length;
+  inboxViewEl.appendChild(
+    h(
+      "header",
+      { className: "inbox-head" },
+      h("p", { className: "eyebrow" }, `${open} open · ${items.length - open} resolved`),
+      h("h1", null, "Verification inbox"),
+      h("p", null, "Requests assigned to you, and the ones you sent. One confirmation updates the answer for everyone in that context."),
+    ),
+  );
   if (!items.length) {
-    inboxViewEl.appendChild(h("section", { className: "card" }, h("p", { className: "muted-text" }, "No verification requests yet.")));
+    inboxViewEl.appendChild(h("section", { className: "card inbox-empty" }, icon("inbox"), h("p", null, "No verification requests yet.")));
     return;
   }
   inboxViewEl.appendChild(h("div", { className: "inbox" }, items.map(renderRequestCard)));
@@ -690,7 +905,7 @@ function renderRequestCard(v) {
   const head = h(
     "div",
     { className: "request-head" },
-    h("span", { className: v.status === "open" ? "status status-open" : "status status-resolved" }, v.status === "open" ? "Open" : "Resolved"),
+    h("span", { className: v.status === "open" ? "req-status status-open" : "req-status status-resolved" }, v.status === "open" ? "Open" : "Resolved"),
     h("h3", { className: "request-title" }, `${v.topic.label} — ${v.context_label}`),
   );
   const meta = h(
@@ -708,8 +923,8 @@ function renderRequestCard(v) {
     card.appendChild(
       h(
         "div",
-        null,
-        h("p", { className: "pending" }, `Waiting for ${v.assignee_name}`),
+        { className: "waiting" },
+        h("p", { className: "pending" }, icon("clock", "icon-sm"), `Waiting for ${v.assignee_name}`),
         v.candidates.length ? h("p", { className: "muted-text" }, `Candidates: ${v.candidates.map((c) => `${c.value_display} (${c.grade})`).join(" vs ")}`) : null,
       ),
     );
@@ -733,9 +948,9 @@ function renderResolution(r) {
 function renderResolveForm(v) {
   const radioName = `cand-${v.id}`;
   const radios = [];
-  const otherInput = h("input", { type: "number", min: 1, max: 31, step: 1, className: "other-input", placeholder: "e.g. 25", "aria-label": "Other value" });
-  const note = h("textarea", { className: "note-input", maxLength: 500, rows: 2, placeholder: "Note (e.g. contract addendum reference)" });
-  const validUntil = h("input", { type: "date", className: "date-input", value: addDays(180), min: addDays(1), max: addDays(730), required: true });
+  const otherInput = h("input", { type: "number", min: 1, max: 31, step: 1, className: "field other-input", placeholder: "e.g. 25", "aria-label": "Other value" });
+  const note = h("textarea", { className: "field note-input", maxLength: 500, rows: 2, placeholder: "Note (e.g. contract addendum reference)" });
+  const validUntil = h("input", { type: "date", className: "field date-input", value: addDays(180), min: addDays(1), max: addDays(730), required: true });
   const transcriptArea = h("div", { className: "transcript-area" });
 
   const candidateRows = v.candidates.map((c, i) => {
@@ -766,7 +981,7 @@ function renderResolveForm(v) {
     transcriptArea.appendChild(h("p", { className: "transcript" }, h("strong", null, "Voice statement: "), v.voice_transcript));
   }
 
-  const resolveBtn = h("button", { type: "submit", className: "btn btn-primary" }, "Resolve");
+  const resolveBtn = h("button", { type: "submit", className: "btn btn-primary" }, icon("check", "icon-sm"), "Resolve");
   const form = h(
     "form",
     {
@@ -797,11 +1012,15 @@ function renderResolveForm(v) {
         }
       },
     },
-    h("fieldset", { className: "candidates" }, h("legend", null, "Which value is correct?"), candidateRows,
-      h("label", { className: "candidate candidate-other" }, h("span", null, "Other value"), otherInput)),
+    h(
+      "fieldset",
+      { className: "candidates" },
+      h("legend", null, "Which value is correct?"),
+      candidateRows,
+      h("label", { className: "candidate candidate-other" }, h("span", null, "Other value"), otherInput),
+    ),
     transcriptArea,
-    h("label", { className: "field-label" }, "Note", note),
-    h("label", { className: "field-label" }, "Valid until", validUntil),
+    h("div", { className: "field-grid" }, h("label", { className: "field-label" }, "Note", note), h("label", { className: "field-label" }, "Valid until", validUntil)),
   );
 
   const actions = h("div", { className: "resolve-actions" });
@@ -823,7 +1042,15 @@ function pickRecorderType() {
 }
 
 function voiceButton(v, form) {
-  const btn = h("button", { type: "button", className: "btn btn-voice" }, "Answer by voice");
+  const label = h("span", null, "Answer by voice");
+  const btn = h(
+    "button",
+    { type: "button", className: "btn btn-secondary btn-voice" },
+    icon("mic", "icon-sm"),
+    h("span", { className: "rec-dot", "aria-hidden": "true" }),
+    label,
+  );
+  const ui = { btn, setLabel: (text) => (label.textContent = text) };
   let recorder = null;
   let stream = null;
   let ticker = null;
@@ -869,28 +1096,28 @@ function voiceButton(v, form) {
     });
     recorder.addEventListener("stop", async () => {
       stopTracks();
-      btn.className = "btn btn-voice";
+      btn.className = "btn btn-secondary btn-voice";
       const blobType = (recorder.mimeType || type.mimeType || "audio/webm").split(";")[0];
       const blob = new Blob(chunks, { type: blobType });
       recorder = null;
-      await sendVoice(v, blob, type.filename, btn, form);
+      await sendVoice(v, blob, type.filename, ui, form);
     });
     seconds = 0;
     recorder.start();
-    btn.className = "btn btn-voice recording";
-    btn.textContent = "Stop (0s)";
+    btn.className = "btn btn-secondary btn-voice recording";
+    ui.setLabel("Stop (0s)");
     ticker = setInterval(() => {
       seconds += 1;
-      btn.textContent = `Stop (${seconds}s)`;
+      ui.setLabel(`Stop (${seconds}s)`);
     }, 1000);
     timeout = setTimeout(stopRecording, VOICE_MAX_SECONDS * 1000);
   });
   return btn;
 }
 
-async function sendVoice(v, blob, filename, btn, { radios, otherInput, validUntil, transcriptArea }) {
-  btn.disabled = true;
-  btn.textContent = "Transcribing…";
+async function sendVoice(v, blob, filename, ui, { radios, otherInput, validUntil, transcriptArea }) {
+  ui.btn.disabled = true;
+  ui.setLabel("Transcribing…");
   clear(transcriptArea);
   transcriptArea.appendChild(h("p", { className: "muted-text" }, "Transcribing…"));
   const fd = new FormData();
@@ -910,7 +1137,7 @@ async function sendVoice(v, blob, filename, btn, { radios, otherInput, validUnti
     }
     transcriptArea.appendChild(p);
     if (!s) {
-      transcriptArea.appendChild(h("p", { className: "voice-note" }, "No value recognised — pick one manually"));
+      transcriptArea.appendChild(h("p", { className: "voice-note none" }, "No value recognised — pick one manually"));
     } else {
       const match = radios.find((r) => r.value === s.value);
       if (match) {
@@ -922,15 +1149,20 @@ async function sendVoice(v, blob, filename, btn, { radios, otherInput, validUnti
       }
       if (s.valid_until) validUntil.value = s.valid_until;
       transcriptArea.appendChild(
-        h("p", { className: "voice-note" }, `Suggested: ${s.value_display}${s.valid_until ? `, valid until ${s.valid_until}` : ""}. Check and click Resolve.`),
+        h(
+          "p",
+          { className: "voice-note" },
+          icon("check", "icon-sm"),
+          `Suggested: ${s.value_display}${s.valid_until ? `, valid until ${s.valid_until}` : ""}. Check and click Resolve.`,
+        ),
       );
     }
   } catch (err) {
     clear(transcriptArea);
     showError(err);
   } finally {
-    btn.disabled = false;
-    btn.textContent = "Answer by voice";
+    ui.btn.disabled = false;
+    ui.setLabel("Answer by voice");
   }
 }
 

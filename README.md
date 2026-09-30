@@ -95,7 +95,8 @@ Verification inbox → resolve (by voice or form). Lotte asks again → 25th, gr
   context it was made in). A voice statement is only shown to the requester, and kept as evidence, once the expert
   confirms the value it states.
 - Strict CSP (`script-src 'self'`, no inline code), `nosniff`, `frame-ancestors 'none'`, no `innerHTML` in the UI,
-  no API docs endpoints, `Cache-Control: no-store` on API responses.
+  no API docs endpoints, `Cache-Control: no-store` on API responses. Fonts (Geist, Geist Mono, Instrument Serif;
+  SIL OFL 1.1) are self-hosted in `static/fonts/`, so no third-party requests leave the browser.
 
 ## Tests
 
