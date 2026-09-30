@@ -48,6 +48,9 @@ from .engine import (
 from .models import (
     AskBody,
     Candidate,
+    CaptureBody,
+    Claim,
+    Item,
     LoginBody,
     Person,
     Resolution,
@@ -414,7 +417,10 @@ def create_app(
             "user": user_view(user),
             "contexts": contexts,
             "topics": [topic_view(t) for t in store.topics],
-            "features": {"voice": extractor is not None and transcriber is not None, "capture": False},
+            "features": {
+                "voice": extractor is not None and transcriber is not None,
+                "capture": extractor is not None,
+            },
         }
 
     @app.post("/api/ask")
@@ -592,6 +598,60 @@ def create_app(
                 else None
             ),
         }
+
+    @app.post("/api/capture", status_code=201)
+    def capture(body: CaptureBody, user: Person = Depends(current_user)) -> dict:
+        """Turn a pasted Teams message into graded claims; only verbatim-quoted claims survive."""
+        ctx = resolve_context(user, body.client_id)
+        if extractor is None:
+            raise HTTPException(503, "Capture is not configured")
+        text = body.text.strip()
+        if not text:
+            raise HTTPException(422, "Paste the message text")
+        if not ai_budget.try_add(user.id, AI_CALLS_PER_HOUR):
+            raise HTTPException(429, "AI usage limit reached; try again later")
+        try:
+            extracted = extractor.extract(text, store.topics, ctx.today)
+        except AI_SERVICE_ERRORS as exc:
+            logger.warning("Claim extraction failed: %s", exc)
+            raise HTTPException(502, AI_FAILED) from None
+        claims = {}
+        for claim in validate_extracted(extracted, text, store.topics_by_id, ctx.today):
+            claims.setdefault(claim.topic.id, claim)
+        if not claims:
+            raise HTTPException(422, "No verifiable claim found in the text (quotes must appear verbatim)")
+        item_id = "CAP-" + secrets.token_hex(4).upper()
+        client_specific = ctx.client_id is not None and any(c.client_specific for c in claims.values())
+        item = Item(
+            id=item_id,
+            kind="teams_message",
+            title=f"{user.name} (captured)",
+            source="Teams · captured via TrustLabel",
+            author_id=user.id,
+            owner_id=None,
+            created_on=ctx.today,
+            last_reviewed_on=None,
+            review_cycle_days=None,
+            countries=[ctx.country],
+            client_ids=[ctx.client_id] if client_specific and ctx.client_id else [],
+            effective_from=None,
+            effective_to=None,
+            supersedes=[],
+            body=text,
+            claims=[
+                Claim(
+                    id=f"{item_id}-{n}",
+                    topic_id=claim.topic.id,
+                    value=claim.value,
+                    statement=f"{claim.topic.label}: {claim.value_display}",
+                    quote=claim.quote,
+                )
+                for n, claim in enumerate(claims.values(), start=1)
+            ],
+        )
+        store.add_item(item)
+        first_topic = next(iter(claims.values())).topic
+        return {"captured_item_id": item_id, "result": build_ask_result(user, first_topic, ctx, [])}
 
     @app.get("/", include_in_schema=False)
     def index() -> FileResponse:
