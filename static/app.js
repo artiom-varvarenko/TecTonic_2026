@@ -1413,7 +1413,7 @@ function renderTopicCard(t) {
   }
   const note = t.open_request
     ? h("span", { className: "topic-pending" }, icon("clock", "icon-xs"), `Pending with ${t.open_request.assignee_name}`)
-    : h("span", { className: "topic-meta" }, t.top_expert ? `Expert: ${t.top_expert.name}` : "No expert on file");
+    : h("span", { className: "topic-meta" }, t.top_expert ? `Expert: ${t.top_expert.name}` : "No other expert on file");
   return h(
     "button",
     { type: "button", className: `topic-card ${banner.tone}`, onClick: () => runAsk({ question: "", topic_id: t.topic.id }) },
