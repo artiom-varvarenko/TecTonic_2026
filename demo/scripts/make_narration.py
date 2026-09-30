@@ -56,7 +56,8 @@ def kokoro_engine(speed: float):
     def speak(text: str, voice: str) -> np.ndarray:
         lang = "en-gb" if voice.startswith("b") else "en-us"
         samples, rate = model.create(text, voice=voice, speed=speed, lang=lang)
-        assert rate == SAMPLE_RATE
+        if rate != SAMPLE_RATE:
+            raise ValueError(f"Kokoro returned {rate} Hz audio; expected {SAMPLE_RATE} Hz")
         return samples.astype(np.float32)
 
     return speak

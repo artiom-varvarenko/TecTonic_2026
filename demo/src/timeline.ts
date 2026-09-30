@@ -56,8 +56,9 @@ export const cueWord = (scene: SceneId, id: string, word: string): number => {
 	const timing = scenes[scene].cues[id];
 	const text = texts[scene].find((c) => c.id === id)?.text;
 	if (!timing || !text) throw new Error(`Unknown cue ${scene}.${id}`);
-	const token = word.toLowerCase().replace(/-/g, ' ').match(/[a-z0-9']+/)?.[0];
-	const spoken = timing.words?.find(([w]) => w === token);
+	// First word of `word`, normalised the way the take's word list is (lowercase, hyphens split).
+	const firstWord = word.toLowerCase().replace(/-/g, ' ').match(/[a-z0-9']+/)?.[0];
+	const spoken = timing.words?.find(([w]) => w === firstWord);
 	if (spoken) return NARRATION_DELAY + spoken[1];
 	const at = text.indexOf(word);
 	if (at < 0) throw new Error(`"${word}" not in cue ${scene}.${id}`);
