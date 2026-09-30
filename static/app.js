@@ -618,7 +618,7 @@ function renderSource(s, isNew) {
   else if (s.owner_active) owner = h("span", null, `Owner: ${s.owner_name}`);
   else owner = h("span", { className: "no-owner" }, "No active owner");
   let dated;
-  if (s.kind === "teams_message") dated = `Posted ${s.created_on}`;
+  if (s.kind === "teams_message") dated = `on ${s.created_on}`;
   else if (s.last_reviewed_on) dated = `Last reviewed ${s.last_reviewed_on}`;
   else dated = `Created ${s.created_on}`;
 

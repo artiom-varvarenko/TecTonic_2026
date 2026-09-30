@@ -572,7 +572,7 @@ def make_verified_item(
     vd = value_display(topic, value)
     body = f"{topic.label}: {vd}."
     if note:
-        body += f" {note}"
+        body += f" {note}" if note.endswith((".", "!", "?")) else f" {note}."
     if verification.voice_transcript:
         body += f" Voice statement by {expert.name}: “{verification.voice_transcript}”"
     return Item(
