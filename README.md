@@ -26,6 +26,14 @@ whatever search or assistant SD Worx already uses; it is not another assistant.
   structured outputs extract value, valid-until and a verbatim quote, the form is prefilled and the expert confirms.
 - **Capture from chat.** Paste a Teams message; OpenAI extracts claims, the server keeps only claims whose quote
   appears verbatim and states the value, and the rules grade and conflict-check it instantly.
+- **Trust overview.** Before anyone asks, the Ask page shows each topic's verdict for the chosen client or country,
+  the grade mix of current sources, knowledge debt (orphaned, overdue or superseded sources and their owner) and
+  recent verifications. It refreshes every 15 s and tells a requester when their expert has answered.
+- **Microsoft Teams over MCP.** TrustLabel is a remote MCP server (`POST /mcp`, Streamable HTTP) with the tools
+  `ask_trustlabel`, `request_verification` and `capture_teams_message`. Add it to a Copilot Studio agent published
+  in Teams: same grades, reasons, expert routing and client scoping as the web UI, under the user's own permissions.
+- **Google sign-in (optional).** OpenID Connect code flow with PKCE, state and nonce; only allow-listed, verified
+  Google emails mapped to a TrustLabel user can sign in. Password login stays.
 
 **AI reads, rules judge, humans verify.** No model ever assigns a grade or answers a question.
 
@@ -74,6 +82,21 @@ this month?"* → "Don't act yet: 20th (C) vs 25th (D)" → "Ask Ellen to verify
 Verification inbox → resolve (by voice or form). Lotte asks again → 25th, grade A, verified by Ellen.
 "Belgium — all clients" still answers 20th (B).
 
+**Connect Microsoft Teams.** Serve TrustLabel over public HTTPS (below). In TrustLabel, *Microsoft Teams → Connect
+Teams* shows the MCP URL and a personal key (shown once, 8 h). In Copilot Studio: agent → Tools → Add a tool → New
+tool → Model Context Protocol → URL `https://<host>/mcp`, authentication *API key*, header `X-API-Key`; publish to Teams.
+
+**Google sign-in.** Create an OAuth web client with redirect URI `<base>/api/auth/google/callback`
+(`http://127.0.0.1:8000/…` locally), then set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+`TRUSTLABEL_GOOGLE_ACCOUNTS=you@example.com=lotte` and, behind a proxy, `TRUSTLABEL_PUBLIC_URL`.
+
+**Public URL (Cloudflare Tunnel).** Secure cookies on, and trust the tunnel's client-IP header:
+
+```bash
+TRUSTLABEL_COOKIE_SECURE=1 TRUSTLABEL_BEHIND_PROXY=1 uv run --env-file .env main.py
+cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8000   # prints https://<name>.trycloudflare.com
+```
+
 ## Security
 
 - Per-user passwords, stored only as scrypt hashes in the gitignored `.credentials.json`; nothing secret is in the
@@ -82,8 +105,12 @@ Verification inbox → resolve (by voice or form). Lotte asks again → 25th, gr
   it on the server. A new session id on every login.
 - CSRF: SameSite=Strict plus an `Origin` check on every state-changing request.
 - Login rate limits: 5 failures per username and IP, and 30 failures per IP across usernames, per 5 minutes; the
-  server ignores `X-Forwarded-For`, and concurrent scrypt checks are capped. AI budget: 20 voice/capture calls per
-  user per hour.
+  server ignores `X-Forwarded-For` unless `TRUSTLABEL_BEHIND_PROXY=1`, and then trusts it only from 127.0.0.1
+  (a local tunnel); concurrent scrypt checks are capped. AI budget: 20 voice/capture calls per user per hour.
+- Teams/MCP keys are random, stored only as a SHA-256 hash, one per user, expire after 8 h and can be revoked; they
+  never work as a session cookie, and every tool call runs with that user's permissions (60 calls per 10 minutes).
+- Google sign-in uses a signed 10-minute flow cookie (state, nonce, PKCE verifier) and checks the ID token's issuer,
+  audience, expiry, nonce and `email_verified`; errors never echo provider text.
 - Authorization: client-specific knowledge is only visible to that client's team, and verification requests for a
   client only go to experts on that client's team; the verifier is chosen by the server, never by the client; only
   the assigned expert can resolve or answer by voice (others get 404, same as a missing id); a context can only be
@@ -106,11 +133,11 @@ uv run pytest -q
 
 Engine rules on the demo dataset (conflict triage, scoping of verified answers, caps, gaps), plus API tests for
 authentication, authorization, request guards, rate limiting, session revocation, voice and capture (AI services
-stubbed).
+stubbed), the trust overview, the MCP server and Google sign-in (token exchange stubbed).
 
 ## Unfinished
 
 - State is in memory: a restart resets requests and verified answers. Data is synthetic and fictional.
-- No SharePoint/Teams/M365 connectors; sources are loaded from `data/*.json`.
-- No owner-facing "knowledge debt" dashboard (orphaned and overdue sources are only visible per question).
+- Teams reaches TrustLabel through MCP, but sources still load from `data/*.json` (no SharePoint/Teams ingestion).
+- The public URL is a Cloudflare quick tunnel to a laptop: no uptime guarantee, and each restart gets a new hostname.
 - Topic matching is keyword-based over three demo topics.
