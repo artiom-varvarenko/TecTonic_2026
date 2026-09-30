@@ -1,0 +1,301 @@
+{
+  "fps": 30,
+  "gap_seconds": 0.28,
+  "note": "`text` is what is spoken; spellings like 'Trust Label' or 'Lot-tuh' only steer Kokoro's pronunciation, `text_elevenlabs` overrides it for ElevenLabs. `speaker` picks the voice (see `speakers`). Cue ids are referenced by the scenes to time their animations.",
+  "scenes": {
+    "hook": [
+      {
+        "id": "intro",
+        "text": "An urgent customer question comes in.",
+        "speaker": "rufina"
+      },
+      {
+        "id": "ask",
+        "text": "Van Dam Logistics needs to know the overtime cut-off. Today.",
+        "speaker": "rufina"
+      }
+    ],
+    "problem": [
+      {
+        "id": "search",
+        "text": "Search finds three documents.",
+        "speaker": "rufina"
+      },
+      {
+        "id": "docs",
+        "text": "One was recently updated. One has an owner who left the company. And one might be for another country.",
+        "speaker": "rufina"
+      },
+      {
+        "id": "teams",
+        "text": "Then a colleague in Teams says something else entirely.",
+        "speaker": "rufina"
+      },
+      {
+        "id": "stuck",
+        "text": "Lot-tuh has found information, but she still can't act with confidence.",
+        "text_elevenlabs": "Lotte has found information, but she still can't act with confidence.",
+        "speaker": "rufina"
+      }
+    ],
+    "reveal": [
+      {
+        "id": "name",
+        "text": "This is Trust Label.",
+        "text_elevenlabs": "This is TrustLabel.",
+        "speaker": "rufina"
+      },
+      {
+        "id": "tagline",
+        "text": "Search finds it. Trust Label shows whether you can rely on it.",
+        "text_elevenlabs": "Search finds it. TrustLabel shows whether you can rely on it.",
+        "speaker": "rufina"
+      }
+    ],
+    "grading": [
+      {
+        "id": "intro",
+        "text": "Every source gets a grade from A to G, like an energy label, and every point is explained.",
+        "speaker": "artiom"
+      },
+      {
+        "id": "base",
+        "text": "This old handbook starts at seventy-five.",
+        "speaker": "artiom"
+      },
+      {
+        "id": "owner",
+        "text": "Minus twenty: its owner left.",
+        "speaker": "artiom"
+      },
+      {
+        "id": "review",
+        "text": "Minus fifteen: its review is five hundred and seventy-seven days overdue.",
+        "speaker": "artiom"
+      },
+      {
+        "id": "superseded",
+        "text": "And a newer procedure replaced it. Grade F.",
+        "speaker": "artiom"
+      }
+    ],
+    "applicability": [
+      {
+        "id": "intro",
+        "text": "Applicability is judged separately from quality.",
+        "speaker": "artiom"
+      },
+      {
+        "id": "nl",
+        "text": "A solid Dutch procedure, grade C, still doesn't apply to a Belgian client.",
+        "speaker": "artiom"
+      }
+    ],
+    "triage": [
+      {
+        "id": "intro",
+        "text": "When sources disagree, Trust Label sorts out why.",
+        "speaker": "artiom",
+        "text_elevenlabs": "When sources disagree, TrustLabel sorts out why."
+      },
+      {
+        "id": "country",
+        "text": "Other country.",
+        "speaker": "artiom"
+      },
+      {
+        "id": "outdated",
+        "text": "Outdated.",
+        "speaker": "artiom"
+      },
+      {
+        "id": "exception",
+        "text": "A client exception, claimed only in chat.",
+        "speaker": "artiom"
+      },
+      {
+        "id": "verdict",
+        "text": "The verdict is honest: don't act yet. The twentieth, grade C, versus the twenty-fifth, grade D.",
+        "speaker": "artiom"
+      }
+    ],
+    "routing": [
+      {
+        "id": "intro",
+        "text": "The remaining doubt goes to the best-qualified expert.",
+        "speaker": "artiom"
+      },
+      {
+        "id": "ellen",
+        "text": "Ellen leads the Van Dam account, knows the topic, and owns the evidence.",
+        "speaker": "artiom"
+      },
+      {
+        "id": "others",
+        "text": "Client questions never leave the client's team.",
+        "speaker": "artiom"
+      },
+      {
+        "id": "click",
+        "text": "One click sends her the question, with every competing value and its grade.",
+        "speaker": "artiom"
+      }
+    ],
+    "voice": [
+      {
+        "id": "intro",
+        "text": "Ellen answers with a short voice note.",
+        "speaker": "rufina"
+      },
+      {
+        "id": "transcribe",
+        "text": "Eleven Labs transcribes it.",
+        "speaker": "rufina",
+        "text_elevenlabs": "ElevenLabs transcribes it."
+      },
+      {
+        "id": "extract",
+        "text": "OpenAI extracts the value and a verbatim quote.",
+        "speaker": "rufina"
+      },
+      {
+        "id": "rules",
+        "text": "Then the rules check that the quote really is in the transcript, and really states the value.",
+        "speaker": "rufina"
+      },
+      {
+        "id": "confirm",
+        "text": "Ellen confirms.",
+        "speaker": "rufina"
+      }
+    ],
+    "verified": [
+      {
+        "id": "intro",
+        "text": "Lot-tuh asks again.",
+        "text_elevenlabs": "Lotte asks again.",
+        "speaker": "rufina"
+      },
+      {
+        "id": "answer",
+        "text": "The twenty-fifth. Grade A. Verified by Ellen, valid until March twenty twenty-seven.",
+        "speaker": "rufina",
+        "text_elevenlabs": "The twenty-fifth. Grade A. Verified by Ellen, valid until March 2027."
+      },
+      {
+        "id": "scoped",
+        "text": "And it stays in its context. For Belgium, all clients, the answer is still the twentieth.",
+        "speaker": "rufina"
+      }
+    ],
+    "team": [
+      {
+        "id": "intro",
+        "text": "Trust Label was built by our team, for the S D Works challenge at Tectonic twenty twenty-six.",
+        "text_elevenlabs": "TrustLabel was built by our team, for the SD Worx challenge at Tectonic 2026.",
+        "speaker": "artiom"
+      }
+    ],
+    "outro": [
+      {
+        "id": "principle",
+        "text": "AI reads. Rules judge.",
+        "speaker": "artiom"
+      },
+      {
+        "id": "humans",
+        "text": "Humans verify.",
+        "speaker": "rufina"
+      },
+      {
+        "id": "end",
+        "text": "Trust Label.",
+        "text_elevenlabs": "TrustLabel.",
+        "speaker": "rufina"
+      }
+    ]
+  },
+  "elevenlabs_takes": {
+    "note": "Prompts for ElevenLabs eleven_v4, one take per part (4 variations each), voiced by the part's speaker clone. Save as <scene>.<n>.mp3 (one part) or <scene>.p<k>.<n>.mp3 (several parts), then run scripts/import_takes.py.",
+    "hook": [
+      {
+        "speaker": "rufina",
+        "prompt": "[serious] An urgent customer question comes in. [short pause] Van Dam Logistics needs to know the overtime cut-off. Today."
+      }
+    ],
+    "problem": [
+      {
+        "speaker": "rufina",
+        "prompt": "Search finds three documents. [short pause] One was recently updated. One has an owner who left the company. And one might be for another country. [short pause] Then a colleague in Teams says something else entirely. [pause] /ˈlɔtə/ has found information, but she still can't act with confidence."
+      }
+    ],
+    "reveal": [
+      {
+        "speaker": "rufina",
+        "prompt": "[warmly] This is TrustLabel. [short pause] Search finds it. TrustLabel shows whether you can rely on it."
+      }
+    ],
+    "grading": [
+      {
+        "speaker": "artiom",
+        "prompt": "Every source gets a grade from A to G, like an energy label, and every point is explained. [short pause] This old handbook starts at seventy-five. [short pause] Minus twenty: its owner left. [short pause] Minus fifteen: its review is five hundred and seventy-seven days overdue. [short pause] And a newer procedure replaced it. Grade F."
+      }
+    ],
+    "applicability": [
+      {
+        "speaker": "artiom",
+        "prompt": "Applicability is judged separately from quality. [short pause] A solid Dutch procedure, grade C, still doesn't apply to a Belgian client."
+      }
+    ],
+    "triage": [
+      {
+        "speaker": "artiom",
+        "prompt": "When sources disagree, TrustLabel sorts out why. [short pause] Other country. [short pause] Outdated. [short pause] A client exception, claimed only in chat. [pause] The verdict is honest: don't act yet. The twentieth, grade C, versus the twenty-fifth, grade D."
+      }
+    ],
+    "routing": [
+      {
+        "speaker": "artiom",
+        "prompt": "The remaining doubt goes to the best-qualified expert. [short pause] Ellen leads the Van Dam account, knows the topic, and owns the evidence. [short pause] Client questions never leave the client's team. [short pause] One click sends her the question, with every competing value and its grade."
+      }
+    ],
+    "voice": [
+      {
+        "speaker": "rufina",
+        "prompt": "Ellen answers with a short voice note. [short pause] ElevenLabs transcribes it. [short pause] OpenAI extracts the value and a verbatim quote. [short pause] Then the rules check that the quote really is in the transcript, and really states the value. [short pause] Ellen confirms."
+      }
+    ],
+    "verified": [
+      {
+        "speaker": "rufina",
+        "prompt": "/ˈlɔtə/ asks again. [short pause] [warmly] The twenty-fifth. Grade A. Verified by Ellen, valid until March 2027. [short pause] And it stays in its context. For Belgium, all clients, the answer is still the twentieth."
+      }
+    ],
+    "team": [
+      {
+        "speaker": "artiom",
+        "prompt": "[warmly] TrustLabel was built by our team, for the SD Worx challenge at Tectonic 2026."
+      }
+    ],
+    "outro": [
+      {
+        "speaker": "artiom",
+        "prompt": "[confident] AI reads. [short pause] Rules judge."
+      },
+      {
+        "speaker": "rufina",
+        "prompt": "[confident] Humans verify. [pause] TrustLabel."
+      }
+    ]
+  },
+  "speakers": {
+    "rufina": {
+      "description": "Rufina's ElevenLabs voice clone (female)",
+      "kokoro": "af_heart"
+    },
+    "artiom": {
+      "description": "Artiom's ElevenLabs voice clone (male)",
+      "kokoro": "am_michael"
+    }
+  }
+}

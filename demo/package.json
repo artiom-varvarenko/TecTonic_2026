@@ -1,0 +1,33 @@
+{
+	"name": "trustlabel-demo",
+	"private": true,
+	"version": "1.0.0",
+	"description": "Animated product demo of TrustLabel, built with Remotion",
+	"scripts": {
+		"studio": "remotion studio",
+		"render": "remotion render TrustLabelDemo out/trustlabel-demo.mp4",
+		"render:silent": "remotion render TrustLabelDemo out/trustlabel-demo-no-music.mp4 --props='{\"music\":false}'",
+		"still": "remotion still TrustLabelDemo out/poster.png --frame=1440",
+		"data": "cd .. && uv run python demo/scripts/capture_demo_data.py",
+		"narration": "cd .. && uv run demo/scripts/make_narration.py",
+		"audio": "cd .. && uv run demo/scripts/make_audio.py && cd demo && remotion ffmpeg -y -loglevel error -i public/music/bed.wav -codec:a libmp3lame -b:a 160k public/music/bed.mp3 && rm public/music/bed.wav",
+		"typecheck": "tsc --noEmit",
+		"stills": "node scripts/stills.mjs"
+	},
+	"dependencies": {
+		"@fontsource/inter": "^5.3.0",
+		"@fontsource/jetbrains-mono": "^5.3.0",
+		"@remotion/bundler": "4.0.531",
+		"@remotion/cli": "4.0.531",
+		"@remotion/fonts": "4.0.531",
+		"@remotion/renderer": "4.0.531",
+		"@remotion/transitions": "4.0.531",
+		"react": "^19.3.0",
+		"react-dom": "^19.3.0",
+		"remotion": "4.0.531"
+	},
+	"devDependencies": {
+		"@types/react": "^19.3.0",
+		"typescript": "^7.0.2"
+	}
+}

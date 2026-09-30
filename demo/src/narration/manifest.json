@@ -1,0 +1,247 @@
+{
+  "scenes": {
+    "hook": {
+      "file": "narration/hook.wav",
+      "durationInFrames": 191,
+      "cues": {
+        "intro": {
+          "start": 0,
+          "end": 63
+        },
+        "ask": {
+          "start": 71,
+          "end": 191
+        }
+      },
+      "source": {
+        "label": "Kokoro \u00b7 rufina=af_heart"
+      }
+    },
+    "problem": {
+      "file": "narration/problem.wav",
+      "durationInFrames": 472,
+      "cues": {
+        "search": {
+          "start": 0,
+          "end": 52
+        },
+        "docs": {
+          "start": 61,
+          "end": 247
+        },
+        "teams": {
+          "start": 255,
+          "end": 340
+        },
+        "stuck": {
+          "start": 349,
+          "end": 471
+        }
+      },
+      "source": {
+        "label": "Kokoro \u00b7 rufina=af_heart"
+      }
+    },
+    "reveal": {
+      "file": "narration/reveal.wav",
+      "durationInFrames": 149,
+      "cues": {
+        "name": {
+          "start": 0,
+          "end": 34
+        },
+        "tagline": {
+          "start": 43,
+          "end": 149
+        }
+      },
+      "source": {
+        "label": "Kokoro \u00b7 rufina=af_heart"
+      }
+    },
+    "grading": {
+      "file": "narration/grading.wav",
+      "durationInFrames": 591,
+      "cues": {
+        "intro": {
+          "start": 0,
+          "end": 187
+        },
+        "base": {
+          "start": 196,
+          "end": 268
+        },
+        "owner": {
+          "start": 277,
+          "end": 336
+        },
+        "review": {
+          "start": 345,
+          "end": 494
+        },
+        "superseded": {
+          "start": 503,
+          "end": 590
+        }
+      },
+      "source": {
+        "label": "Kokoro \u00b7 artiom=am_michael"
+      }
+    },
+    "applicability": {
+      "file": "narration/applicability.wav",
+      "durationInFrames": 260,
+      "cues": {
+        "intro": {
+          "start": 0,
+          "end": 90
+        },
+        "nl": {
+          "start": 99,
+          "end": 259
+        }
+      },
+      "source": {
+        "label": "Kokoro \u00b7 artiom=am_michael"
+      }
+    },
+    "triage": {
+      "file": "narration/triage.wav",
+      "durationInFrames": 454,
+      "cues": {
+        "intro": {
+          "start": 0,
+          "end": 104
+        },
+        "country": {
+          "start": 112,
+          "end": 138
+        },
+        "outdated": {
+          "start": 146,
+          "end": 172
+        },
+        "exception": {
+          "start": 181,
+          "end": 258
+        },
+        "verdict": {
+          "start": 266,
+          "end": 454
+        }
+      },
+      "source": {
+        "label": "Kokoro \u00b7 artiom=am_michael"
+      }
+    },
+    "routing": {
+      "file": "narration/routing.wav",
+      "durationInFrames": 491,
+      "cues": {
+        "intro": {
+          "start": 0,
+          "end": 95
+        },
+        "ellen": {
+          "start": 103,
+          "end": 248
+        },
+        "others": {
+          "start": 256,
+          "end": 343
+        },
+        "click": {
+          "start": 351,
+          "end": 490
+        }
+      },
+      "source": {
+        "label": "Kokoro \u00b7 artiom=am_michael"
+      }
+    },
+    "voice": {
+      "file": "narration/voice.wav",
+      "durationInFrames": 416,
+      "cues": {
+        "intro": {
+          "start": 0,
+          "end": 59
+        },
+        "transcribe": {
+          "start": 68,
+          "end": 116
+        },
+        "extract": {
+          "start": 124,
+          "end": 226
+        },
+        "rules": {
+          "start": 234,
+          "end": 375
+        },
+        "confirm": {
+          "start": 383,
+          "end": 416
+        }
+      },
+      "source": {
+        "label": "Kokoro \u00b7 rufina=af_heart"
+      }
+    },
+    "verified": {
+      "file": "narration/verified.wav",
+      "durationInFrames": 368,
+      "cues": {
+        "intro": {
+          "start": 0,
+          "end": 36
+        },
+        "answer": {
+          "start": 45,
+          "end": 207
+        },
+        "scoped": {
+          "start": 216,
+          "end": 367
+        }
+      },
+      "source": {
+        "label": "Kokoro \u00b7 rufina=af_heart"
+      }
+    },
+    "team": {
+      "file": "narration/team.wav",
+      "durationInFrames": 179,
+      "cues": {
+        "intro": {
+          "start": 0,
+          "end": 178
+        }
+      },
+      "source": {
+        "label": "Kokoro \u00b7 artiom=am_michael"
+      }
+    },
+    "outro": {
+      "file": "narration/outro.wav",
+      "durationInFrames": 138,
+      "cues": {
+        "principle": {
+          "start": 0,
+          "end": 62
+        },
+        "humans": {
+          "start": 71,
+          "end": 103
+        },
+        "end": {
+          "start": 112,
+          "end": 137
+        }
+      },
+      "source": {
+        "label": "Kokoro \u00b7 artiom=am_michael, rufina=af_heart"
+      }
+    }
+  }
+}
