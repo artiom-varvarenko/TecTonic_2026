@@ -1,16 +1,18 @@
 import {AbsoluteFill, interpolate, useCurrentFrame} from 'remotion';
 import {C, FONT, GRADE_BG, gradeFor, MONO} from '../theme';
 import {CLAMP, fadeUp, mixColor, SNAPPY, useEnter} from '../anim';
+import {Stage} from '../components/Background';
 import {SceneText} from '../components/SceneText';
-import {Card, ReasonRow} from '../components/Card';
-import {GradeTile} from '../components/GradeTile';
+import {ReasonRow} from '../components/Card';
+import {Pill} from '../components/GradeTile';
+import {Icon} from '../components/Icon';
 import {Ladder} from '../components/Ladder';
+import {SourceCard} from '../components/SourceCard';
 import {SceneNarration, Sfx} from '../components/SceneAudio';
 import {DATA, source} from '../data';
 import {cue, cueWord} from '../timeline';
 
 const DOC = source(DATA.before, 'DOC-BE-009');
-const LEGEND = 'A expert-verified · B strong · C fair · D weak · E poor · F outdated · G contradicted';
 
 export const Grading: React.FC = () => {
 	const frame = useCurrentFrame();
@@ -25,105 +27,117 @@ export const Grading: React.FC = () => {
 	const base = useEnter(at.base + 4, SNAPPY);
 	const owner = useEnter(at.owner + 4, SNAPPY);
 	const review = useEnter(at.review + 4, SNAPPY);
-	const stamp = useEnter(at.superseded + 8, {damping: 14, stiffness: 220});
+	const stamp = useEnter(at.superseded + 10, {damping: 14, stiffness: 220});
+	const total = useEnter(at.superseded + 24);
+	const panel = useEnter(at.explained);
 	const reasonAt = [at.base, at.owner, at.review, at.superseded];
 	const deltas = DOC.reasons.map((r) => r.delta ?? 0);
-	const score = deltas[0] + deltas[1] * owner + deltas[2] * review;
-	const shown = Math.round(score);
-	const grade = frame < at.base ? null : gradeFor(shown);
-	const pointer = 2 + 2 * owner + 1 * review;
-	const explained = useEnter(at.explained);
-	const redOwner = interpolate(frame, [at.owner, at.owner + 10], [0, 1], CLAMP);
+	const shown = Math.round(deltas[0] + deltas[1] * owner + deltas[2] * review);
+	const started = frame >= at.base;
+	const grade = started ? gradeFor(shown) : null;
+	const pointer = 2 + 2 * owner + 1 * review; // C (75) → E (55) → F (40)
 	const redReview = interpolate(frame, [at.review, at.review + 10], [0, 1], CLAMP);
+	const pill = frame >= at.superseded ? (
+		<span style={fadeUp(Math.min(1, stamp * 1.4), 8)}>
+			<Pill tone="warn" size={17}>
+				{DOC.applicability.text}
+			</Pill>
+		</span>
+	) : (
+		<></>
+	);
 	return (
-		<AbsoluteFill style={{fontFamily: FONT}}>
-			<SceneNarration scene="grading" />
-			{reasonAt.map((f, i) => (
-				<Sfx key={i} at={f + 4} src="tick" volume={0.45} />
-			))}
-			<Sfx at={at.superseded + 8} src="stamp" volume={0.55} />
-			<SceneText
-				step="01"
-				kicker="Trust label per source"
-				title="Every source gets an [A–G grade.] Every point is explained."
-				body="Rules, not a model, assign each grade: kind of source, owner, review cycle, age, corroboration and conflicts."
-			/>
-			<div style={{position: 'absolute', left: 820, top: 105, width: 990, ...fadeUp(card, 60)}}>
-				<Card padding={38}>
-					<div style={{display: 'flex', gap: 26, alignItems: 'flex-start'}}>
-						<div style={{transform: `scale(${1 + 0.12 * Math.sin(Math.PI * Math.min(1, base))})`}}>
-							<GradeTile grade={grade} size={104} />
-						</div>
-						<div style={{flex: 1, minWidth: 0}}>
-							<div style={{display: 'flex', gap: 14, alignItems: 'center', fontSize: 19, color: C.muted, letterSpacing: 1.2, textTransform: 'uppercase', fontWeight: 700}}>
-								{DOC.kind_label}
-								<span style={{fontFamily: MONO, textTransform: 'none', letterSpacing: 0}}>{DOC.id}</span>
-								<span style={{border: `1px solid ${C.border}`, borderRadius: 8, padding: '1px 10px', textTransform: 'none', letterSpacing: 0, fontVariantNumeric: 'tabular-nums'}}>
-									score {frame < at.base ? '—' : shown}
-								</span>
+		<Stage tone="light">
+			<AbsoluteFill style={{fontFamily: FONT}}>
+				<SceneNarration scene="grading" />
+				{reasonAt.map((f, i) => (
+					<Sfx key={i} at={f + 4} src="tick" volume={0.45} />
+				))}
+				<Sfx at={at.superseded + 10} src="stamp" volume={0.55} />
+				<SceneText
+					step="01"
+					kicker="Trust label per source"
+					title="Every source gets an [A–G grade.] Every point is explained."
+					body="Rules, not a model, assign each grade: kind of source, owner, review cycle, age, corroboration and conflicts."
+				/>
+				<div style={{position: 'absolute', left: 790, top: 84, width: 1030, ...fadeUp(card, 60)}}>
+					<SourceCard
+						source={{...DOC, owner_active: frame < at.owner + 4}}
+						grade={grade}
+						score={started ? shown : null}
+						datedStyle={{color: mixColor('#6c717a', '#b42318', redReview), fontWeight: redReview > 0.5 ? 600 : 400}}
+						pill={pill}
+					>
+						<div style={{display: 'flex', gap: 30, marginTop: 20, alignItems: 'flex-start'}}>
+							<div style={{flex: 1, minWidth: 0, opacity: 0.35 + 0.65 * panel}}>
+								<div style={{display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 20, fontWeight: 600, color: C.ink2}}>
+									Why {grade ?? '?'}? <Icon name="chevronDown" size={18} style={{transform: 'rotate(180deg)'}} />
+								</div>
+								<div style={{marginTop: 12, padding: '6px 18px', borderRadius: 14, background: C.surface2, border: `1px solid ${C.line}`}}>
+									{DOC.reasons.map((r, i) => (
+										<Reason key={r.code} at={reasonAt[i]} reason={r} first={i === 0} />
+									))}
+									<div
+										style={{
+											display: 'flex',
+											justifyContent: 'space-between',
+											alignItems: 'baseline',
+											padding: '12px 0 10px',
+											borderTop: `1px solid ${C.line}`,
+											fontSize: 20,
+											fontWeight: 600,
+											...fadeUp(total, 8),
+										}}
+									>
+										Trust score
+										<span style={{fontFamily: MONO, fontWeight: 600, fontSize: 18, background: C.ink, color: '#fff', padding: '4px 8px', borderRadius: 8}}>
+											{DOC.score} → {DOC.grade}
+										</span>
+									</div>
+								</div>
 							</div>
-							<div style={{fontSize: 34, fontWeight: 800, marginTop: 6, letterSpacing: -0.4}}>{DOC.title}</div>
-							<div style={{fontSize: 21, color: C.muted, marginTop: 2}}>{DOC.source}</div>
-						</div>
-					</div>
-					<div style={{display: 'flex', gap: 34, fontSize: 21, color: C.muted, marginTop: 20}}>
-						<span style={{color: mixColor('#5d6b7c', '#c62828', redOwner), fontWeight: redOwner > 0.5 ? 800 : 500}}>
-							Owner: {DOC.owner_name}
-							{redOwner > 0.5 ? ' (left SD Worx)' : ''}
-						</span>
-						<span style={{color: mixColor('#5d6b7c', '#c62828', redReview), fontWeight: redReview > 0.5 ? 800 : 500}}>Last reviewed {DOC.last_reviewed_on}</span>
-					</div>
-					<div style={{fontSize: 24, fontWeight: 700, marginTop: 20}}>{DOC.statement}</div>
-					<div style={{borderTop: `1px solid ${C.border}`, margin: '24px 0 20px'}} />
-					<div style={{display: 'flex', gap: 30}}>
-						<div style={{flex: 1}}>
-							<div style={{fontSize: 22, fontWeight: 800, color: C.accent, marginBottom: 16, opacity: 0.4 + 0.6 * explained}}>Why this grade</div>
-							<div style={{display: 'flex', flexDirection: 'column', gap: 16}}>
-								{DOC.reasons.map((r, i) => (
-									<Reason key={r.code} at={reasonAt[i]} reason={r} />
-								))}
+							<div style={{width: 290, flex: 'none', paddingTop: 40}}>
+								<Ladder
+									enterAt={30}
+									width={210}
+									rowHeight={36}
+									gap={7}
+									pointer={started ? {index: pointer, label: `${gradeFor(shown)} · ${shown}`, opacity: Math.min(1, base * 1.5)} : undefined}
+								/>
 							</div>
 						</div>
-						<div style={{width: 300, flex: 'none'}}>
-							<Ladder
-								enterAt={40}
-								pointer={frame < at.base ? null : pointer}
-								pointerLabel={`${gradeFor(shown)} · ${shown}`}
-								pointerOpacity={Math.min(1, base * 1.5)}
-								rowHeight={44}
-								width={300}
-								gap={7}
-							/>
-						</div>
+					</SourceCard>
+					<div
+						style={{
+							position: 'absolute',
+							right: 34,
+							top: 106,
+							border: `6px solid ${GRADE_BG.F}`,
+							color: GRADE_BG.F,
+							fontFamily: FONT,
+							fontWeight: 700,
+							fontSize: 36,
+							letterSpacing: 4,
+							padding: '4px 20px',
+							borderRadius: 12,
+							transform: `rotate(-6deg) scale(${2.2 - 1.2 * stamp})`,
+							opacity: Math.min(1, stamp * 2),
+							background: 'rgba(255,255,255,0.9)',
+						}}
+					>
+						SUPERSEDED
 					</div>
-					<div style={{fontSize: 17, color: C.muted, marginTop: 24, height: 24, opacity: explained * (1 - stamp)}}>{LEGEND}</div>
-				</Card>
-				<div
-					style={{
-						position: 'absolute',
-						right: 44,
-						bottom: 20,
-						border: `7px solid ${GRADE_BG.F}`,
-						color: GRADE_BG.F,
-						fontWeight: 900,
-						fontSize: 44,
-						letterSpacing: 5,
-						padding: '4px 22px',
-						borderRadius: 12,
-						transform: `rotate(-6deg) scale(${2.2 - 1.2 * stamp})`,
-						opacity: Math.min(1, stamp * 2),
-						background: 'rgba(255,255,255,0.88)',
-					}}
-				>
-					SUPERSEDED
 				</div>
-			</div>
-		</AbsoluteFill>
+			</AbsoluteFill>
+		</Stage>
 	);
 };
 
-const Reason: React.FC<{at: number; reason: (typeof DOC.reasons)[number]}> = ({at, reason}) => {
+const Reason: React.FC<{at: number; reason: (typeof DOC.reasons)[number]; first: boolean}> = ({at, reason, first}) => {
 	const p = useEnter(at, SNAPPY);
-	return <ReasonRow delta={reason.delta} cap={reason.cap} text={reason.text} size={21} style={{...fadeUp(p, 16), transform: `translateX(${(1 - p) * -30}px)`}} />;
+	return (
+		<div style={{padding: '11px 0', borderTop: first ? 'none' : `1px solid ${C.line}`, ...fadeUp(p, 14), transform: `translateX(${(1 - p) * -24}px)`}}>
+			<ReasonRow delta={reason.delta} cap={reason.cap} text={reason.text} size={20} />
+		</div>
+	);
 };
-

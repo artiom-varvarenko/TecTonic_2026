@@ -4,13 +4,15 @@ import {CLAMP} from '../anim';
 type Point = {frame: number; x: number; y: number};
 
 /** Mouse pointer that glides between keyframes and "clicks" at the given frames. */
-export const Cursor: React.FC<{path: Point[]; clicks: number[]; appearAt?: number}> = ({path, clicks, appearAt = path[0].frame}) => {
+export const Cursor: React.FC<{path: Point[]; clicks: number[]; appearAt?: number; hideAfter?: number}> = ({path, clicks, appearAt = path[0].frame, hideAfter}) => {
 	const frame = useCurrentFrame();
 	const frames = path.map((p) => p.frame);
 	const ease = {...CLAMP, easing: Easing.bezier(0.45, 0, 0.2, 1)};
 	const x = interpolate(frame, frames, path.map((p) => p.x), ease);
 	const y = interpolate(frame, frames, path.map((p) => p.y), ease);
-	const opacity = interpolate(frame, [appearAt, appearAt + 8], [0, 1], CLAMP);
+	const opacity =
+		interpolate(frame, [appearAt, appearAt + 8], [0, 1], CLAMP) *
+		(hideAfter === undefined ? 1 : interpolate(frame, [hideAfter, hideAfter + 8], [1, 0], CLAMP));
 	const press = clicks.reduce((acc, c) => Math.max(acc, interpolate(frame, [c - 3, c, c + 6], [0, 1, 0], CLAMP)), 0);
 	const ripple = clicks.map((c) => interpolate(frame, [c, c + 18], [0, 1], CLAMP)).find((r) => r > 0 && r < 1) ?? 0;
 	return (
@@ -24,7 +26,7 @@ export const Cursor: React.FC<{path: Point[]; clicks: number[]; appearAt?: numbe
 						width: 60 * (0.4 + ripple),
 						height: 60 * (0.4 + ripple),
 						borderRadius: '50%',
-						border: '3px solid rgba(110,168,255,0.9)',
+						border: '3px solid rgba(47,91,234,0.85)',
 						opacity: 1 - ripple,
 					}}
 				/>

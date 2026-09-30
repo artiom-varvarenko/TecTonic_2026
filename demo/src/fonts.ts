@@ -1,10 +1,8 @@
 import {loadFont} from '@remotion/fonts';
 import {staticFile} from 'remotion';
 
-// Bundled locally (from @fontsource), so rendering never depends on a font CDN.
-for (const weight of ['400', '500', '600', '700', '800', '900']) {
-	loadFont({family: 'Inter', url: staticFile(`fonts/inter-latin-${weight}-normal.woff2`), weight});
-}
-for (const weight of ['500', '700']) {
-	loadFont({family: 'JetBrains Mono', url: staticFile(`fonts/jetbrains-mono-latin-${weight}-normal.woff2`), weight});
-}
+// The app's own fonts (copied from static/fonts), so rendering never depends on a font CDN.
+loadFont({family: 'Geist', url: staticFile('fonts/geist-latin-wght-normal.woff2'), weight: '100 900'});
+loadFont({family: 'Geist Mono', url: staticFile('fonts/geist-mono-latin-wght-normal.woff2'), weight: '100 900'});
+loadFont({family: 'Instrument Serif', url: staticFile('fonts/instrument-serif-latin-400-normal.woff2'), weight: '400', style: 'normal'});
+loadFont({family: 'Instrument Serif', url: staticFile('fonts/instrument-serif-latin-400-italic.woff2'), weight: '400', style: 'italic'});

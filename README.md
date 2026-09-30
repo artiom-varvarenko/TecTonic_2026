@@ -62,8 +62,10 @@ A client-specific formal source (policy, procedure or verified answer) overrides
 ## Demo video
 
 [`demo/out/trustlabel-demo.mp4`](demo/out/trustlabel-demo.mp4) is a narrated walkthrough of the demo path below,
-made with Remotion from the engine's real output and narrated by Rufina and Artiom's ElevenLabs voice clones. See
-[`demo/README.md`](demo/README.md) to re-render it, re-voice it, or add the team's photos.
+from Google sign-in and the trust overview to verifying by voice, the Teams agent over MCP, and the Cloudflare
+Tunnel deployment. It is made with Remotion from the app's real output and narrated by Rufina and Artiom's ElevenLabs
+voice clones. See [`demo/README.md`](demo/README.md) to render it (`cd demo && npm install && npm run render`),
+re-voice it, or add the team's photos.
 
 ## Run it
 

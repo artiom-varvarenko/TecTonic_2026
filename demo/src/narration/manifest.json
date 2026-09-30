@@ -2,11 +2,11 @@
   "scenes": {
     "hook": {
       "file": "narration/hook.wav",
-      "durationInFrames": 206,
+      "durationInFrames": 201,
       "cues": {
         "intro": {
           "start": 0,
-          "end": 76,
+          "end": 74,
           "words": [
             [
               "an",
@@ -14,7 +14,7 @@
             ],
             [
               "urgent",
-              6
+              7
             ],
             [
               "customer",
@@ -22,7 +22,7 @@
             ],
             [
               "question",
-              33
+              34
             ],
             [
               "comes",
@@ -30,56 +30,56 @@
             ],
             [
               "in",
-              55
+              56
             ]
           ]
         },
         "ask": {
-          "start": 94,
-          "end": 196,
+          "start": 92,
+          "end": 191,
           "words": [
             [
-              "fandam",
-              94
+              "fondome",
+              92
             ],
             [
               "logistics",
-              103
+              100
             ],
             [
               "needs",
-              118
+              115
             ],
             [
               "to",
-              128
+              125
             ],
             [
               "know",
-              136
+              133
             ],
             [
               "the",
-              141
+              137
             ],
             [
               "overtime",
-              145
+              141
             ],
             [
               "cutoff",
-              159
+              155
             ],
             [
               "today",
-              187
+              182
             ]
           ]
         }
       },
       "locked": true,
       "source": {
-        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones",
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones (Ellen: library voice)",
         "takes": [
           {
             "speaker": "rufina",
@@ -91,11 +91,11 @@
     },
     "problem": {
       "file": "narration/problem.wav",
-      "durationInFrames": 578,
+      "durationInFrames": 601,
       "cues": {
         "search": {
           "start": 0,
-          "end": 56,
+          "end": 55,
           "words": [
             [
               "search",
@@ -116,183 +116,183 @@
           ]
         },
         "docs": {
-          "start": 90,
-          "end": 298,
+          "start": 92,
+          "end": 306,
           "words": [
             [
               "one",
-              90
+              92
             ],
             [
               "was",
-              99
+              101
             ],
             [
               "recently",
-              106
+              108
             ],
             [
               "updated",
-              119
+              121
             ],
             [
               "one",
-              155
+              158
             ],
             [
               "has",
-              166
+              167
             ],
             [
               "an",
-              173
+              175
             ],
             [
               "owner",
-              178
+              181
             ],
             [
               "who",
-              190
+              191
             ],
             [
               "left",
-              197
+              199
             ],
             [
               "the",
-              203
+              205
             ],
             [
               "company",
-              209
+              211
             ],
             [
               "and",
-              236
+              243
             ],
             [
               "one",
-              245
+              250
             ],
             [
               "might",
-              254
-            ],
-            [
-              "be",
               262
             ],
             [
+              "be",
+              269
+            ],
+            [
               "for",
-              268
+              277
             ],
             [
               "another",
-              274
+              283
             ],
             [
               "country",
-              282
+              290
             ]
           ]
         },
         "teams": {
-          "start": 322,
-          "end": 411,
+          "start": 336,
+          "end": 434,
           "words": [
             [
               "then",
-              322
+              336
             ],
             [
               "a",
-              329
+              346
             ],
             [
               "colleague",
-              334
+              356
             ],
             [
               "in",
-              342
+              366
             ],
             [
               "teams",
-              350
+              374
             ],
             [
               "says",
-              360
+              383
             ],
             [
               "something",
-              371
+              394
             ],
             [
               "else",
-              382
+              404
             ],
             [
               "entirely",
-              392
+              415
             ]
           ]
         },
         "stuck": {
-          "start": 439,
-          "end": 569,
+          "start": 482,
+          "end": 592,
           "words": [
             [
               "lata",
-              439
+              482
             ],
             [
               "has",
-              460
+              484
             ],
             [
               "found",
-              468
+              493
             ],
             [
               "information",
-              477
+              501
             ],
             [
               "but",
-              509
+              532
             ],
             [
               "she",
-              514
+              538
             ],
             [
               "still",
-              520
+              544
             ],
             [
               "can't",
-              530
+              554
             ],
             [
               "act",
-              543
+              566
             ],
             [
               "with",
-              548
+              571
             ],
             [
               "confidence",
-              554
+              578
             ]
           ]
         }
       },
       "locked": true,
       "source": {
-        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones",
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones (Ellen: library voice)",
         "takes": [
           {
             "speaker": "rufina",
@@ -304,7 +304,7 @@
     },
     "reveal": {
       "file": "narration/reveal.wav",
-      "durationInFrames": 183,
+      "durationInFrames": 180,
       "cues": {
         "name": {
           "start": 0,
@@ -320,21 +320,21 @@
             ],
             [
               "trust",
-              16
+              17
             ],
             [
               "label",
-              16
+              17
             ]
           ]
         },
         "tagline": {
-          "start": 58,
-          "end": 175,
+          "start": 56,
+          "end": 174,
           "words": [
             [
               "search",
-              58
+              56
             ],
             [
               "finds",
@@ -342,7 +342,7 @@
             ],
             [
               "it",
-              79
+              80
             ],
             [
               "trust",
@@ -354,38 +354,38 @@
             ],
             [
               "shows",
-              118
+              117
             ],
             [
               "whether",
-              130
+              128
             ],
             [
               "you",
-              142
+              139
             ],
             [
               "can",
-              149
+              147
             ],
             [
               "rely",
-              154
+              151
             ],
             [
               "on",
-              162
+              161
             ],
             [
               "it",
-              170
+              168
             ]
           ]
         }
       },
       "locked": true,
       "source": {
-        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones",
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones (Ellen: library voice)",
         "takes": [
           {
             "speaker": "rufina",
@@ -397,11 +397,11 @@
     },
     "grading": {
       "file": "narration/grading.wav",
-      "durationInFrames": 648,
+      "durationInFrames": 653,
       "cues": {
         "intro": {
           "start": 0,
-          "end": 171,
+          "end": 172,
           "words": [
             [
               "every",
@@ -417,27 +417,27 @@
             ],
             [
               "a",
-              28
+              27
             ],
             [
               "grade",
-              34
+              35
             ],
             [
               "from",
-              38
+              39
             ],
             [
               "a",
-              46
+              47
             ],
             [
               "to",
-              55
+              57
             ],
             [
               "g",
-              62
+              63
             ],
             [
               "like",
@@ -449,7 +449,7 @@
             ],
             [
               "energy",
-              91
+              92
             ],
             [
               "label",
@@ -457,11 +457,11 @@
             ],
             [
               "and",
-              120
+              121
             ],
             [
               "every",
-              128
+              127
             ],
             [
               "point",
@@ -469,7 +469,7 @@
             ],
             [
               "is",
-              149
+              148
             ],
             [
               "explained",
@@ -478,141 +478,141 @@
           ]
         },
         "base": {
-          "start": 196,
-          "end": 260,
+          "start": 202,
+          "end": 267,
           "words": [
             [
               "this",
-              196
+              202
             ],
             [
               "old",
-              200
+              208
             ],
             [
               "handbook",
-              206
+              214
             ],
             [
               "starts",
-              221
+              229
             ],
             [
               "at",
-              230
+              238
             ],
             [
               "75",
-              236
+              244
             ]
           ]
         },
         "owner": {
-          "start": 289,
-          "end": 355,
+          "start": 295,
+          "end": 362,
           "words": [
             [
               "minus",
-              289
+              295
             ],
             [
               "20",
-              302
+              308
             ],
             [
               "its",
-              332
+              338
             ],
             [
               "owner",
-              335
+              342
             ],
             [
               "left",
-              344
+              351
             ]
           ]
         },
         "review": {
-          "start": 383,
-          "end": 529,
+          "start": 389,
+          "end": 532,
           "words": [
             [
               "minus",
-              383
+              389
             ],
             [
               "15",
-              391
+              397
             ],
             [
               "its",
-              422
-            ],
-            [
-              "review",
               428
             ],
             [
+              "review",
+              432
+            ],
+            [
               "is",
-              440
+              445
             ],
             [
               "577",
-              448
+              452
             ],
             [
               "days",
-              496
+              502
             ],
             [
               "overdue",
-              510
+              514
             ]
           ]
         },
         "superseded": {
-          "start": 550,
-          "end": 638,
+          "start": 556,
+          "end": 644,
           "words": [
             [
               "and",
-              550
-            ],
-            [
-              "a",
               556
             ],
             [
+              "a",
+              562
+            ],
+            [
               "newer",
-              560
+              566
             ],
             [
               "procedure",
-              568
+              575
             ],
             [
               "replaced",
-              581
+              586
             ],
             [
               "it",
-              597
+              602
             ],
             [
               "grade",
-              625
+              612
             ],
             [
               "f",
-              627
+              632
             ]
           ]
         }
       },
       "locked": true,
       "source": {
-        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones",
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones (Ellen: library voice)",
         "takes": [
           {
             "speaker": "artiom",
@@ -624,7 +624,7 @@
     },
     "applicability": {
       "file": "narration/applicability.wav",
-      "durationInFrames": 278,
+      "durationInFrames": 275,
       "cues": {
         "intro": {
           "start": 0,
@@ -636,88 +636,88 @@
             ],
             [
               "is",
-              24
+              25
             ],
             [
               "judged",
-              34
+              35
             ],
             [
               "separately",
-              43
+              44
             ],
             [
               "from",
-              62
+              63
             ],
             [
               "quality",
-              75
+              74
             ]
           ]
         },
         "nl": {
-          "start": 120,
-          "end": 268,
+          "start": 119,
+          "end": 266,
           "words": [
             [
               "a",
-              120
+              119
             ],
             [
               "solid",
-              125
+              123
             ],
             [
               "dutch",
-              136
+              134
             ],
             [
               "procedure",
-              145
+              142
             ],
             [
               "grade",
-              179
+              175
             ],
             [
               "c",
-              180
+              177
             ],
             [
               "still",
-              206
+              204
             ],
             [
               "doesn't",
-              215
+              213
             ],
             [
               "apply",
-              227
+              223
             ],
             [
               "to",
-              235
+              233
             ],
             [
               "a",
-              242
+              239
             ],
             [
               "belgian",
-              246
+              244
             ],
             [
               "client",
-              255
+              253
             ]
           ]
         }
       },
       "locked": true,
       "source": {
-        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones",
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones (Ellen: library voice)",
         "takes": [
           {
             "speaker": "artiom",
@@ -729,11 +729,11 @@
     },
     "triage": {
       "file": "narration/triage.wav",
-      "durationInFrames": 564,
+      "durationInFrames": 567,
       "cues": {
         "intro": {
           "start": 0,
-          "end": 103,
+          "end": 100,
           "words": [
             [
               "when",
@@ -741,69 +741,69 @@
             ],
             [
               "sources",
-              6
+              5
             ],
             [
               "disagree",
-              19
+              17
             ],
             [
               "trust",
-              59
+              56
             ],
             [
               "label",
-              59
+              56
             ],
             [
               "sorts",
-              71
+              68
             ],
             [
               "out",
-              83
+              81
             ],
             [
               "why",
-              91
+              89
             ]
           ]
         },
         "country": {
-          "start": 140,
-          "end": 156,
+          "start": 135,
+          "end": 151,
           "words": [
             [
               "other",
-              140
+              135
             ],
             [
               "country",
-              142
+              137
             ]
           ]
         },
         "outdated": {
-          "start": 177,
-          "end": 196,
+          "start": 174,
+          "end": 194,
           "words": [
             [
               "outdated",
-              177
+              174
             ]
           ]
         },
         "exception": {
-          "start": 222,
+          "start": 223,
           "end": 300,
           "words": [
             [
               "a",
-              222
+              223
             ],
             [
               "client",
-              223
+              224
             ],
             [
               "exception",
@@ -811,100 +811,100 @@
             ],
             [
               "claimed",
-              263
+              265
             ],
             [
               "only",
-              269
+              270
             ],
             [
               "in",
-              283
+              284
             ],
             [
               "chat",
-              292
+              291
             ]
           ]
         },
         "verdict": {
-          "start": 327,
-          "end": 555,
+          "start": 329,
+          "end": 557,
           "words": [
             [
               "the",
-              327
+              329
             ],
             [
               "verdict",
-              331
+              333
             ],
             [
               "is",
-              340
+              343
             ],
             [
               "honest",
-              350
+              353
             ],
             [
               "don't",
-              383
+              386
             ],
             [
               "act",
-              391
+              394
             ],
             [
               "yet",
-              395
+              399
             ],
             [
               "the",
-              431
+              434
             ],
             [
               "20th",
-              432
+              434
             ],
             [
               "grade",
-              463
-            ],
-            [
-              "c",
               464
             ],
             [
+              "c",
+              465
+            ],
+            [
               "versus",
-              490
+              491
             ],
             [
               "the",
-              496
+              499
             ],
             [
               "25th",
-              504
+              506
             ],
             [
               "grade",
-              540
+              541
             ],
             [
               "d",
-              542
+              544
             ]
           ]
         }
       },
       "locked": true,
       "source": {
-        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones",
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones (Ellen: library voice)",
         "takes": [
           {
             "speaker": "artiom",
-            "take": "triage.1.mp3",
+            "take": "triage.3.mp3",
             "match": 0.928
           }
         ]
@@ -912,11 +912,11 @@
     },
     "routing": {
       "file": "narration/routing.wav",
-      "durationInFrames": 493,
+      "durationInFrames": 480,
       "cues": {
         "intro": {
           "start": 0,
-          "end": 91,
+          "end": 89,
           "words": [
             [
               "the",
@@ -928,11 +928,11 @@
             ],
             [
               "doubt",
-              15
+              16
             ],
             [
               "goes",
-              27
+              28
             ],
             [
               "to",
@@ -948,168 +948,168 @@
             ],
             [
               "qualified",
-              56
+              55
             ],
             [
               "expert",
-              72
+              73
             ]
           ]
         },
         "ellen": {
-          "start": 123,
-          "end": 242,
+          "start": 118,
+          "end": 236,
           "words": [
             [
               "ellen",
-              123
+              118
             ],
             [
               "leads",
-              126
+              122
             ],
             [
               "the",
-              135
+              130
             ],
             [
               "van",
-              141
+              137
             ],
             [
               "damme",
-              147
+              142
             ],
             [
               "account",
-              169
+              164
             ],
             [
               "knows",
-              175
+              170
             ],
             [
               "the",
-              182
+              178
             ],
             [
               "topic",
-              189
+              184
             ],
             [
               "and",
-              209
+              194
             ],
             [
               "owns",
-              212
+              206
             ],
             [
               "the",
-              224
+              219
             ],
             [
               "evidence",
-              230
+              225
             ]
           ]
         },
         "others": {
-          "start": 269,
-          "end": 340,
+          "start": 264,
+          "end": 332,
           "words": [
             [
               "client",
-              269
+              264
             ],
             [
               "questions",
-              274
+              266
             ],
             [
               "never",
-              289
+              280
             ],
             [
               "leave",
-              305
+              297
             ],
             [
               "the",
-              314
+              307
             ],
             [
               "client's",
-              319
+              312
             ],
             [
               "team",
-              331
+              324
             ]
           ]
         },
         "click": {
-          "start": 361,
-          "end": 484,
+          "start": 349,
+          "end": 471,
           "words": [
             [
               "one",
-              361
+              349
             ],
             [
               "click",
-              367
+              356
             ],
             [
               "sends",
-              375
+              364
             ],
             [
               "her",
-              385
+              373
             ],
             [
               "the",
-              391
+              379
             ],
             [
               "question",
-              395
+              383
             ],
             [
               "with",
-              406
+              394
             ],
             [
               "every",
-              417
+              405
             ],
             [
               "competing",
-              429
+              418
             ],
             [
               "value",
-              442
+              430
             ],
             [
               "and",
-              456
+              443
             ],
             [
               "its",
-              469
+              456
             ],
             [
               "grade",
-              475
+              462
             ]
           ]
         }
       },
       "locked": true,
       "source": {
-        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones",
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones (Ellen: library voice)",
         "takes": [
           {
             "speaker": "artiom",
@@ -1121,11 +1121,11 @@
     },
     "voice": {
       "file": "narration/voice.wav",
-      "durationInFrames": 464,
+      "durationInFrames": 737,
       "cues": {
         "intro": {
           "start": 0,
-          "end": 67,
+          "end": 65,
           "words": [
             [
               "ellen",
@@ -1133,7 +1133,7 @@
             ],
             [
               "answers",
-              8
+              9
             ],
             [
               "with",
@@ -1141,318 +1141,406 @@
             ],
             [
               "a",
-              33
+              34
             ],
             [
               "short",
-              37
+              38
             ],
             [
               "voice",
-              45
+              46
             ],
             [
               "note",
-              54
+              55
+            ]
+          ]
+        },
+        "note": {
+          "start": 85,
+          "end": 288,
+          "words": [
+            [
+              "yes",
+              85
+            ],
+            [
+              "van",
+              113
+            ],
+            [
+              "damme",
+              115
+            ],
+            [
+              "logistics",
+              126
+            ],
+            [
+              "really",
+              135
+            ],
+            [
+              "has",
+              147
+            ],
+            [
+              "the",
+              156
+            ],
+            [
+              "25th",
+              161
+            ],
+            [
+              "as",
+              179
+            ],
+            [
+              "cut",
+              182
+            ],
+            [
+              "off",
+              188
+            ],
+            [
+              "valid",
+              217
+            ],
+            [
+              "until",
+              217
+            ],
+            [
+              "march",
+              228
+            ],
+            [
+              "31st",
+              235
+            ],
+            [
+              "2027",
+              266
             ]
           ]
         },
         "transcribe": {
-          "start": 89,
-          "end": 136,
+          "start": 308,
+          "end": 384,
           "words": [
             [
-              "eleven",
-              89
+              "11lab",
+              308
             ],
             [
-              "labs",
-              95
+              "scribe",
+              327
             ],
             [
-              "transcribes",
-              104
+              "turns",
+              346
             ],
             [
               "it",
-              128
+              355
+            ],
+            [
+              "into",
+              361
+            ],
+            [
+              "text",
+              369
             ]
           ]
         },
         "extract": {
-          "start": 152,
-          "end": 244,
+          "start": 415,
+          "end": 508,
           "words": [
             [
               "open",
-              152
+              415
             ],
             [
               "ai",
-              152
+              415
             ],
             [
               "extracts",
-              167
+              430
             ],
             [
               "the",
-              185
+              447
             ],
             [
               "value",
-              194
+              456
             ],
             [
               "and",
-              204
+              466
             ],
             [
               "a",
-              213
+              477
             ],
             [
               "verbatim",
-              217
+              480
             ],
             [
               "quote",
-              234
+              496
             ]
           ]
         },
         "rules": {
-          "start": 268,
-          "end": 415,
+          "start": 532,
+          "end": 684,
           "words": [
             [
               "then",
-              268
+              532
             ],
             [
               "the",
-              271
+              539
             ],
             [
               "rules",
-              278
+              544
             ],
             [
               "check",
-              286
+              550
             ],
             [
               "that",
-              296
+              561
             ],
             [
               "the",
-              302
+              568
             ],
             [
               "quote",
-              307
+              573
             ],
             [
               "really",
-              314
+              580
             ],
             [
               "is",
-              326
+              592
             ],
             [
               "in",
-              338
+              604
             ],
             [
               "the",
-              344
+              610
             ],
             [
               "transcript",
-              348
+              614
             ],
             [
               "and",
-              362
+              630
             ],
             [
               "really",
-              377
+              642
             ],
             [
               "states",
-              387
+              654
             ],
             [
               "the",
-              397
+              665
             ],
             [
               "value",
-              404
+              672
             ]
           ]
         },
         "confirm": {
-          "start": 434,
-          "end": 455,
+          "start": 709,
+          "end": 727,
           "words": [
             [
               "ellen",
-              434
+              709
             ],
             [
               "confirms",
-              440
+              712
             ]
           ]
         }
       },
       "locked": true,
       "source": {
-        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones",
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones (Ellen: library voice)",
         "takes": [
           {
             "speaker": "rufina",
-            "take": "voice.1.mp3",
+            "take": "voice.p1.1.mp3",
             "match": 1.0
+          },
+          {
+            "speaker": "ellen",
+            "take": "voice.p2.1.mp3",
+            "match": 0.875
+          },
+          {
+            "speaker": "rufina",
+            "take": "voice.p3.2.mp3",
+            "match": 0.957
           }
         ]
       }
     },
     "verified": {
       "file": "narration/verified.wav",
-      "durationInFrames": 428,
+      "durationInFrames": 430,
       "cues": {
         "intro": {
           "start": 0,
-          "end": 37,
+          "end": 36,
           "words": [
             [
-              "latta",
+              "lotta",
               0
             ],
             [
               "asks",
-              11
+              10
             ],
             [
               "again",
-              22
+              21
             ]
           ]
         },
         "answer": {
-          "start": 62,
+          "start": 65,
           "end": 235,
           "words": [
             [
               "the",
-              62
+              65
             ],
             [
               "25th",
-              62
+              66
             ],
             [
               "grade",
-              97
-            ],
-            [
-              "a",
               103
             ],
             [
+              "a",
+              106
+            ],
+            [
               "verified",
-              126
+              129
             ],
             [
               "by",
-              140
+              143
             ],
             [
               "ellen",
-              149
+              153
             ],
             [
               "valid",
-              166
+              170
             ],
             [
               "until",
-              178
+              181
             ],
             [
               "march",
-              191
+              194
             ],
             [
               "2027",
-              199
+              202
             ]
           ]
         },
         "scoped": {
-          "start": 252,
+          "start": 254,
           "end": 425,
           "words": [
             [
               "and",
-              252
+              254
             ],
             [
               "it",
-              255
-            ],
-            [
-              "stays",
               259
             ],
             [
+              "stays",
+              262
+            ],
+            [
               "in",
-              268
+              271
             ],
             [
               "its",
-              275
+              277
             ],
             [
               "context",
-              280
+              282
             ],
             [
               "for",
-              312
+              314
             ],
             [
               "belgium",
-              316
+              319
             ],
             [
               "all",
-              340
+              343
             ],
             [
               "clients",
-              344
+              347
             ],
             [
               "the",
-              370
+              373
             ],
             [
               "answer",
-              372
+              374
             ],
             [
               "is",
-              380
+              381
             ],
             [
               "still",
-              389
+              391
             ],
             [
               "the",
@@ -1460,14 +1548,14 @@
             ],
             [
               "20th",
-              405
+              407
             ]
           ]
         }
       },
       "locked": true,
       "source": {
-        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones",
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones (Ellen: library voice)",
         "takes": [
           {
             "speaker": "rufina",
@@ -1479,94 +1567,178 @@
     },
     "team": {
       "file": "narration/team.wav",
-      "durationInFrames": 170,
+      "durationInFrames": 396,
       "cues": {
-        "intro": {
+        "rufina": {
           "start": 0,
-          "end": 160,
+          "end": 41,
           "words": [
             [
-              "trust",
+              "hi",
               0
             ],
             [
-              "label",
-              0
+              "i'm",
+              21
             ],
             [
-              "was",
-              18
-            ],
+              "rufina",
+              29
+            ]
+          ]
+        },
+        "artiom": {
+          "start": 61,
+          "end": 96,
+          "words": [
             [
-              "built",
-              27
-            ],
-            [
-              "by",
-              35
-            ],
-            [
-              "our",
-              46
-            ],
-            [
-              "team",
-              52
-            ],
-            [
-              "for",
+              "and",
               61
             ],
             [
+              "i'm",
+              71
+            ],
+            [
+              "artyom",
+              81
+            ]
+          ]
+        },
+        "built": {
+          "start": 117,
+          "end": 243,
+          "words": [
+            [
+              "we",
+              117
+            ],
+            [
+              "built",
+              122
+            ],
+            [
+              "trust",
+              129
+            ],
+            [
+              "label",
+              139
+            ],
+            [
+              "for",
+              146
+            ],
+            [
               "the",
-              74
+              156
             ],
             [
               "sd",
-              78
+              161
             ],
             [
               "works",
-              89
+              172
             ],
             [
               "challenge",
-              96
+              180
             ],
             [
               "at",
-              110
+              193
             ],
             [
               "tectonic",
-              119
+              203
             ],
             [
               "2026",
-              134
+              217
+            ]
+          ]
+        },
+        "clones": {
+          "start": 263,
+          "end": 387,
+          "words": [
+            [
+              "and",
+              263
+            ],
+            [
+              "the",
+              273
+            ],
+            [
+              "narrators",
+              277
+            ],
+            [
+              "you've",
+              294
+            ],
+            [
+              "heard",
+              302
+            ],
+            [
+              "our",
+              332
+            ],
+            [
+              "own",
+              337
+            ],
+            [
+              "eleven",
+              347
+            ],
+            [
+              "labs",
+              358
+            ],
+            [
+              "voice",
+              367
+            ],
+            [
+              "clones",
+              376
             ]
           ]
         }
       },
       "locked": true,
       "source": {
-        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones",
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones (Ellen: library voice)",
         "takes": [
           {
+            "speaker": "rufina",
+            "take": "team.p1.1.mp3",
+            "match": 1.0
+          },
+          {
             "speaker": "artiom",
-            "take": "team.1.mp3",
-            "match": 0.933
+            "take": "team.p2.1.mp3",
+            "match": 0.867
+          },
+          {
+            "speaker": "rufina",
+            "take": "team.p3.1.mp3",
+            "match": 1.0
           }
         ]
       }
     },
     "outro": {
       "file": "narration/outro.wav",
-      "durationInFrames": 191,
+      "durationInFrames": 190,
       "cues": {
         "principle": {
           "start": 0,
-          "end": 84,
+          "end": 83,
           "words": [
             [
               "ai",
@@ -1601,12 +1773,12 @@
           ]
         },
         "end": {
-          "start": 165,
-          "end": 181,
+          "start": 164,
+          "end": 180,
           "words": [
             [
               "trust",
-              165
+              164
             ],
             [
               "label",
@@ -1617,7 +1789,7 @@
       },
       "locked": true,
       "source": {
-        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones",
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones (Ellen: library voice)",
         "takes": [
           {
             "speaker": "artiom",
@@ -1627,6 +1799,543 @@
           {
             "speaker": "rufina",
             "take": "outro.p2.1.mp3",
+            "match": 1.0
+          }
+        ]
+      }
+    },
+    "overview": {
+      "file": "narration/overview.wav",
+      "durationInFrames": 446,
+      "cues": {
+        "signin": {
+          "start": 0,
+          "end": 63,
+          "words": [
+            [
+              "lotta",
+              0
+            ],
+            [
+              "signs",
+              8
+            ],
+            [
+              "in",
+              19
+            ],
+            [
+              "with",
+              29
+            ],
+            [
+              "her",
+              36
+            ],
+            [
+              "google",
+              41
+            ],
+            [
+              "account",
+              49
+            ]
+          ]
+        },
+        "ready": {
+          "start": 91,
+          "end": 205,
+          "words": [
+            [
+              "before",
+              91
+            ],
+            [
+              "she",
+              99
+            ],
+            [
+              "even",
+              106
+            ],
+            [
+              "asks",
+              113
+            ],
+            [
+              "her",
+              139
+            ],
+            [
+              "trust",
+              142
+            ],
+            [
+              "overview",
+              152
+            ],
+            [
+              "for",
+              167
+            ],
+            [
+              "van",
+              176
+            ],
+            [
+              "dam",
+              182
+            ],
+            [
+              "is",
+              187
+            ],
+            [
+              "ready",
+              195
+            ]
+          ]
+        },
+        "board": {
+          "start": 227,
+          "end": 436,
+          "words": [
+            [
+              "one",
+              227
+            ],
+            [
+              "topic",
+              233
+            ],
+            [
+              "is",
+              241
+            ],
+            [
+              "safe",
+              250
+            ],
+            [
+              "to",
+              257
+            ],
+            [
+              "use",
+              263
+            ],
+            [
+              "two",
+              286
+            ],
+            [
+              "need",
+              297
+            ],
+            [
+              "a",
+              305
+            ],
+            [
+              "decision",
+              310
+            ],
+            [
+              "and",
+              335
+            ],
+            [
+              "a",
+              341
+            ],
+            [
+              "handbook",
+              345
+            ],
+            [
+              "whose",
+              358
+            ],
+            [
+              "owner",
+              367
+            ],
+            [
+              "left",
+              375
+            ],
+            [
+              "is",
+              387
+            ],
+            [
+              "flagged",
+              396
+            ],
+            [
+              "as",
+              406
+            ],
+            [
+              "knowledge",
+              415
+            ],
+            [
+              "debt",
+              426
+            ]
+          ]
+        }
+      },
+      "locked": true,
+      "source": {
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones (Ellen: library voice)",
+        "takes": [
+          {
+            "speaker": "rufina",
+            "take": "overview.2.mp3",
+            "match": 0.975
+          }
+        ]
+      }
+    },
+    "teams": {
+      "file": "narration/teams.wav",
+      "durationInFrames": 449,
+      "cues": {
+        "intro": {
+          "start": 0,
+          "end": 83,
+          "words": [
+            [
+              "and",
+              0
+            ],
+            [
+              "trust",
+              7
+            ],
+            [
+              "label",
+              7
+            ],
+            [
+              "works",
+              20
+            ],
+            [
+              "where",
+              32
+            ],
+            [
+              "people",
+              43
+            ],
+            [
+              "already",
+              52
+            ],
+            [
+              "chat",
+              71
+            ]
+          ]
+        },
+        "mcp": {
+          "start": 115,
+          "end": 354,
+          "words": [
+            [
+              "it's",
+              115
+            ],
+            [
+              "an",
+              122
+            ],
+            [
+              "mcp",
+              124
+            ],
+            [
+              "server",
+              136
+            ],
+            [
+              "so",
+              162
+            ],
+            [
+              "a",
+              171
+            ],
+            [
+              "co",
+              179
+            ],
+            [
+              "pilot",
+              184
+            ],
+            [
+              "studio",
+              192
+            ],
+            [
+              "agent",
+              204
+            ],
+            [
+              "in",
+              217
+            ],
+            [
+              "microsoft",
+              225
+            ],
+            [
+              "teams",
+              238
+            ],
+            [
+              "gets",
+              252
+            ],
+            [
+              "the",
+              261
+            ],
+            [
+              "same",
+              268
+            ],
+            [
+              "grades",
+              278
+            ],
+            [
+              "reasons",
+              302
+            ],
+            [
+              "and",
+              308
+            ],
+            [
+              "expert",
+              325
+            ],
+            [
+              "routing",
+              340
+            ]
+          ]
+        },
+        "scope": {
+          "start": 375,
+          "end": 439,
+          "words": [
+            [
+              "always",
+              375
+            ],
+            [
+              "with",
+              386
+            ],
+            [
+              "the",
+              397
+            ],
+            [
+              "user's",
+              401
+            ],
+            [
+              "own",
+              417
+            ],
+            [
+              "permissions",
+              424
+            ]
+          ]
+        }
+      },
+      "locked": true,
+      "source": {
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones (Ellen: library voice)",
+        "takes": [
+          {
+            "speaker": "artiom",
+            "take": "teams.1.mp3",
+            "match": 0.957
+          }
+        ]
+      }
+    },
+    "ship": {
+      "file": "narration/ship.wav",
+      "durationInFrames": 420,
+      "cues": {
+        "deploy": {
+          "start": 0,
+          "end": 116,
+          "words": [
+            [
+              "it",
+              0
+            ],
+            [
+              "runs",
+              4
+            ],
+            [
+              "on",
+              11
+            ],
+            [
+              "a",
+              17
+            ],
+            [
+              "public",
+              21
+            ],
+            [
+              "https",
+              32
+            ],
+            [
+              "address",
+              51
+            ],
+            [
+              "through",
+              73
+            ],
+            [
+              "a",
+              84
+            ],
+            [
+              "cloudflare",
+              92
+            ],
+            [
+              "tunnel",
+              106
+            ]
+          ]
+        },
+        "aikido": {
+          "start": 137,
+          "end": 220,
+          "words": [
+            [
+              "and",
+              137
+            ],
+            [
+              "it",
+              143
+            ],
+            [
+              "passes",
+              147
+            ],
+            [
+              "every",
+              157
+            ],
+            [
+              "aikido",
+              175
+            ],
+            [
+              "security",
+              191
+            ],
+            [
+              "check",
+              205
+            ]
+          ]
+        },
+        "measures": {
+          "start": 239,
+          "end": 410,
+          "words": [
+            [
+              "hashed",
+              239
+            ],
+            [
+              "passwords",
+              243
+            ],
+            [
+              "and",
+              256
+            ],
+            [
+              "keys",
+              263
+            ],
+            [
+              "server",
+              289
+            ],
+            [
+              "side",
+              294
+            ],
+            [
+              "sessions",
+              302
+            ],
+            [
+              "rate",
+              328
+            ],
+            [
+              "limits",
+              333
+            ],
+            [
+              "and",
+              353
+            ],
+            [
+              "a",
+              354
+            ],
+            [
+              "strict",
+              357
+            ],
+            [
+              "content",
+              369
+            ],
+            [
+              "security",
+              385
+            ],
+            [
+              "policy",
+              399
+            ]
+          ]
+        }
+      },
+      "locked": true,
+      "source": {
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones (Ellen: library voice)",
+        "takes": [
+          {
+            "speaker": "artiom",
+            "take": "ship.1.mp3",
             "match": 1.0
           }
         ]

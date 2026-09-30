@@ -1,9 +1,12 @@
 import {AbsoluteFill, interpolate, useCurrentFrame} from 'remotion';
-import {C, FONT, MONO} from '../theme';
+import {C, FONT, SHADOW} from '../theme';
 import {BOUNCY, CLAMP, fadeUp, popIn, useEnter} from '../anim';
+import {Stage} from '../components/Background';
 import {SceneText} from '../components/SceneText';
-import {Card, CheckIcon, CrossIcon, ReasonRow} from '../components/Card';
-import {GradeTile, Pill} from '../components/GradeTile';
+import {CheckDot} from '../components/Card';
+import {Pill} from '../components/GradeTile';
+import {Icon} from '../components/Icon';
+import {SourceCard} from '../components/SourceCard';
 import {SceneNarration, Sfx} from '../components/SceneAudio';
 import {DATA, source} from '../data';
 import {cueWord} from '../timeline';
@@ -18,55 +21,56 @@ export const Applicability: React.FC = () => {
 	const card = useEnter(18);
 	const qualityRow = useEnter(quality - 4, BOUNCY);
 	const appliesRow = useEnter(notApplies - 4, BOUNCY);
-	const mute = interpolate(frame, [notApplies + 6, notApplies + 22], [0, 1], CLAMP);
+	const flipped = frame >= notApplies + 6;
 	const badge = useEnter(notApplies + 10, BOUNCY);
+	const shake = interpolate(frame, [notApplies + 4, notApplies + 8, notApplies + 12, notApplies + 16], [0, -8, 6, 0], CLAMP);
 	return (
-		<AbsoluteFill style={{fontFamily: FONT}}>
-			<SceneNarration scene="applicability" />
-			<Sfx at={quality} src="tick" volume={0.4} />
-			<Sfx at={notApplies + 4} src="pop" volume={0.45} />
-			<SceneText
-				step="02"
-				kicker="Applicability vs. quality"
-				title="A good Dutch procedure is still [not applicable] to a Belgian client."
-				body="Every source is checked against the asker's country, client and date, and only then allowed into the answer."
-			/>
-			<div style={{position: 'absolute', left: 820, top: 210, width: 990}}>
-				<div style={{display: 'flex', alignItems: 'center', gap: 16, marginBottom: 26, ...fadeUp(ctx, 20)}}>
-					<span style={{color: C.inkSoft, fontSize: 24, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase'}}>Asking for</span>
-					<span style={{background: '#fff', color: C.navy, borderRadius: 12, padding: '10px 20px', fontSize: 26, fontWeight: 800}}>
-						{DATA.before.context.label}
-					</span>
-				</div>
-				<div style={{position: 'relative', ...fadeUp(card, 50)}}>
-					<Card padding={36} style={{filter: `grayscale(${mute * 0.85})`, background: interpolate(mute, [0, 1], [0, 1]) > 0.5 ? '#f7f8fa' : '#fff'}}>
-						<div style={{display: 'flex', gap: 24, alignItems: 'flex-start', opacity: 1 - 0.35 * mute}}>
-							<GradeTile grade={NL.grade} size={92} />
-							<div style={{flex: 1}}>
-								<div style={{display: 'flex', gap: 14, fontSize: 19, color: C.muted, letterSpacing: 1.2, textTransform: 'uppercase', fontWeight: 700}}>
-									{NL.kind_label} <span style={{fontFamily: MONO, textTransform: 'none', letterSpacing: 0}}>{NL.id}</span>
-								</div>
-								<div style={{fontSize: 32, fontWeight: 800, marginTop: 6}}>{NL.title}</div>
-								<div style={{fontSize: 21, color: C.muted}}>
-									{NL.source} · owner {NL.owner_name} · reviewed {NL.last_reviewed_on}
-								</div>
-								<div style={{fontSize: 23, fontWeight: 700, marginTop: 16}}>{NL.statement}</div>
-								<ReasonRow delta={NL.reasons[0].delta} cap={null} text={NL.reasons[0].text} style={{marginTop: 14}} />
-							</div>
+		<Stage tone="light">
+			<AbsoluteFill style={{fontFamily: FONT}}>
+				<SceneNarration scene="applicability" />
+				<Sfx at={quality} src="tick" volume={0.4} />
+				<Sfx at={notApplies + 4} src="pop" volume={0.45} />
+				<SceneText
+					step="02"
+					kicker="Applicability vs. quality"
+					title="A good Dutch procedure is still [not applicable] to a Belgian client."
+					body="Every source is checked against the asker's country, client and date, and only then allowed into the answer."
+				/>
+				<div style={{position: 'absolute', left: 790, top: 150, width: 1030}}>
+					<div style={{display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, ...fadeUp(ctx, 20)}}>
+						<span style={{color: C.muted, fontSize: 21, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase'}}>Asking for</span>
+						<span style={{display: 'inline-flex', alignItems: 'center', gap: 12, height: 56, padding: '0 20px', borderRadius: 14, background: C.sunken, fontSize: 23, fontWeight: 550}}>
+							<Icon name="briefcase" size={21} color={C.muted} />
+							{DATA.before.context.label}
+							<Icon name="chevronDown" size={20} color={C.muted} />
+						</span>
+					</div>
+					<div style={{position: 'relative', ...fadeUp(card, 50), transform: `translate(${shake}px, ${(1 - card) * 50}px)`}}>
+						<SourceCard
+							source={{...NL, status: flipped ? 'not_applicable' : 'effective'}}
+							pill={
+								flipped ? (
+									<Pill tone="na" size={17}>
+										{NL.applicability.text}
+									</Pill>
+								) : (
+									<></>
+								)
+							}
+						/>
+						<div style={{position: 'absolute', right: 26, top: -22, ...popIn(badge, 0.3)}}>
+							<span style={{display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderRadius: 999, background: C.ink, color: '#fff', fontSize: 21, fontWeight: 550, boxShadow: SHADOW}}>
+								Not applicable · shown, never used
+							</span>
 						</div>
-					</Card>
-					<div style={{position: 'absolute', right: 30, top: -22, ...popIn(badge, 0.3)}}>
-						<Pill tone="na" size={24} style={{background: '#39475a', color: '#fff', boxShadow: '0 10px 30px rgba(0,0,0,0.35)'}}>
-							Not applicable · shown, never used
-						</Pill>
+					</div>
+					<div style={{display: 'flex', gap: 22, marginTop: 28}}>
+						<Axis p={qualityRow} ok label="Quality" value={`Grade ${NL.grade}: owned, reviewed on time`} />
+						<Axis p={appliesRow} ok={false} label="Applies to Van Dam (BE)?" value={NL.applicability.text} />
 					</div>
 				</div>
-				<div style={{display: 'flex', gap: 24, marginTop: 30}}>
-					<Axis p={qualityRow} ok label="Quality" value={`Grade ${NL.grade}: owned, reviewed on time`} />
-					<Axis p={appliesRow} ok={false} label="Applies to Van Dam (BE)?" value={NL.applicability.text} />
-				</div>
-			</div>
-		</AbsoluteFill>
+			</AbsoluteFill>
+		</Stage>
 	);
 };
 
@@ -74,20 +78,20 @@ const Axis: React.FC<{p: number; ok: boolean; label: string; value: string}> = (
 	<div
 		style={{
 			flex: 1,
-			background: 'rgba(255,255,255,0.08)',
-			border: `2px solid ${ok ? 'rgba(76,184,72,0.7)' : 'rgba(255,138,128,0.7)'}`,
+			background: C.surface,
 			borderRadius: 18,
-			padding: '20px 24px',
+			padding: '20px 22px',
 			display: 'flex',
-			gap: 18,
+			gap: 16,
 			alignItems: 'center',
+			boxShadow: `${SHADOW}, inset 0 0 0 2px ${ok ? 'rgba(13,122,69,0.35)' : 'rgba(180,35,24,0.35)'}`,
 			...fadeUp(p, 30),
 		}}
 	>
-		{ok ? <CheckIcon size={44} bg="#4CB848" /> : <CrossIcon size={44} bg="#e0584e" />}
+		<CheckDot size={44} ok={ok} />
 		<div>
-			<div style={{color: C.inkSoft, fontSize: 19, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase'}}>{label}</div>
-			<div style={{color: '#fff', fontSize: 25, fontWeight: 700, marginTop: 4}}>{value}</div>
+			<div style={{color: C.muted, fontSize: 17, fontWeight: 600, letterSpacing: 1.4, textTransform: 'uppercase'}}>{label}</div>
+			<div style={{color: C.ink, fontSize: 23, fontWeight: 600, marginTop: 4}}>{value}</div>
 		</div>
 	</div>
 );
