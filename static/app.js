@@ -24,6 +24,7 @@ const state = {
   view: "ask",
   inboxCount: 0,
   contextKey: null,
+  knownResolved: null,
 };
 
 const root = document.getElementById("app");
@@ -131,6 +132,15 @@ const ICONS = {
   mic: [["rect", { x: 9, y: 3, width: 6, height: 11, rx: 3 }], ["path", { d: "M5 11a7 7 0 0 0 14 0" }], ["path", { d: "M12 18v3" }]],
   logout: [["path", { d: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" }], ["path", { d: "m16 17 5-5-5-5" }], ["path", { d: "M21 12H9" }]],
   chevronDown: [["path", { d: "m6 9 6 6 6-6" }]],
+  arrowLeft: [["path", { d: "M19 12H5" }], ["path", { d: "m11 18-6-6 6-6" }]],
+  shield: [["path", { d: "M12 3 5 6v5c0 4.4 3 8.3 7 10 4-1.7 7-5.6 7-10V6z" }], ["path", { d: "m9 12 2 2 4-4" }]],
+  layers: [["path", { d: "m12 3 9 5-9 5-9-5z" }], ["path", { d: "m3 13 9 5 9-5" }]],
+  flag: [["path", { d: "M5 21V4" }], ["path", { d: "M5 4h12l-2.5 4L17 12H5" }]],
+  link: [
+    ["path", { d: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" }],
+    ["path", { d: "M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" }],
+  ],
+  copy: [["rect", { x: 9, y: 9, width: 11, height: 11, rx: 2 }], ["path", { d: "M5 15V6a2 2 0 0 1 2-2h9" }]],
   message: [["path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" }]],
   user: [["circle", { cx: 12, cy: 8, r: 4 }], ["path", { d: "M4 21a8 8 0 0 1 16 0" }]],
   calendar: [["rect", { x: 3, y: 4, width: 18, height: 17, rx: 2 }], ["path", { d: "M16 2v4M8 2v4M3 10h18" }]],
@@ -266,6 +276,12 @@ function renderLogin() {
   const password = h("input", { id: "login-password", className: "field", name: "password", type: "password", autocomplete: "current-password", required: true, maxLength: 256 });
   const errorLine = h("p", { className: "form-error", role: "alert" });
   const submit = h("button", { type: "submit", className: "btn btn-primary btn-block" }, "Log in");
+  const sso = h(
+    "div",
+    { className: "sso", hidden: true },
+    h("div", { className: "sso-divider" }, "or"),
+    h("a", { className: "btn btn-secondary btn-block btn-google", href: "/api/auth/google/start" }, googleMark(), "Continue with Google"),
+  );
 
   const form = h(
     "form",
@@ -295,6 +311,7 @@ function renderLogin() {
     h("label", { htmlFor: "login-password" }, "Password", password),
     errorLine,
     submit,
+    sso,
     h("p", { className: "hint" }, "lotte, jonas (consultants) · ellen, pieter, anke (experts)"),
   );
 
@@ -312,6 +329,16 @@ function renderLogin() {
     h("p", { className: "login-foot" }, "SD Worx challenge · Tectonic Hackathon 2026"),
   );
   root.appendChild(h("div", { className: "login-wrap" }, aside, h("main", { className: "login-main" }, form)));
+  const loginError = new URLSearchParams(location.search).get("login_error");
+  if (loginError) {
+    errorLine.textContent = LOGIN_ERRORS[loginError] || "Sign-in failed. Try again.";
+    history.replaceState(null, "", location.pathname);
+  }
+  api("/api/auth/providers", { skipAuthRedirect: true })
+    .then((providers) => {
+      if (providers && providers.google) sso.hidden = false;
+    })
+    .catch(() => {});
   username.focus();
 }
 
@@ -326,7 +353,12 @@ let askNavBtn = null;
 function renderShell() {
   clear(root);
   const me = state.me;
-  askNavBtn = h("button", { className: "nav-btn", type: "button", onClick: () => switchView("ask") }, icon("search", "icon-sm"), "Ask");
+  askNavBtn = h(
+    "button",
+    { className: "nav-btn", type: "button", onClick: () => (state.view === "ask" ? resetAsk() : switchView("ask")) },
+    icon("search", "icon-sm"),
+    "Ask",
+  );
   inboxCountEl = h("span", { className: "nav-count zero" }, "0");
   inboxNavBtn = h(
     "button",
@@ -355,9 +387,12 @@ function renderShell() {
   root.appendChild(header);
   root.appendChild(askViewEl);
   root.appendChild(inboxViewEl);
+  connectionsEl = null;
+  connectionToken = null;
   renderAskView();
   switchView(state.view);
   refreshInboxCount();
+  startPolling();
 }
 
 function switchView(view) {
@@ -369,6 +404,7 @@ function switchView(view) {
   askNavBtn.setAttribute("aria-current", view === "ask" ? "page" : "false");
   inboxNavBtn.setAttribute("aria-current", view === "inbox" ? "page" : "false");
   if (view === "inbox") loadInbox();
+  else if (!askViewEl.classList.contains("has-result")) loadOverview();
 }
 
 async function logout() {
@@ -377,6 +413,7 @@ async function logout() {
   } catch (err) {
     if (!(err instanceof ApiError && err.status === 401)) showError(err);
   }
+  stopPolling();
   state.me = null;
   renderLogin();
 }
@@ -393,6 +430,7 @@ async function refreshInboxCount() {
   try {
     const data = await api("/api/verifications");
     setInboxCount(data.items);
+    noteResolutions(data.items);
   } catch (err) {
     showError(err);
   }
@@ -424,7 +462,14 @@ function renderAskView() {
 
   contextSelect = h(
     "select",
-    { id: "context-select", "aria-label": "Context", onChange: () => (state.contextKey = contextSelect.value) },
+    {
+      id: "context-select",
+      "aria-label": "Context",
+      onChange: () => {
+        state.contextKey = contextSelect.value;
+        if (!askViewEl.classList.contains("has-result")) loadOverview();
+      },
+    },
     me.contexts.map((c) => h("option", { value: c.key, selected: c.key === state.contextKey }, c.label)),
   );
   questionInput = h("input", {
@@ -470,10 +515,13 @@ function renderAskView() {
   );
 
   resultEl = h("div", { className: "result-area", "aria-live": "polite" });
+  dashboardEl = h("section", { className: "dashboard", "aria-label": "Trust overview" });
+  lastOverview = "";
   askViewEl.classList.remove("has-result");
   askViewEl.appendChild(intro);
   askViewEl.appendChild(panel);
   askViewEl.appendChild(resultEl);
+  askViewEl.appendChild(dashboardEl);
 }
 
 function topicChip(topic) {
@@ -487,6 +535,7 @@ function topicChip(topic) {
 function renderSkeleton() {
   clear(resultEl);
   askViewEl.classList.add("has-result");
+  hideDashboard();
   resultEl.appendChild(
     h(
       "div",
@@ -507,6 +556,7 @@ async function withSkeleton(work) {
     clear(resultEl);
     previous.forEach((n) => resultEl.appendChild(n));
     askViewEl.classList.toggle("has-result", hadResult);
+    if (!hadResult) loadOverview();
     throw err;
   } finally {
     clearTimeout(timer);
@@ -540,6 +590,8 @@ async function runAsk({ question, topic_id }, button) {
 function renderAskResponse(data, { question, newItemId = null }) {
   clear(resultEl);
   askViewEl.classList.add("has-result");
+  hideDashboard();
+  resultEl.appendChild(h("button", { type: "button", className: "back-link", onClick: resetAsk }, icon("arrowLeft", "icon-sm"), "Back to overview"));
   if (!data.topic) {
     resultEl.appendChild(
       h(
@@ -875,6 +927,7 @@ async function loadInbox() {
   try {
     const data = await api("/api/verifications");
     setInboxCount(data.items);
+    noteResolutions(data.items);
     renderInbox(data.items);
   } catch (err) {
     clear(inboxViewEl);
@@ -1163,6 +1216,428 @@ async function sendVoice(v, blob, filename, ui, { radios, otherInput, validUntil
   } finally {
     ui.btn.disabled = false;
     ui.setLabel("Answer by voice");
+  }
+}
+
+// ---------- Google sign-in ----------
+
+const LOGIN_ERRORS = {
+  google_cancelled: "Google sign-in was cancelled.",
+  google_failed: "Google sign-in failed. Try again.",
+  google_unlinked: "This Google account is not linked to a TrustLabel user.",
+};
+
+function googleMark() {
+  const el = svgEl("svg", { viewBox: "0 0 48 48", class: "google-mark", "aria-hidden": "true", focusable: "false" });
+  [
+    ["#EA4335", "M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"],
+    ["#4285F4", "M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"],
+    ["#FBBC05", "M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"],
+    ["#34A853", "M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"],
+  ].forEach(([fill, d]) => el.appendChild(svgEl("path", { fill, d })));
+  return el;
+}
+
+// ---------- trust overview (dashboard) ----------
+
+const POLL_MS = 15000;
+const TOPIC_BADGE = { use: "Safe to use", verify: "Use with caution", ask_expert: "Don't act yet" };
+const ACTIVITY_ICONS = { verified: "check", assigned: "inbox", requested: "clock" };
+let dashboardEl = null;
+let overviewSeq = 0;
+let lastOverview = "";
+let pollTimer = null;
+let connectionsEl = null;
+let lastConnection = "";
+let connectionToken = null; // plaintext key: kept only in this tab, only right after creation
+
+function plural(n, word) {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
+function relativeTime(iso) {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const seconds = Math.max(0, Math.round((Date.now() - then) / 1000));
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} h ago`;
+  return formatDateTime(iso);
+}
+
+function hideDashboard() {
+  overviewSeq += 1;
+  lastOverview = "";
+  if (dashboardEl) clear(dashboardEl);
+}
+
+function resetAsk() {
+  if (!resultEl) return;
+  clear(resultEl);
+  askViewEl.classList.remove("has-result");
+  loadOverview();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function loadOverview() {
+  if (!dashboardEl) return;
+  const seq = ++overviewSeq;
+  if (!dashboardEl.firstChild) dashboardEl.appendChild(dashboardSkeleton());
+  const ctx = currentContext();
+  const url = ctx && ctx.client_id ? `/api/overview?client_id=${encodeURIComponent(ctx.client_id)}` : "/api/overview";
+  try {
+    const data = await api(url);
+    if (seq !== overviewSeq) return;
+    const snapshot = JSON.stringify(data);
+    if (snapshot === lastOverview) return;
+    lastOverview = snapshot;
+    renderDashboard(data);
+  } catch {
+    // The overview is supplementary: on failure drop it quietly instead of interrupting the ask flow.
+    if (seq === overviewSeq) clear(dashboardEl);
+  }
+}
+
+function dashboardSkeleton() {
+  return h(
+    "div",
+    { className: "dash-skeleton", "aria-hidden": "true" },
+    h("div", { className: "kpis" }, [0, 1, 2, 3].map(() => h("div", { className: "sk sk-kpi" }))),
+    h("div", { className: "topic-board" }, [0, 1, 2].map(() => h("div", { className: "sk sk-topic" }))),
+  );
+}
+
+function renderDashboard(data) {
+  clear(dashboardEl);
+  dashboardEl.appendChild(
+    h(
+      "div",
+      { className: "dash-head" },
+      h("div", null, h("h2", null, "Trust overview"), h("p", { className: "muted-text" }, `What you can rely on today in ${data.context.label}.`)),
+      h("span", { className: "live-pill", title: "Refreshes every 15 seconds" }, h("span", { className: "live-dot" }), "Live"),
+    ),
+  );
+  dashboardEl.appendChild(renderKpis(data.health, data.requests));
+  dashboardEl.appendChild(h("div", { className: "topic-board" }, data.topics.map(renderTopicCard)));
+  dashboardEl.appendChild(
+    h("div", { className: "dash-grid" }, renderAttention(data.attention), h("div", { className: "dash-col" }, renderActivity(data.activity), renderConnections())),
+  );
+}
+
+function kpi({ iconName, label, value, sub, extra = null, tone = "", onClick = null }) {
+  const cls = ["kpi"];
+  if (tone) cls.push(`kpi-${tone}`);
+  if (onClick) cls.push("kpi-link");
+  return h(
+    onClick ? "button" : "div",
+    { className: cls.join(" "), type: onClick ? "button" : null, onClick },
+    h("span", { className: "kpi-label" }, icon(iconName, "icon-sm"), label),
+    h("span", { className: "kpi-value" }, value),
+    h("span", { className: "kpi-sub" }, sub),
+    extra,
+  );
+}
+
+function renderKpis(health, requests) {
+  const undecided = health.topics - health.safe_topics;
+  return h(
+    "div",
+    { className: "kpis" },
+    kpi({
+      iconName: "shield",
+      label: "Safe to use",
+      value: `${health.safe_topics}/${health.topics}`,
+      sub: undecided ? `${plural(undecided, "topic")} need${undecided === 1 ? "s" : ""} a decision` : "Every topic has a trusted answer",
+      tone: undecided ? "" : "good",
+    }),
+    kpi({
+      iconName: "layers",
+      label: "Current sources",
+      value: String(health.current),
+      sub: `${health.in_scope} in scope · ${health.verified} expert-verified`,
+      extra: gradeBar(health.grades),
+    }),
+    kpi({
+      iconName: "flag",
+      label: "Knowledge debt",
+      value: String(health.attention),
+      sub: health.attention ? "sources need their owner" : "Nothing overdue or superseded",
+      tone: health.attention ? "warn" : "good",
+    }),
+    kpi({
+      iconName: "inbox",
+      label: "Verifications",
+      value: String(requests.awaiting_you + requests.sent_open),
+      sub: `${requests.awaiting_you} awaiting you · ${requests.sent_open} sent · ${requests.resolved} resolved`,
+      onClick: () => switchView("inbox"),
+    }),
+  );
+}
+
+function gradeBar(grades) {
+  const present = GRADES.filter((g) => grades[g]);
+  const bar = h("span", {
+    className: present.length ? "grade-bar" : "grade-bar is-empty",
+    role: "img",
+    "aria-label": present.length ? `Current sources by grade: ${present.map((g) => `${grades[g]} ${g}`).join(", ")}` : "No current sources",
+  });
+  for (const g of present) {
+    for (let i = 0; i < grades[g]; i += 1) {
+      bar.appendChild(h("span", { className: `grade-seg grade-${g}`, title: `${plural(grades[g], "source")} graded ${g}` }, i === 0 ? g : ""));
+    }
+  }
+  return bar;
+}
+
+function renderTopicCard(t) {
+  const a = t.answer;
+  const banner = BANNERS[a.action] || BANNERS.ask_expert;
+  let visual;
+  let value;
+  let detail;
+  if (a.status === "conflict") {
+    visual = h("span", { className: "topic-tiles" }, a.competing.map((c) => gradeTile(c.best_grade, { small: true })));
+    value = "Sources disagree";
+    detail = a.competing.map((c) => `${c.value_display} (${c.best_grade})`).join(" vs ");
+  } else if (a.status === "gap") {
+    visual = gradeTile(null, { small: true });
+    value = "No applicable source";
+    detail = a.detail;
+  } else {
+    visual = gradeTile(a.grade, { small: true });
+    value = a.value_display;
+    detail =
+      a.status === "verified" && a.verified_by
+        ? `Verified by ${a.verified_by.name}`
+        : `${plural(t.current_count, "current source")} agree${t.current_count === 1 ? "s" : ""}`;
+  }
+  const note = t.open_request
+    ? h("span", { className: "topic-pending" }, icon("clock", "icon-xs"), `Pending with ${t.open_request.assignee_name}`)
+    : h("span", { className: "topic-meta" }, t.top_expert ? `Expert: ${t.top_expert.name}` : "No expert on file");
+  return h(
+    "button",
+    { type: "button", className: `topic-card ${banner.tone}`, onClick: () => runAsk({ question: "", topic_id: t.topic.id }) },
+    h("span", { className: "topic-top" }, h("span", { className: "topic-label" }, t.topic.label), h("span", { className: "status" }, icon(banner.icon), TOPIC_BADGE[a.action] || banner.text)),
+    h("span", { className: "topic-main" }, visual, h("span", { className: "topic-value" }, value)),
+    h("span", { className: "topic-detail" }, detail),
+    h("span", { className: "topic-foot" }, note, h("span", { className: "topic-go" }, plural(t.source_count, "source"), icon("arrowRight", "icon-xs"))),
+  );
+}
+
+function renderAttention(items) {
+  const card = h("section", { className: "card attention-card" }, h("h2", { className: "card-title" }, "Knowledge debt", h("small", null, "Sources that need their owner")));
+  if (!items.length) {
+    card.appendChild(h("p", { className: "empty-note" }, icon("check", "icon-sm"), "Nothing overdue, orphaned or superseded here."));
+    return card;
+  }
+  card.appendChild(
+    h(
+      "ul",
+      { className: "attention-list" },
+      items.map((a) => {
+        const owner = a.owner_name ? `Owner: ${a.owner_name}` : a.kind_label === "Teams message" ? "Chat message, no owner" : "No active owner";
+        return h(
+          "li",
+          { className: "attention-item" },
+          gradeTile(a.grade, { small: true }),
+          h(
+            "div",
+            { className: "attention-body" },
+            h("div", { className: "attention-title" }, h("span", null, a.title), h("span", { className: "source-id" }, a.id)),
+            h("div", { className: "attention-owner" }, `${a.kind_label} · ${owner}`),
+            h("ul", { className: "issue-list" }, a.issues.map((text) => h("li", null, text))),
+          ),
+        );
+      }),
+    ),
+  );
+  return card;
+}
+
+function renderActivity(items) {
+  const card = h("section", { className: "card activity-card" }, h("h2", { className: "card-title" }, "Recent activity", h("small", null, "Verifications you can see")));
+  if (!items.length) {
+    card.appendChild(h("p", { className: "empty-note" }, icon("clock", "icon-sm"), "No verifications yet. Confirmed answers appear here for the whole client team."));
+    return card;
+  }
+  card.appendChild(
+    h(
+      "ol",
+      { className: "activity-list" },
+      items.map((e) =>
+        h(
+          "li",
+          { className: `activity-item act-${e.kind}` },
+          h("span", { className: "act-icon", "aria-hidden": "true" }, icon(ACTIVITY_ICONS[e.kind] || "clock", "icon-xs")),
+          h("span", { className: "act-text" }, e.text),
+          h("time", { className: "act-time", dateTime: e.at, title: formatDateTime(e.at) }, relativeTime(e.at)),
+        ),
+      ),
+    ),
+  );
+  return card;
+}
+
+// ---------- Teams connection (MCP) ----------
+
+function renderConnections() {
+  if (!connectionsEl) {
+    connectionsEl = h("section", { className: "card connect-card" });
+    lastConnection = "";
+    refreshConnection();
+  }
+  return connectionsEl;
+}
+
+async function refreshConnection() {
+  let status = null;
+  try {
+    status = (await api("/api/connections")).teams;
+  } catch {
+    status = null;
+  }
+  const snapshot = JSON.stringify([status, Boolean(connectionToken)]);
+  if (snapshot === lastConnection && connectionsEl && connectionsEl.firstChild) return;
+  lastConnection = snapshot;
+  drawConnection(status);
+}
+
+function drawConnection(status) {
+  const el = connectionsEl;
+  if (!el) return;
+  clear(el);
+  const connected = Boolean(status && status.connected);
+  el.appendChild(
+    h(
+      "div",
+      { className: "connect-head" },
+      h("span", { className: "connect-logo", "aria-hidden": "true" }, icon("message")),
+      h("div", { className: "connect-id" }, h("h2", { className: "card-title" }, "Microsoft Teams"), h("p", { className: "muted-text" }, "Ask TrustLabel from Teams over MCP")),
+      h("span", { className: connected ? "req-status status-resolved" : "req-status status-idle" }, connected ? "Connected" : "Not connected"),
+    ),
+  );
+  if (connectionToken && connected) {
+    el.appendChild(
+      h(
+        "div",
+        { className: "token-box" },
+        copyRow("MCP server URL", `${location.origin}${connectionToken.mcp_path || "/mcp"}`),
+        copyRow("API key (shown once)", connectionToken.token),
+        h("p", { className: "muted-text" }, `Send it as header X-API-Key or Authorization: Bearer. Expires ${formatDateTime(connectionToken.expires_at)}.`),
+      ),
+    );
+  } else if (connected) {
+    const used = status.last_used_at ? ` · last used ${relativeTime(status.last_used_at)}` : "";
+    el.appendChild(h("p", { className: "connect-copy" }, `Key created ${formatDateTime(status.created_at)} · ${plural(status.calls, "call")}${used}`));
+  } else {
+    el.appendChild(
+      h("p", { className: "connect-copy" }, "A Teams agent asks TrustLabel directly and gets the same grades, reasons and expert routing, scoped to your client portfolio."),
+    );
+  }
+  const actions = h("div", { className: "connect-actions" });
+  const create = h("button", { type: "button", className: connected ? "btn btn-secondary" : "btn btn-primary" }, icon("link", "icon-sm"), connected ? "New key" : "Connect Teams");
+  create.addEventListener("click", async () => {
+    create.disabled = true;
+    try {
+      connectionToken = await api("/api/connections/teams", { method: "POST" });
+      toast("Connection key created. Copy it now: it is shown only once.");
+      await refreshConnection();
+    } catch (err) {
+      create.disabled = false;
+      showError(err);
+    }
+  });
+  actions.appendChild(create);
+  if (connected) {
+    const revoke = h("button", { type: "button", className: "btn btn-ghost" }, "Revoke");
+    revoke.addEventListener("click", async () => {
+      revoke.disabled = true;
+      try {
+        await api("/api/connections/teams", { method: "DELETE" });
+        connectionToken = null;
+        toast("Teams connection revoked.");
+        await refreshConnection();
+      } catch (err) {
+        revoke.disabled = false;
+        showError(err);
+      }
+    });
+    actions.appendChild(revoke);
+  }
+  el.appendChild(actions);
+  el.appendChild(
+    h(
+      "details",
+      { className: "connect-steps" },
+      h("summary", null, "How to add it to Teams", icon("chevronDown", "icon-xs")),
+      h(
+        "ol",
+        null,
+        h("li", null, "Serve TrustLabel over public HTTPS; Teams can't reach 127.0.0.1."),
+        h("li", null, "Copilot Studio: your agent → Tools → Add a tool → New tool → Model Context Protocol."),
+        h("li", null, "Server URL ", h("code", null, "https://<host>/mcp"), ", authentication API key, header ", h("code", null, "X-API-Key"), "."),
+        h("li", null, "Publish the agent to Microsoft Teams and ask it about a client."),
+      ),
+    ),
+  );
+}
+
+function copyRow(label, value) {
+  const button = h("button", { type: "button", className: "btn btn-icon copy-btn", title: `Copy ${label}`, "aria-label": `Copy ${label}` }, icon("copy", "icon-sm"));
+  button.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast("Copied to clipboard.");
+    } catch {
+      toast("Copy failed; select the text instead", true);
+    }
+  });
+  return h("div", { className: "copy-row" }, h("span", { className: "copy-label" }, label), h("code", { className: "copy-value" }, value), button);
+}
+
+// ---------- live updates ----------
+
+function startPolling() {
+  stopPolling();
+  pollTimer = setInterval(poll, POLL_MS);
+}
+
+function stopPolling() {
+  clearInterval(pollTimer);
+  pollTimer = null;
+  state.knownResolved = null;
+}
+
+// Requests this user sent that an expert has since resolved; the first call only records the baseline.
+function noteResolutions(items) {
+  const resolved = items.filter((v) => v.status === "resolved" && !v.is_assignee && v.resolution);
+  if (!state.knownResolved) {
+    state.knownResolved = new Set(resolved.map((v) => v.id));
+    return [];
+  }
+  const fresh = resolved.filter((v) => !state.knownResolved.has(v.id));
+  fresh.forEach((v) => state.knownResolved.add(v.id));
+  return fresh;
+}
+
+async function poll() {
+  if (!state.me || document.visibilityState !== "visible") return;
+  let data;
+  try {
+    data = await api("/api/verifications");
+  } catch {
+    return; // offline, or a 401 that already switched to the login view
+  }
+  if (!state.me) return;
+  setInboxCount(data.items);
+  const fresh = noteResolutions(data.items);
+  if (fresh.length) {
+    const v = fresh[0];
+    toast(`${v.assignee_name} verified ${v.topic.label} for ${v.context_label}: ${v.resolution.value_display}.`);
+  }
+  if (state.view === "ask" && !askViewEl.classList.contains("has-result")) {
+    loadOverview();
+    if (connectionsEl && !connectionToken) refreshConnection();
   }
 }
 

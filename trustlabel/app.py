@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import secrets
@@ -10,12 +11,14 @@ import time
 from collections import deque
 from collections.abc import Callable, Hashable
 from datetime import date, datetime, timedelta
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
+import httpx
 from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -32,6 +35,7 @@ from .config import REPO_ROOT, Settings
 from .credentials import load_credentials, verify_password
 from .engine import (
     COUNTRY_NAMES,
+    GRADES,
     KIND_LABELS,
     Answer,
     Context,
@@ -44,6 +48,51 @@ from .engine import (
     validate_value,
     value_display,
     visible_items,
+)
+from .google_auth import (
+    CALLBACK_PATH,
+    CANCELLED,
+    FAILED,
+    FLOW_COOKIE,
+    FLOW_COOKIE_PATH,
+    FLOW_MAX_AGE_SECONDS,
+    UNLINKED,
+    GoogleAuthError,
+    TokenExchange,
+    authorization_url,
+    check_accounts,
+    check_state,
+    decode_id_token,
+    google_enabled,
+    http_token_exchange,
+    load_flow,
+    new_flow,
+    sign_flow,
+    verified_email,
+)
+from .mcp import (
+    INVALID_REQUEST,
+    MAX_MCP_BODY_BYTES,
+    MCP_CALLS_PER_WINDOW,
+    MCP_PATH,
+    MCP_WINDOW_SECONDS,
+    PARSE_ERROR,
+    SUPPORTED_PROTOCOL_VERSIONS,
+    UNAUTHORIZED,
+    AskArgs,
+    CaptureArgs,
+    ConnectionTokens,
+    RpcError,
+    ask_summary,
+    bearer_token,
+    connection_view,
+    handle_request,
+    no_topic_text,
+    parse_envelope,
+    rpc_error,
+    tool_error,
+    tool_result,
+    verification_summary,
 )
 from .models import (
     AskBody,
@@ -74,6 +123,10 @@ MAX_AUDIO_BYTES = 2_000_000
 MAX_TRANSCRIPT_CHARS = 5_000
 AI_CALLS_PER_HOUR = 20
 AI_FAILED = "Speech or AI service failed; try again or answer manually"
+# Reasons that make a source knowledge debt for its owner (shown on the trust board).
+ATTENTION_CODES = frozenset(
+    {"orphaned", "superseded", "contradicted_by_verification", "review_overdue", "review_due_soon", "chat_age"}
+)
 logger = logging.getLogger("trustlabel")
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 SECURITY_HEADERS = {
@@ -269,6 +322,7 @@ def create_app(
     transcriber: Transcriber | None = None,
     *,
     clock: Callable[[], date] = date.today,
+    google_exchange: TokenExchange | None = None,
 ) -> FastAPI:
     store = Store(settings.data_dir)
     credentials = load_credentials(settings.credentials_file)
@@ -444,6 +498,94 @@ def create_app(
             },
         }
 
+    @app.get("/api/overview")
+    def overview(client_id: str | None = None, user: Person = Depends(current_user)) -> dict:
+        """Trust board for one context: each topic's answer, source health, knowledge debt, activity."""
+        ctx = resolve_context(user, client_id)
+        results = [build_ask_result(user, topic, ctx, []) for topic in store.topics]
+        in_scope: dict[str, dict] = {}
+        for result in results:
+            for s in result["sources"]:
+                if s["status"] != "not_applicable":
+                    in_scope.setdefault(s["id"], s)
+        current = [s for s in in_scope.values() if s["status"] == "effective"]
+        attention = []
+        for s in in_scope.values():
+            issues = [r["text"] for r in s["reasons"] if r["code"] in ATTENTION_CODES]
+            if issues:
+                attention.append(
+                    {
+                        "id": s["id"],
+                        "title": s["title"],
+                        "kind_label": s["kind_label"],
+                        "grade": s["grade"],
+                        "score": s["score"],
+                        "owner_name": s["owner_name"] if s["owner_active"] else None,
+                        "issues": issues,
+                    }
+                )
+        attention.sort(key=lambda a: (a["score"], a["id"]))
+        topics = [
+            {
+                "topic": r["topic"],
+                "answer": r["answer"],
+                "source_count": sum(1 for s in r["sources"] if s["status"] != "not_applicable"),
+                "current_count": sum(1 for s in r["sources"] if s["status"] == "effective"),
+                "top_expert": r["experts"][0] if r["experts"] else None,
+                "open_request": r["open_request"],
+            }
+            for r in results
+        ]
+        grades = dict.fromkeys(GRADES, 0)
+        for s in current:
+            grades[s["grade"]] += 1
+
+        with store.lock:
+            visible_ids = {i.id for i in visible_items(store.items(), user)}
+            mine = [v for v in store.verifications.values() if user.id in (v.requester_id, v.assignee_id)]
+            events: list[tuple[datetime, str, str]] = []
+            announced: set[str] = set()
+            for v in store.verifications.values():
+                label = f"{store.topics_by_id[v.topic_id].label} — {context_label(v.country, v.client_id)}"
+                res = v.resolution
+                # Verified answers are shared knowledge, but only where the verified item is visible.
+                if res and res.item_id in visible_ids and res.item_id not in announced:
+                    announced.add(res.item_id)
+                    expert = store.people[v.assignee_id].name
+                    events.append((res.resolved_at, "verified", f"{expert} verified {label}: {res.value_display}"))
+                if v.requester_id == user.id:
+                    events.append(
+                        (v.created_at, "requested", f"You asked {store.people[v.assignee_id].name} to verify {label}")
+                    )
+                elif v.assignee_id == user.id:
+                    events.append(
+                        (v.created_at, "assigned", f"{store.people[v.requester_id].name} asked you to verify {label}")
+                    )
+            requests = {
+                "awaiting_you": sum(1 for v in mine if v.status == "open" and v.assignee_id == user.id),
+                "sent_open": sum(1 for v in mine if v.status == "open" and v.requester_id == user.id),
+                "resolved": sum(1 for v in mine if v.status == "resolved"),
+            }
+        events.sort(key=lambda e: e[0], reverse=True)
+        return {
+            "context": context_view(ctx),
+            "topics": topics,
+            "health": {
+                "topics": len(topics),
+                "safe_topics": sum(1 for t in topics if t["answer"]["action"] == "use"),
+                "in_scope": len(in_scope),
+                "current": len(current),
+                "verified": sum(1 for s in current if s["kind"] == "verified_answer"),
+                "grades": grades,
+                "attention": len(attention),
+            },
+            "attention": attention,
+            "requests": requests,
+            "activity": [
+                {"kind": kind, "text": text, "at": at.isoformat(timespec="seconds")} for at, kind, text in events[:8]
+            ],
+        }
+
     @app.post("/api/ask")
     def ask(body: AskBody, user: Person = Depends(current_user)) -> dict:
         question = body.question.strip()
@@ -468,15 +610,15 @@ def create_app(
             mine.sort(key=lambda v: (v.status != "open", -v.created_at.timestamp()))
             return {"items": [verification_view(v, user) for v in mine]}
 
-    @app.post("/api/verifications", status_code=201)
-    def create_verification(
-        body: VerificationCreateBody, response: Response, user: Person = Depends(current_user)
-    ) -> dict:
-        topic = store.topics_by_id.get(body.topic_id)
+    def create_verification_for(
+        user: Person, topic_id: str, client_id: str | None, question: str
+    ) -> tuple[dict, bool]:
+        """Route a question to the top expert; returns (verification view, created). Raises HTTPException."""
+        topic = store.topics_by_id.get(topic_id)
         if topic is None:
             raise HTTPException(404, "Unknown topic")
-        ctx = resolve_context(user, body.client_id)
-        question = body.question.strip()
+        ctx = resolve_context(user, client_id)
+        question = question.strip()
         if not question:
             raise HTTPException(422, "Question must not be empty")
         with store.lock:
@@ -486,8 +628,7 @@ def create_app(
                 raise HTTPException(409, "Already verified for this context")
             existing = find_open_request(user, topic.id, ctx)
             if existing is not None:
-                response.status_code = 200
-                return verification_view(existing, user)
+                return verification_view(existing, user), False
             open_count = sum(
                 1 for v in store.verifications.values() if v.requester_id == user.id and v.status == "open"
             )
@@ -519,7 +660,16 @@ def create_app(
                 ],
             )
             store.verifications[verification.id] = verification
-            return verification_view(verification, user)
+            return verification_view(verification, user), True
+
+    @app.post("/api/verifications", status_code=201)
+    def create_verification(
+        body: VerificationCreateBody, response: Response, user: Person = Depends(current_user)
+    ) -> dict:
+        view, created = create_verification_for(user, body.topic_id, body.client_id, body.question)
+        if not created:
+            response.status_code = 200
+        return view
 
     def assigned_open_request(vid: str, user: Person) -> Verification:
         """Only the assignee may act; everyone else gets the same 404 as for a missing id."""
@@ -625,13 +775,12 @@ def create_app(
             ),
         }
 
-    @app.post("/api/capture", status_code=201)
-    def capture(body: CaptureBody, user: Person = Depends(current_user)) -> dict:
+    def capture_for(user: Person, text: str, client_id: str | None) -> dict:
         """Turn a pasted Teams message into graded claims; only verbatim-quoted claims survive."""
-        ctx = resolve_context(user, body.client_id)
+        ctx = resolve_context(user, client_id)
         if extractor is None:
             raise HTTPException(503, "Capture is not configured")
-        text = body.text.strip()
+        text = text.strip()
         if not text:
             raise HTTPException(422, "Paste the message text")
         if not ai_budget.try_add(user.id, AI_CALLS_PER_HOUR):
@@ -678,6 +827,205 @@ def create_app(
         store.add_item(item)
         first_topic = next(iter(claims.values())).topic
         return {"captured_item_id": item_id, "result": build_ask_result(user, first_topic, ctx, [])}
+
+    @app.post("/api/capture", status_code=201)
+    def capture(body: CaptureBody, user: Person = Depends(current_user)) -> dict:
+        return capture_for(user, body.text, body.client_id)
+
+    # --- Microsoft Teams / Copilot Studio: remote MCP server with per-user connection tokens ---
+    connections = ConnectionTokens()
+    app.state.connections = connections
+    mcp_calls = SlidingWindow(MCP_WINDOW_SECONDS)
+
+    @app.post("/api/connections/teams", status_code=201)
+    def connect_teams(user: Person = Depends(current_user)) -> dict:
+        token, record = connections.issue(user.id)  # plaintext leaves the server exactly once
+        return {"token": token, "expires_at": record.expires_at.isoformat(timespec="seconds"), "mcp_path": MCP_PATH}
+
+    @app.get("/api/connections")
+    def list_connections(user: Person = Depends(current_user)) -> dict:
+        return {"teams": connection_view(connections.status(user.id))}
+
+    @app.delete("/api/connections/teams", status_code=204)
+    def disconnect_teams(user: Person = Depends(current_user)) -> Response:
+        connections.revoke(user.id)
+        return Response(status_code=204)
+
+    def resolve_client(user: Person, query: str | None) -> str | None:
+        """Client id or unique name fragment, looked up only inside the user's own portfolio."""
+        needle = (query or "").strip().casefold()
+        if not needle:
+            return None
+        own = [store.clients[c] for c in user.client_ids if c in store.clients]
+        exact = [c for c in own if needle in (c.id.casefold(), c.name.casefold())]
+        matches = exact or [c for c in own if needle in c.name.casefold()]
+        if len(matches) > 1:
+            raise HTTPException(422, "Client name is ambiguous; use one of: " + ", ".join(c.id for c in matches))
+        if not matches:
+            raise HTTPException(403, "Client is not in your portfolio")
+        return matches[0].id
+
+    def mcp_tools() -> list[str]:
+        tools = ["ask_trustlabel", "request_verification"]
+        return tools + ["capture_teams_message"] if extractor is not None else tools
+
+    def call_mcp_tool(user: Person, name: str, args: AskArgs | CaptureArgs) -> dict:
+        if not mcp_calls.try_add(user.id, MCP_CALLS_PER_WINDOW):
+            return tool_error("Rate limit reached; try again later")
+        try:
+            client_id = resolve_client(user, args.client)
+            if isinstance(args, CaptureArgs):
+                captured = capture_for(user, args.text, client_id)
+                text = f"Captured as {captured['captured_item_id']}.\n" + ask_summary(captured["result"])
+                return tool_result(text, captured)
+            ctx = resolve_context(user, client_id)
+            topic, matched = match_topic(args.question, store.topics)
+            if topic is None:
+                suggestions = [topic_view(t) for t in store.topics]
+                if name == "request_verification":
+                    return tool_error(no_topic_text(suggestions))
+                return tool_result(no_topic_text(suggestions), {"topic": None, "suggestions": suggestions})
+            if name == "request_verification":
+                view, created = create_verification_for(user, topic.id, client_id, args.question)
+                return tool_result(verification_summary(view, created), {"verification": view, "created": created})
+            result = build_ask_result(user, topic, ctx, matched)
+            return tool_result(ask_summary(result), result)
+        except HTTPException as exc:
+            return tool_error(str(exc.detail))
+
+    def mcp_response(status: int, payload: dict | None = None, headers: dict | None = None) -> Response:
+        headers = {"Cache-Control": "no-store", **(headers or {})}
+        if payload is None:
+            return Response(status_code=status, headers=headers)
+        return JSONResponse(payload, status_code=status, headers=headers)
+
+    @app.post(MCP_PATH, include_in_schema=False)
+    async def mcp_endpoint(request: Request) -> Response:
+        """Streamable HTTP transport, stateless, JSON responses only. Token auth only, never cookies."""
+        user_id = connections.authenticate(bearer_token(request.headers))
+        user = store.people.get(user_id) if user_id else None
+        if user is None or not user.active:
+            return mcp_response(
+                401,
+                rpc_error(None, UNAUTHORIZED, "Unauthorized"),
+                {"WWW-Authenticate": 'Bearer realm="trustlabel"'},
+            )
+        version = request.headers.get("mcp-protocol-version")
+        if version is not None and version not in SUPPORTED_PROTOCOL_VERSIONS:
+            return mcp_response(400, rpc_error(None, INVALID_REQUEST, "Unsupported MCP-Protocol-Version"))
+        declared = request.headers.get("content-length")
+        too_large = mcp_response(413, rpc_error(None, INVALID_REQUEST, "Request too large"))
+        if declared is not None and declared.isdigit() and int(declared) > MAX_MCP_BODY_BYTES:
+            return too_large
+        raw = bytearray()
+        async for chunk in request.stream():
+            raw += chunk
+            if len(raw) > MAX_MCP_BODY_BYTES:
+                return too_large
+        try:
+            message = json.loads(raw)
+        except (ValueError, RecursionError):
+            return mcp_response(400, rpc_error(None, PARSE_ERROR, "Parse error"))
+        try:
+            envelope = parse_envelope(message)
+        except RpcError as exc:
+            return mcp_response(400, rpc_error(None, exc.code, exc.message))
+        if not envelope.expects_response:
+            return mcp_response(202)
+        reply = await run_in_threadpool(
+            handle_request,
+            envelope,
+            tools=mcp_tools(),
+            call_tool=lambda name, args: call_mcp_tool(user, name, args),
+        )
+        return mcp_response(200, reply)
+
+    @app.api_route(MCP_PATH, methods=["GET", "DELETE"], include_in_schema=False)
+    def mcp_method_not_allowed() -> Response:
+        return mcp_response(405, headers={"Allow": "POST"})
+
+    # --- Sign in with Google: OIDC code flow + PKCE; the email allowlist decides who you become. ---
+    google_on = google_enabled(settings)
+    google_accounts = {email.strip().lower(): uid for email, uid in settings.google_accounts.items()}
+    check_accounts(google_accounts, store.people)
+    if google_on and google_exchange is None:
+        google_exchange = http_token_exchange(settings.google_client_id, settings.google_client_secret)
+
+    def google_redirect_uri(request: Request) -> str:
+        return (settings.public_url or str(request.base_url).rstrip("/")) + CALLBACK_PATH
+
+    def finish_google(location: str) -> RedirectResponse:
+        response = RedirectResponse(location, status_code=303)
+        response.delete_cookie(
+            FLOW_COOKIE, path=FLOW_COOKIE_PATH, secure=settings.cookie_secure, httponly=True, samesite="lax"
+        )
+        return response
+
+    @app.get("/api/auth/providers")
+    def auth_providers() -> dict:
+        return {"google": google_on}
+
+    @app.get("/api/auth/google/start")
+    def google_start(request: Request) -> Response:
+        if not google_on:
+            raise HTTPException(404, "Not found")
+        flow = new_flow()
+        response = RedirectResponse(
+            authorization_url(settings.google_client_id, google_redirect_uri(request), flow), status_code=302
+        )
+        # Lax, not Strict: Google's redirect back to the callback is a cross-site navigation.
+        response.set_cookie(
+            FLOW_COOKIE,
+            sign_flow(settings.secret_key, flow),
+            max_age=FLOW_MAX_AGE_SECONDS,
+            path=FLOW_COOKIE_PATH,
+            secure=settings.cookie_secure,
+            httponly=True,
+            samesite="lax",
+        )
+        return response
+
+    @app.get("/api/auth/google/callback")
+    def google_callback(
+        request: Request, code: str | None = None, state: str | None = None, error: str | None = None
+    ) -> Response:
+        if not google_on:
+            raise HTTPException(404, "Not found")
+        ip = request.client.host if request.client else "unknown"
+        try:
+            if ip_failures.count(ip) >= LOGIN_MAX_FAILURES_PER_IP:
+                raise GoogleAuthError(FAILED, "too many failed sign-ins from this IP")
+            if error is not None:
+                # Provider text is never logged or reflected; only the fixed code goes back.
+                raise GoogleAuthError(CANCELLED if error == "access_denied" else FAILED, "provider returned an error")
+            flow = load_flow(settings.secret_key, request.cookies.get(FLOW_COOKIE))
+            check_state(flow, state)
+            if not code:
+                raise GoogleAuthError(FAILED, "missing authorization code")
+            try:
+                tokens = google_exchange(
+                    code=code, code_verifier=flow["code_verifier"], redirect_uri=google_redirect_uri(request)
+                )
+            except (httpx.HTTPError, ValueError) as exc:
+                raise GoogleAuthError(FAILED, f"token exchange failed ({type(exc).__name__})") from exc
+            claims = decode_id_token(tokens.get("id_token") if isinstance(tokens, dict) else None)
+            email = verified_email(claims, client_id=settings.google_client_id, nonce=flow["nonce"], now=time.time())
+            user_id = google_accounts.get(email)
+            person = store.people.get(user_id) if user_id else None
+            if person is None or not person.active:
+                raise GoogleAuthError(UNLINKED, "Google account is not linked to an active TrustLabel user")
+        except GoogleAuthError as exc:
+            ip_failures.add(ip)
+            logger.warning("Google sign-in failed from %s: %s", ip, exc.reason)
+            return finish_google("/?" + urlencode({"login_error": exc.code}))
+        previous = request.session.get("sid")
+        if isinstance(previous, str):
+            sessions.pop(previous, None)
+        request.session.clear()
+        sid = secrets.token_urlsafe(24)
+        sessions[sid] = person.id
+        request.session["sid"] = sid
+        return finish_google("/")
 
     @app.get("/", include_in_schema=False)
     def index() -> FileResponse:

@@ -42,9 +42,13 @@ def creds_file(tmp_path_factory):
 
 @pytest.fixture
 def make_client(creds_file):
-    def factory(extractor=None, transcriber=None) -> TestClient:
-        settings = Settings(secret_key=_SECRET_KEY, credentials_file=creds_file, cookie_secure=False)
-        return TestClient(create_app(settings, extractor, transcriber, clock=lambda: TODAY))
+    def factory(extractor=None, transcriber=None, *, google_exchange=None, **settings_overrides) -> TestClient:
+        settings = Settings(
+            secret_key=_SECRET_KEY, credentials_file=creds_file, cookie_secure=False, **settings_overrides
+        )
+        return TestClient(
+            create_app(settings, extractor, transcriber, clock=lambda: TODAY, google_exchange=google_exchange)
+        )
 
     return factory
 
