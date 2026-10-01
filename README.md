@@ -1,8 +1,11 @@
 # TrustLabel
 
-## [Open the live demo →](https://wage-deputy-practices-represents.trycloudflare.com)
+## [▶ Watch the demo video](https://vimeo.com/1231811162/d3b1beb1b5) · [Open the live demo →](https://trustlabel-lpbw.onrender.com)
 
-Runs on a team laptop through a Cloudflare Tunnel. Sign-in required: demo accounts are not published in this repo.
+[![TrustLabel demo video on Vimeo](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F2207060175-8f213a435c638d217f73ca8e53ce1a5c52781fc5aaffb373f374add5d18df633-d_640%3Fregion%3Dus&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1231811162/d3b1beb1b5)
+
+The live demo runs on Render's free plan: it sleeps after 15 idle minutes, the next visit takes about a minute to
+wake it, and the demo data resets. Sign-in required; demo accounts are not published in this repo.
 
 **Search finds it. TrustLabel shows whether you can rely on it.**
 
@@ -61,9 +64,9 @@ A client-specific formal source (policy, procedure or verified answer) overrides
 
 ## Demo video
 
-[`demo/out/trustlabel-demo.mp4`](demo/out/trustlabel-demo.mp4) is a narrated walkthrough of the demo path below,
-made with Remotion from the engine's real output and narrated by two voices, Rufina and Artiom. See
-[`demo/README.md`](demo/README.md) to re-render it, voice it with the ElevenLabs voice clones, or add the team's photos.
+[Watch the demo on Vimeo](https://vimeo.com/1231811162/d3b1beb1b5). [`demo/`](demo/) is a Remotion project that renders a
+narrated walkthrough of the demo path below from the engine's real output; [`demo/README.md`](demo/README.md) explains
+how to render it, voice it with the team's ElevenLabs voice clones, or add the team's photos.
 
 ## Run it
 
@@ -94,12 +97,12 @@ tool → Model Context Protocol → URL `https://<host>/mcp`, authentication *AP
 (`http://127.0.0.1:8000/…` locally), then set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
 `TRUSTLABEL_GOOGLE_ACCOUNTS=you@example.com=lotte` and, behind a proxy, `TRUSTLABEL_PUBLIC_URL`.
 
-**Public URL (Cloudflare Tunnel).** Secure cookies on, and trust the tunnel's client-IP header:
-
-```bash
-TRUSTLABEL_COOKIE_SECURE=1 TRUSTLABEL_BEHIND_PROXY=1 uv run --env-file .env main.py
-cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8000   # prints https://<name>.trycloudflare.com
-```
+**Free deployment (Render).** The live demo is a Render free web service built from this repo with the Render CLI:
+`render services create --type web_service --plan free --runtime python --build-command "uv sync --frozen --no-dev"`
+with a start command that runs `uvicorn.run(create_app(Settings.from_env()), host="0.0.0.0",
+port=int(os.environ["PORT"]), proxy_headers=True, forwarded_allow_ips="*")` under `.venv/bin/python -c`. Secrets:
+`.credentials.json` as a secret file (`TRUSTLABEL_CREDENTIALS_FILE=/etc/secrets/credentials.json`), a fresh
+`TRUSTLABEL_SECRET_KEY`, the API keys and `TRUSTLABEL_COOKIE_SECURE=1`.
 
 ## Security
 
@@ -108,9 +111,10 @@ cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8000   # prints https:
 - Server-side sessions: a random session id in a signed, `HttpOnly`, `SameSite=Strict` cookie (8 h); logout revokes
   it on the server. A new session id on every login.
 - CSRF: SameSite=Strict plus an `Origin` check on every state-changing request.
-- Login rate limits: 5 failures per username and IP, and 30 failures per IP across usernames, per 5 minutes; the
-  server ignores `X-Forwarded-For` unless `TRUSTLABEL_BEHIND_PROXY=1`, and then trusts it only from 127.0.0.1
-  (a local tunnel); concurrent scrypt checks are capped. AI budget: 20 voice/capture calls per user per hour.
+- Login rate limits: 5 failures per username and IP, and 30 failures per IP across usernames, per 5 minutes;
+  concurrent scrypt checks are capped. `main.py` ignores `X-Forwarded-For` unless `TRUSTLABEL_BEHIND_PROXY=1` (then
+  only from 127.0.0.1, a local tunnel); the Render deployment takes the client IP from Render's proxy. AI budget: 20
+  voice/capture calls per user per hour.
 - Teams/MCP keys are random, stored only as a SHA-256 hash, one per user, expire after 8 h and can be revoked; they
   never work as a session cookie, and every tool call runs with that user's permissions (60 calls per 10 minutes).
 - Google sign-in uses a signed 10-minute flow cookie (state, nonce, PKCE verifier) and checks the ID token's issuer,
@@ -143,5 +147,4 @@ stubbed), the trust overview, the MCP server and Google sign-in (token exchange 
 
 - State is in memory: a restart resets requests and verified answers. Data is synthetic and fictional.
 - Teams reaches TrustLabel through MCP, but sources still load from `data/*.json` (no SharePoint/Teams ingestion).
-- The public URL is a Cloudflare quick tunnel to a laptop: no uptime guarantee, and each restart gets a new hostname.
 - Topic matching is keyword-based over three demo topics.
