@@ -2,10 +2,11 @@
 
 ## [▶ Watch the demo video](https://vimeo.com/1231811162/d3b1beb1b5) · [Open the live demo →](https://trustlabel-lpbw.onrender.com)
 
-[![TrustLabel demo video on Vimeo](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F2207060175-8f213a435c638d217f73ca8e53ce1a5c52781fc5aaffb373f374add5d18df633-d_640%3Fregion%3Dus&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1231811162/d3b1beb1b5)
+### Test logins: `lotte` / `DDLokxtZlPuvx9vh` (consultant) · `ellen` / `JLLzQlsJHBa1yZ8V` (expert)
 
-The live demo runs on Render's free plan: it sleeps after 15 idle minutes, the next visit takes about a minute to
-wake it, and the demo data resets. Sign-in required; demo accounts are not published in this repo.
+Render free plan, shared accounts: it sleeps after 15 idle minutes; waking takes about a minute and resets the data.
+
+[![TrustLabel demo video on Vimeo](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F2207060175-8f213a435c638d217f73ca8e53ce1a5c52781fc5aaffb373f374add5d18df633-d_640%3Fregion%3Dus&src1=http%3A%2F%2Ff.vimeocdn.com%2Fp%2Fimages%2Fcrawler_play.png)](https://vimeo.com/1231811162/d3b1beb1b5)
 
 **Search finds it. TrustLabel shows whether you can rely on it.**
 
@@ -64,9 +65,8 @@ A client-specific formal source (policy, procedure or verified answer) overrides
 
 ## Demo video
 
-[Watch the demo on Vimeo](https://vimeo.com/1231811162/d3b1beb1b5). [`demo/`](demo/) is a Remotion project that renders a
-narrated walkthrough of the demo path below from the engine's real output; [`demo/README.md`](demo/README.md) explains
-how to render it, voice it with the team's ElevenLabs voice clones, or add the team's photos.
+[Watch it on Vimeo](https://vimeo.com/1231811162/d3b1beb1b5). The Remotion project in [`demo/`](demo/) renders a narrated
+walkthrough of the demo path from the engine's real output; [`demo/README.md`](demo/README.md) covers voices and photos.
 
 ## Run it
 
@@ -106,8 +106,8 @@ port=int(os.environ["PORT"]), proxy_headers=True, forwarded_allow_ips="*")` unde
 
 ## Security
 
-- Per-user passwords, stored only as scrypt hashes in the gitignored `.credentials.json`; nothing secret is in the
-  repo. Unknown users are checked against a dummy hash (no username timing oracle).
+- Per-user passwords, stored only as scrypt hashes in the gitignored `.credentials.json`; only the test logins above
+  are published. Unknown users are checked against a dummy hash (no username timing oracle).
 - Server-side sessions: a random session id in a signed, `HttpOnly`, `SameSite=Strict` cookie (8 h); logout revokes
   it on the server. A new session id on every login.
 - CSRF: SameSite=Strict plus an `Origin` check on every state-changing request.
