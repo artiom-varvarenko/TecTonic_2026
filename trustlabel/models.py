@@ -7,8 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-Kind = Literal["policy", "procedure", "faq", "teams_message", "verified_answer"]
-ValueType = Literal["day_of_month", "working_days"]
+Kind = Literal["policy", "procedure", "faq", "teams_message", "spott_note", "meeting", "verified_answer"]
+ValueType = Literal["day_of_month", "working_days", "amount_eur"]
 
 
 class Person(BaseModel):
@@ -28,6 +28,10 @@ class Client(BaseModel):
     name: str
     country: str
     sector: str
+    # Other names people use for the client in emails, cases and calls (matched as whole words).
+    aliases: list[str] = []
+    # Email domains of the client's own staff; a sender on one of them identifies the client.
+    email_domains: list[str] = []
 
 
 class Topic(BaseModel):
@@ -35,6 +39,8 @@ class Topic(BaseModel):
     label: str
     value_type: ValueType
     keywords: list[str]
+    # Shown after amounts, e.g. "per month" → "€750 per month".
+    unit: str | None = None
 
 
 class Claim(BaseModel):
@@ -98,6 +104,10 @@ class Verification(BaseModel):
     voice_transcript: str | None = None
     voice_value: str | None = None
     resolution: Resolution | None = None
+    # The requester's own wording; `question` holds the drafted question the expert receives.
+    asked: str | None = None
+    # Other users whose auto-ask reused this open request; they see it in their inbox too.
+    follower_ids: list[str] = []
 
 
 class StrictBody(BaseModel):
@@ -113,6 +123,7 @@ class AskBody(StrictBody):
     question: str = Field(default="", max_length=300)
     client_id: str | None = Field(default=None, max_length=64)
     topic_id: str | None = Field(default=None, max_length=64)
+    auto_ask: bool = False
 
 
 class VerificationCreateBody(StrictBody):
@@ -130,3 +141,23 @@ class ResolveBody(StrictBody):
 class CaptureBody(StrictBody):
     text: str = Field(min_length=1, max_length=1000)
     client_id: str | None = Field(default=None, max_length=64)
+
+
+class BriefBody(StrictBody):
+    """An email (or case) a channel wants a trust brief for."""
+
+    subject: str = Field(default="", max_length=500)
+    body: str = Field(default="", max_length=20_000)
+    sender: str | None = Field(default=None, max_length=320)
+    client_id: str | None = Field(default=None, max_length=64)
+
+
+class ChannelVerificationBody(StrictBody):
+    topic_id: str = Field(min_length=1, max_length=64)
+    client_id: str | None = Field(default=None, max_length=64)
+    question: str = Field(min_length=1, max_length=2000)
+
+
+class SpottConnectBody(StrictBody):
+    api_key: str = Field(min_length=1, max_length=512)
+    webhook_secret: str | None = Field(default=None, max_length=256)

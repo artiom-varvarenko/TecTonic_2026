@@ -21,7 +21,7 @@ const SKELETON_DELAY_MS = 150;
 
 const state = {
   me: null,
-  view: "ask",
+  view: initialView(),
   inboxCount: 0,
   contextKey: null,
   knownResolved: null,
@@ -149,6 +149,10 @@ const ICONS = {
     ["path", { d: "M22 12h-6l-2 3h-4l-2-3H2" }],
     ["path", { d: "M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1Z" }],
   ],
+  key: [["circle", { cx: 8, cy: 15, r: 4 }], ["path", { d: "m10.8 12.2 9.2-9.2" }], ["path", { d: "m16 7 3 3" }], ["path", { d: "m14 9 2 2" }]],
+  mail: [["rect", { x: 3, y: 5, width: 18, height: 14, rx: 2 }], ["path", { d: "m3 7 9 6 9-6" }]],
+  cloud: [["path", { d: "M7 18a4 4 0 0 1-.6-8A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9z" }]],
+  phone: [["path", { d: "M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z" }]],
 };
 
 function svgEl(tag, attrs) {
@@ -265,7 +269,7 @@ async function boot() {
     root.appendChild(h("div", { className: "boot-error" }, "Could not load TrustLabel: ", err.detail || String(err)));
     return;
   }
-  state.view = "ask";
+  state.view = initialView();
   state.contextKey = state.me.contexts.length ? state.me.contexts[0].key : null;
   renderShell();
 }
@@ -349,6 +353,10 @@ let inboxViewEl = null;
 let inboxNavBtn = null;
 let inboxCountEl = null;
 let askNavBtn = null;
+let integrationsViewEl = null;
+let integrationsNavBtn = null;
+let chatViewEl = null;
+let chatNavBtn = null;
 
 function renderShell() {
   clear(root);
@@ -367,12 +375,14 @@ function renderShell() {
     "Verification inbox",
     inboxCountEl,
   );
+  integrationsNavBtn = h("button", { className: "nav-btn", type: "button", onClick: () => switchView("integrations") }, icon("link", "icon-sm"), "Integrations");
+  chatNavBtn = h("button", { className: "nav-btn", type: "button", onClick: () => switchView("chat") }, icon("message", "icon-sm"), "Chat");
 
   const header = h(
     "header",
     { className: "app-header" },
     brand(),
-    h("nav", { className: "nav", "aria-label": "Main" }, askNavBtn, inboxNavBtn),
+    h("nav", { className: "nav", "aria-label": "Main" }, askNavBtn, chatNavBtn, inboxNavBtn, integrationsNavBtn),
     h(
       "div",
       { className: "user-area" },
@@ -384,26 +394,42 @@ function renderShell() {
 
   askViewEl = h("main", { className: "view view-ask" });
   inboxViewEl = h("main", { className: "view view-inbox" });
+  integrationsViewEl = h("main", { className: "view view-integrations" });
+  chatViewEl = h("main", { className: "view view-chat" });
   root.appendChild(header);
   root.appendChild(askViewEl);
   root.appendChild(inboxViewEl);
-  connectionsEl = null;
-  connectionToken = null;
+  root.appendChild(integrationsViewEl);
+  root.appendChild(chatViewEl);
+  issuedKey = null;
   renderAskView();
+  renderChatView();
   switchView(state.view);
   refreshInboxCount();
   startPolling();
 }
 
+// `?view=inbox` is the target of the "Answer in TrustLabel" button on Teams alerts; `?view=chat` opens the chat.
+function initialView() {
+  const view = new URLSearchParams(location.search).get("view");
+  return ["ask", "chat", "inbox", "integrations"].includes(view) ? view : "ask";
+}
+
 function switchView(view) {
   state.view = view;
+  if (view !== "integrations") issuedKey = null;
   askViewEl.hidden = view !== "ask";
   inboxViewEl.hidden = view !== "inbox";
-  askNavBtn.className = view === "ask" ? "nav-btn active" : "nav-btn";
-  inboxNavBtn.className = view === "inbox" ? "nav-btn active" : "nav-btn";
-  askNavBtn.setAttribute("aria-current", view === "ask" ? "page" : "false");
-  inboxNavBtn.setAttribute("aria-current", view === "inbox" ? "page" : "false");
+  integrationsViewEl.hidden = view !== "integrations";
+  chatViewEl.hidden = view !== "chat";
+  if (view !== "chat") stopHandsFree();
+  for (const [btn, name] of [[askNavBtn, "ask"], [chatNavBtn, "chat"], [inboxNavBtn, "inbox"], [integrationsNavBtn, "integrations"]]) {
+    btn.className = view === name ? "nav-btn active" : "nav-btn";
+    btn.setAttribute("aria-current", view === name ? "page" : "false");
+  }
   if (view === "inbox") loadInbox();
+  else if (view === "integrations") loadIntegrations();
+  else if (view === "chat") focusChat();
   else if (!askViewEl.classList.contains("has-result")) loadOverview();
 }
 
@@ -414,6 +440,7 @@ async function logout() {
     if (!(err instanceof ApiError && err.status === 401)) showError(err);
   }
   stopPolling();
+  stopHandsFree();
   state.me = null;
   renderLogin();
 }
@@ -503,7 +530,7 @@ function renderAskView() {
   );
 
   const chips = h("div", { className: "chips" }, h("span", { className: "chips-label" }, "Topics"), me.topics.map((t) => topicChip(t)));
-  const panel = h("section", { className: "ask-card" }, form, chips);
+  const panel = h("section", { className: "ask-card" }, form, chips, renderAutoAskToggle());
   if (me.features && me.features.capture) panel.appendChild(renderCapture());
 
   const intro = h(
@@ -529,6 +556,46 @@ function topicChip(topic) {
     "button",
     { type: "button", className: "chip", onClick: () => runAsk({ question: questionInput.value.trim(), topic_id: topic.id }) },
     topic.label,
+  );
+}
+
+// The user's auto-ask preference ("1"/"0", default on); the Chat view reads and writes the same key.
+const AUTO_ASK_KEY = "tl.autoAsk";
+
+function autoAskEnabled() {
+  try {
+    return localStorage.getItem(AUTO_ASK_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+function setAutoAsk(on) {
+  try {
+    localStorage.setItem(AUTO_ASK_KEY, on ? "1" : "0");
+  } catch {
+    // storage unavailable (private mode): the toggle still applies to this page
+  }
+}
+
+function renderAutoAskToggle() {
+  const box = h("input", { type: "checkbox", id: "auto-ask-toggle", checked: autoAskEnabled(), onChange: () => setAutoAsk(box.checked) });
+  return h(
+    "label",
+    { className: "auto-ask-toggle", htmlFor: "auto-ask-toggle", title: "When sources conflict or nothing applies, TrustLabel asks the routed expert for you" },
+    box,
+    h("span", null, "Ask the owner automatically"),
+  );
+}
+
+// A verification TrustLabel sent on the user's behalf (or one a colleague already sent for this context).
+function renderAutoRequest(v) {
+  return h(
+    "div",
+    { className: "auto-request" },
+    h("p", { className: "auto-request-head" }, icon("message", "icon-sm"), `TrustLabel asked ${v.assignee_name} for you`),
+    h("p", { className: "drafted-question" }, `“${v.question}”`),
+    h("p", { className: "pending" }, icon("clock", "icon-sm"), v.status === "open" ? "Pending — you'll see the answer here once they confirm" : "Answered"),
   );
 }
 
@@ -573,7 +640,7 @@ async function runAsk({ question, topic_id }, button) {
     const data = await withSkeleton(() =>
       api("/api/ask", {
         method: "POST",
-        body: { question: question || "", client_id: ctx ? ctx.client_id : null, topic_id: topic_id || null },
+        body: { question: question || "", client_id: ctx ? ctx.client_id : null, topic_id: topic_id || null, auto_ask: autoAskEnabled() },
       }),
     );
     renderAskResponse(data, { question: question || "" });
@@ -592,6 +659,10 @@ function renderAskResponse(data, { question, newItemId = null }) {
   askViewEl.classList.add("has-result");
   hideDashboard();
   resultEl.appendChild(h("button", { type: "button", className: "back-link", onClick: resetAsk }, icon("arrowLeft", "icon-sm"), "Back to overview"));
+  if (data.restricted) {
+    resultEl.appendChild(renderRestricted(data.restricted));
+    return;
+  }
   if (!data.topic) {
     resultEl.appendChild(
       h(
@@ -605,6 +676,18 @@ function renderAskResponse(data, { question, newItemId = null }) {
     return;
   }
   resultEl.appendChild(renderResult(data, { question, newItemId }));
+}
+
+function renderRestricted(r) {
+  return h(
+    "section",
+    { className: "card restricted" },
+    h("h2", { className: "card-title" }, icon("shield", "icon-sm"), "Not shared: personal data"),
+    h("p", null, r.message),
+    r.contact
+      ? h("p", { className: "restricted-contact" }, icon("user", "icon-xs"), h("strong", null, r.contact.name), h("span", { className: "muted-text" }, r.contact.title))
+      : null,
+  );
 }
 
 function renderCapture() {
@@ -806,7 +889,10 @@ function renderExperts(data, question) {
 
   const actionArea = h("div", { className: "expert-action" });
   const pendingText = (name) => h("p", { className: "pending" }, icon("clock", "icon-sm"), `Verification requested from ${name} — pending`);
-  if (data.open_request) {
+  if (data.auto_request) {
+    actionArea.appendChild(renderAutoRequest(data.auto_request));
+    refreshInboxCount();
+  } else if (data.open_request) {
     actionArea.appendChild(pendingText(data.open_request.assignee_name));
   } else if (data.answer.action !== "use") {
     const btn = h(
@@ -828,6 +914,7 @@ function renderExperts(data, question) {
         });
         clear(actionArea);
         actionArea.appendChild(pendingText(v.assignee_name));
+        actionArea.appendChild(h("p", { className: "drafted-question" }, `Question sent: “${v.question}”`));
         toast(`Verification request sent to ${v.assignee_name}.`);
         refreshInboxCount();
       } catch (err) {
@@ -864,10 +951,14 @@ function renderSource(s, isNew) {
   const muted = MUTED_STATUSES.has(s.status);
   let owner;
   if (s.kind === "teams_message") owner = h("span", null, icon("message", "icon-xs"), `Posted by ${s.author_name || "unknown author"}`);
+  else if (s.kind === "spott_note") owner = h("span", null, icon("message", "icon-xs"), "Captured from Spott");
+  else if (s.kind === "meeting") owner = h("span", null, icon("message", "icon-xs"), s.author_name ? `Said by ${s.author_name} in a meeting` : "Said in a meeting");
   else if (s.owner_active) owner = h("span", null, icon("user", "icon-xs"), `Owner: ${s.owner_name}`);
   else owner = h("span", { className: "no-owner" }, icon("alert", "icon-xs"), "No active owner");
   let dated;
   if (s.kind === "teams_message") dated = `Posted ${s.created_on}`;
+  else if (s.kind === "spott_note") dated = `Noted ${s.created_on}`;
+  else if (s.kind === "meeting") dated = `Recorded ${s.created_on}`;
   else if (s.last_reviewed_on) dated = `Last reviewed ${s.last_reviewed_on}`;
   else dated = `Created ${s.created_on}`;
 
@@ -967,6 +1058,7 @@ function renderRequestCard(v) {
     `Requested by ${v.requester_name} for ${v.assignee_name}${v.is_assignee ? " (you)" : ""} · ${formatDateTime(v.created_at)}`,
   );
   const card = h("article", { className: "card request-card" }, head, meta, h("p", { className: "request-question" }, `“${v.question}”`));
+  if (v.asked && v.asked !== v.question) card.appendChild(h("p", { className: "request-asked" }, `Asked: “${v.asked}”`));
 
   if (v.status === "resolved" && v.resolution) {
     card.appendChild(renderResolution(v.resolution));
@@ -1242,14 +1334,13 @@ function googleMark() {
 
 const POLL_MS = 15000;
 const TOPIC_BADGE = { use: "Safe to use", verify: "Use with caution", ask_expert: "Don't act yet" };
-const ACTIVITY_ICONS = { verified: "check", assigned: "inbox", requested: "clock" };
+const ACTIVITY_ICONS = { verified: "check", assigned: "inbox", requested: "clock", captured: "message" };
 let dashboardEl = null;
 let overviewSeq = 0;
 let lastOverview = "";
 let pollTimer = null;
-let connectionsEl = null;
-let lastConnection = "";
-let connectionToken = null; // plaintext key: kept only in this tab, only right after creation
+let integrationsSeq = 0;
+let issuedKey = null; // plaintext personal key: kept only in this tab, only right after creation
 
 function plural(n, word) {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -1320,7 +1411,7 @@ function renderDashboard(data) {
   dashboardEl.appendChild(renderKpis(data.health, data.requests));
   dashboardEl.appendChild(h("div", { className: "topic-board" }, data.topics.map(renderTopicCard)));
   dashboardEl.appendChild(
-    h("div", { className: "dash-grid" }, renderAttention(data.attention), h("div", { className: "dash-col" }, renderActivity(data.activity), renderConnections())),
+    h("div", { className: "dash-grid" }, renderAttention(data.attention), h("div", { className: "dash-col" }, renderActivity(data.activity))),
   );
 }
 
@@ -1435,7 +1526,7 @@ function renderAttention(items) {
       "ul",
       { className: "attention-list" },
       items.map((a) => {
-        const owner = a.owner_name ? `Owner: ${a.owner_name}` : a.kind_label === "Teams message" ? "Chat message, no owner" : "No active owner";
+        const owner = a.owner_name ? `Owner: ${a.owner_name}` : ["Teams message", "Spott note"].includes(a.kind_label) ? `${a.kind_label}, no owner` : "No active owner";
         return h(
           "li",
           { className: "attention-item" },
@@ -1455,7 +1546,7 @@ function renderAttention(items) {
 }
 
 function renderActivity(items) {
-  const card = h("section", { className: "card activity-card" }, h("h2", { className: "card-title" }, "Recent activity", h("small", null, "Verifications you can see")));
+  const card = h("section", { className: "card activity-card" }, h("h2", { className: "card-title" }, "Recent activity", h("small", null, "Verifications and Spott notes you can see")));
   if (!items.length) {
     card.appendChild(h("p", { className: "empty-note" }, icon("clock", "icon-sm"), "No verifications yet. Confirmed answers appear here for the whole client team."));
     return card;
@@ -1478,85 +1569,142 @@ function renderActivity(items) {
   return card;
 }
 
-// ---------- Teams connection (MCP) ----------
+// ---------- integrations ----------
 
-function renderConnections() {
-  if (!connectionsEl) {
-    connectionsEl = h("section", { className: "card connect-card" });
-    lastConnection = "";
-    refreshConnection();
-  }
-  return connectionsEl;
+const SALESFORCE_ENV = ["SALESFORCE_DOMAIN", "SALESFORCE_CLIENT_ID", "SALESFORCE_CLIENT_SECRET"];
+
+function absoluteUrl(url) {
+  return /^https?:\/\//.test(url) ? url : `${location.origin}${url.startsWith("/") ? "" : "/"}${url}`;
 }
 
-async function refreshConnection() {
-  let status = null;
+async function loadIntegrations() {
+  const seq = ++integrationsSeq;
+  if (!integrationsViewEl.firstChild) {
+    integrationsViewEl.appendChild(h("div", { className: "integrations", "aria-hidden": "true" }, [0, 1, 2, 3].map(() => h("div", { className: "sk sk-card" }))));
+  }
   try {
-    status = (await api("/api/connections")).teams;
-  } catch {
-    status = null;
+    const data = await api("/api/integrations");
+    if (seq === integrationsSeq && state.view === "integrations") renderIntegrations(data);
+  } catch (err) {
+    if (seq !== integrationsSeq) return;
+    clear(integrationsViewEl);
+    integrationsViewEl.appendChild(h("section", { className: "card inbox-empty" }, icon("alert"), h("p", null, "Integrations could not be loaded.")));
+    showError(err);
   }
-  const snapshot = JSON.stringify([status, Boolean(connectionToken)]);
-  if (snapshot === lastConnection && connectionsEl && connectionsEl.firstChild) return;
-  lastConnection = snapshot;
-  drawConnection(status);
 }
 
-function drawConnection(status) {
-  const el = connectionsEl;
-  if (!el) return;
-  clear(el);
-  const connected = Boolean(status && status.connected);
-  el.appendChild(
+function renderIntegrations(data) {
+  clear(integrationsViewEl);
+  integrationsViewEl.appendChild(
+    h(
+      "header",
+      { className: "integrations-head" },
+      h("p", { className: "eyebrow" }, "Channels"),
+      h("h1", null, "Integrations"),
+      h("p", null, "TrustLabel works inside the tools your teams already use."),
+    ),
+  );
+  const keyActive = Boolean(data.key && data.key.active);
+  integrationsViewEl.appendChild(
+    h(
+      "div",
+      { className: "integrations" },
+      renderKeyCard(data.key),
+      renderTeamsCard(data.teams, keyActive),
+      renderOutlookCard(data.outlook, keyActive),
+      renderSalesforceCard(data.salesforce),
+      renderSpottCard(data.spott, data.is_admin),
+      renderTalkdeskCard(data.talkdesk),
+      data.meetings ? renderMeetingsCard(data.meetings) : null,
+      data.auto_ask ? renderAutoAskCard(data.auto_ask) : null,
+    ),
+  );
+}
+
+function renderAutoAskCard(autoAsk) {
+  const claude = autoAsk.drafting === "claude";
+  return integrationCard(
+    { iconName: "message", logo: "claude", title: "Auto-ask", subtitle: "Questions to experts, drafted for you", status: claude ? "Claude" : "Template", tone: claude ? "resolved" : "idle" },
+    [
+      h("p", { className: "connect-copy" }, "When sources conflict or nothing applies, TrustLabel asks the routed expert with one neutral question naming every competing value, its source and grade. Turn it off with “Ask the owner automatically” on the Ask page."),
+      facts([
+        ["Drafting", claude ? `Claude (${autoAsk.model})` : "Fixed template"],
+        ["Checks", "One line · ≤ 300 chars · every value named"],
+      ]),
+      claude ? null : h("p", { className: "muted-text" }, "Set ANTHROPIC_API_KEY to let Claude draft the question."),
+    ],
+  );
+}
+
+function integrationCard({ iconName, logo, title, subtitle, status = null, tone = "idle", wide = false }, body) {
+  return h(
+    "section",
+    { className: wide ? "card connect-card integration-card integration-wide" : "card connect-card integration-card" },
     h(
       "div",
       { className: "connect-head" },
-      h("span", { className: "connect-logo", "aria-hidden": "true" }, icon("message")),
-      h("div", { className: "connect-id" }, h("h2", { className: "card-title" }, "Microsoft Teams"), h("p", { className: "muted-text" }, "Ask TrustLabel from Teams over MCP")),
-      h("span", { className: connected ? "req-status status-resolved" : "req-status status-idle" }, connected ? "Connected" : "Not connected"),
+      h("span", { className: `connect-logo logo-${logo}`, "aria-hidden": "true" }, icon(iconName)),
+      h("div", { className: "connect-id" }, h("h2", { className: "card-title" }, title), h("p", { className: "muted-text" }, subtitle)),
+      status ? h("span", { className: `req-status status-${tone}` }, status) : null,
     ),
+    body,
   );
-  if (connectionToken && connected) {
-    el.appendChild(
+}
+
+function facts(rows) {
+  return h(
+    "dl",
+    { className: "integration-facts" },
+    rows.map(([label, value]) => h("div", { className: "integration-fact" }, h("dt", null, label), h("dd", null, value))),
+  );
+}
+
+function steps(items) {
+  return h("ol", { className: "integration-steps" }, items.map((item) => h("li", null, item)));
+}
+
+function renderKeyCard(key) {
+  const active = Boolean(key && key.active);
+  const body = [];
+  if (issuedKey && active) {
+    body.push(
       h(
         "div",
         { className: "token-box" },
-        copyRow("MCP server URL", `${location.origin}${connectionToken.mcp_path || "/mcp"}`),
-        copyRow("API key (shown once)", connectionToken.token),
-        h("p", { className: "muted-text" }, `Send it as header X-API-Key or Authorization: Bearer. Expires ${formatDateTime(connectionToken.expires_at)}.`),
+        h("p", { className: "integration-warning" }, icon("alert", "icon-xs"), "Shown once: copy it now. It replaces your previous key."),
+        copyRow("Personal key", issuedKey.token),
+        h("p", { className: "muted-text" }, `Send it as header X-API-Key or Authorization: Bearer. Expires ${formatDateTime(issuedKey.expires_at)}.`),
       ),
     );
-  } else if (connected) {
-    const used = status.last_used_at ? ` · last used ${relativeTime(status.last_used_at)}` : "";
-    el.appendChild(h("p", { className: "connect-copy" }, `Key created ${formatDateTime(status.created_at)} · ${plural(status.calls, "call")}${used}`));
+  } else if (active) {
+    body.push(h("p", { className: "connect-copy" }, key.expires_at ? `Active · expires ${formatDateTime(key.expires_at)}` : "Active"));
   } else {
-    el.appendChild(
-      h("p", { className: "connect-copy" }, "A Teams agent asks TrustLabel directly and gets the same grades, reasons and expert routing, scoped to your client portfolio."),
-    );
+    body.push(h("p", { className: "connect-copy" }, "Create a key and paste it into Teams or the Outlook add-in. Answers are scoped to your client portfolio."));
   }
-  const actions = h("div", { className: "connect-actions" });
-  const create = h("button", { type: "button", className: connected ? "btn btn-secondary" : "btn btn-primary" }, icon("link", "icon-sm"), connected ? "New key" : "Connect Teams");
+  const create = h("button", { type: "button", className: active ? "btn btn-secondary" : "btn btn-primary" }, icon("key", "icon-sm"), "Create key");
   create.addEventListener("click", async () => {
+    if (active && !window.confirm("A new key replaces your current key. Teams and Outlook stop working until you paste the new one. Continue?")) return;
     create.disabled = true;
     try {
-      connectionToken = await api("/api/connections/teams", { method: "POST" });
-      toast("Connection key created. Copy it now: it is shown only once.");
-      await refreshConnection();
+      issuedKey = await api("/api/connections/teams", { method: "POST" });
+      toast("Key created. Copy it now: it is shown only once.");
+      await loadIntegrations();
     } catch (err) {
       create.disabled = false;
       showError(err);
     }
   });
-  actions.appendChild(create);
-  if (connected) {
+  const actions = h("div", { className: "connect-actions" }, create);
+  if (active) {
     const revoke = h("button", { type: "button", className: "btn btn-ghost" }, "Revoke");
     revoke.addEventListener("click", async () => {
+      if (!window.confirm("Revoke your personal key? Teams and Outlook lose access right away.")) return;
       revoke.disabled = true;
       try {
         await api("/api/connections/teams", { method: "DELETE" });
-        connectionToken = null;
-        toast("Teams connection revoked.");
-        await refreshConnection();
+        issuedKey = null;
+        toast("Personal key revoked.");
+        await loadIntegrations();
       } catch (err) {
         revoke.disabled = false;
         showError(err);
@@ -1564,30 +1712,312 @@ function drawConnection(status) {
     });
     actions.appendChild(revoke);
   }
-  el.appendChild(actions);
-  el.appendChild(
-    h(
-      "details",
-      { className: "connect-steps" },
-      h("summary", null, "How to add it to Teams", icon("chevronDown", "icon-xs")),
-      h(
-        "ol",
-        null,
-        h("li", null, "Serve TrustLabel over public HTTPS; Teams can't reach 127.0.0.1."),
-        h("li", null, "Copilot Studio: your agent → Tools → Add a tool → New tool → Model Context Protocol."),
-        h("li", null, "Server URL ", h("code", null, "https://<host>/mcp"), ", authentication API key, header ", h("code", null, "X-API-Key"), "."),
-        h("li", null, "Publish the agent to Microsoft Teams and ask it about a client."),
-      ),
-    ),
+  body.push(actions);
+  return integrationCard(
+    { iconName: "key", logo: "key", title: "Personal key", subtitle: "Used by Teams and the Outlook add-in", status: active ? "Active" : "No key", tone: active ? "resolved" : "idle", wide: true },
+    body,
   );
+}
+
+function teamsSyncFacts(sync) {
+  const permissions = `Application, admin consent: ${sync.permissions.join(", ")} (names: ${sync.name_permissions.join(", ")})`;
+  if (!sync.configured) {
+    const how = sync.graph_configured
+      ? "Off: set TEAMS_SYNC_CHANNELS (teamId/channelId,…) and OPENAI_API_KEY"
+      : "Off: set MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET and TEAMS_SYNC_CHANNELS";
+    return [["Channel sync", how], ["Graph permissions", permissions]];
+  }
+  return [
+    ["Channel sync", `On: ${sync.channels} channel(s), checked every minute${sync.last_error ? "; last check failed" : ""}`],
+    ["Last checked", sync.last_poll_at ? relativeTime(sync.last_poll_at) : "Not yet"],
+    ["Messages read", `${sync.messages_seen} · ${sync.items_created} became sources`],
+    ["Graph permissions", permissions],
+  ];
+}
+
+function renderTeamsCard(teams, keyActive) {
+  return integrationCard(
+    { iconName: "message", logo: "teams", title: "Microsoft Teams", subtitle: "Ask TrustLabel from Teams over MCP", status: keyActive ? "Ready" : "Needs key", tone: keyActive ? "resolved" : "idle" },
+    [
+      h("p", { className: "connect-copy" }, "A Teams agent asks TrustLabel directly and gets the same grades, reasons and expert routing, scoped to your client portfolio."),
+      facts([
+        [
+          "Expert alerts",
+          teams.alerts.configured
+            ? `On: new requests go to the routed expert in Teams (${teams.alerts.mapped_experts} mapped)`
+            : "Off: set TEAMS_WORKFLOW_URL and TRUSTLABEL_TEAMS_USERS",
+        ],
+        ...teamsSyncFacts(teams.sync),
+      ]),
+      copyRow("MCP server URL", absoluteUrl(teams.mcp_url)),
+      steps([
+        "Serve TrustLabel over public HTTPS; Teams can't reach 127.0.0.1.",
+        "Copilot Studio: your agent → Tools → Add a tool → New tool → Model Context Protocol.",
+        ["Server URL: the MCP server URL above, authentication API key, header ", h("code", null, "X-API-Key"), ", value: your personal key."],
+        "Publish the agent to Microsoft Teams and ask it about a client.",
+      ]),
+    ],
+  );
+}
+
+function renderOutlookCard(outlook, keyActive) {
+  return integrationCard(
+    { iconName: "mail", logo: "outlook", title: "Outlook", subtitle: "Add-in for Outlook: a TrustLabel pane next to every client email.", status: keyActive ? "Ready" : "Needs key", tone: keyActive ? "resolved" : "idle" },
+    [
+      copyRow("Manifest URL", absoluteUrl(outlook.manifest_url)),
+      steps([
+        ["In Outlook on the web open ", h("code", null, "https://aka.ms/olksideload"), " (opens Add-ins → My add-ins)."],
+        "Custom add-ins → Add a custom add-in → Add from URL → paste the manifest URL.",
+        "Open a client email → TrustLabel → paste your personal key.",
+      ]),
+    ],
+  );
+}
+
+function renderSalesforceCard(sf) {
+  const meta = { iconName: "cloud", logo: "salesforce", title: "Salesforce Service Cloud", subtitle: "MyServicePoint cases" };
+  if (!sf.configured) {
+    return integrationCard({ ...meta, status: "Not connected" }, [
+      h("p", { className: "connect-copy" }, "Every new case gets an internal TrustLabel comment: verdict, sources and who can verify."),
+      h("p", { className: "muted-text" }, "Set these environment variables on the server to connect:"),
+      h("ul", { className: "integration-env" }, SALESFORCE_ENV.map((name) => h("li", null, h("code", null, name)))),
+    ]);
+  }
+  return integrationCard({ ...meta, status: sf.last_error ? "Check failed" : "Connected", tone: sf.last_error ? "open" : "resolved" }, [
+    h("p", { className: "connect-copy" }, "Every new case gets an internal TrustLabel comment: verdict, sources and who can verify."),
+    facts([
+      ["Domain", sf.domain || "–"],
+      ["Last checked", sf.last_poll_at ? relativeTime(sf.last_poll_at) : "Not yet"],
+      ["Cases briefed", String(sf.cases_briefed)],
+    ]),
+    sf.last_error ? h("p", { className: "integration-warning" }, icon("alert", "icon-xs"), "Last check failed") : null,
+  ]);
+}
+
+function renderSpottCard(spott, isAdmin) {
+  const body = [];
+  if (spott.connected) {
+    body.push(
+      facts([
+        ["Source", spott.source === "environment" ? "Environment" : "Connected in app"],
+        ["Webhook ready", spott.webhook_ready ? "Yes" : "No"],
+        ["Users", spott.users === null || spott.users === undefined ? "–" : String(spott.users)],
+        ["Notes captured", String(spott.notes_captured)],
+        ["Last delivery", spott.last_delivery_at ? relativeTime(spott.last_delivery_at) : "None yet"],
+      ]),
+      copyRow("Webhook URL", absoluteUrl(spott.webhook_url)),
+    );
+    if (spott.clients.length) {
+      body.push(
+        h(
+          "ul",
+          { className: "integration-clients", "aria-label": "Client mapping" },
+          spott.clients.map((c) =>
+            h(
+              "li",
+              { className: c.found ? "is-found" : "is-missing" },
+              c.found ? icon("check", "icon-xs") : icon("alert", "icon-xs"),
+              h("span", null, c.name),
+              c.found ? null : h("span", { className: "muted-text" }, "not in Spott"),
+            ),
+          ),
+        ),
+      );
+    }
+  } else {
+    body.push(h("p", { className: "connect-copy" }, "Recruiter notes on your clients become graded sources, with the recruiter as owner."));
+  }
+  if (isAdmin) body.push(spottForm(spott));
+  else body.push(h("p", { className: "muted-text" }, "Only an admin can connect or replace the Spott workspace."));
+  return integrationCard(
+    { iconName: "briefcase", logo: "spott", title: "Spott", subtitle: "Optional · recruitment CRM", status: spott.connected ? "Connected" : "Not connected", tone: spott.connected ? "resolved" : "idle" },
+    body,
+  );
+}
+
+function spottForm(spott) {
+  const apiKey = h("input", { type: "password", className: "field", autocomplete: "off", maxLength: 500, required: true });
+  const secret = h("input", { type: "password", className: "field", autocomplete: "off", maxLength: 500 });
+  const errorEl = h("p", { className: "form-error", role: "alert" });
+  const submit = h("button", { type: "submit", className: "btn btn-primary" }, icon("link", "icon-sm"), "Connect");
+  const actions = h("div", { className: "connect-actions" }, submit);
+  if (spott.connected && spott.source === "app") {
+    const disconnect = h("button", { type: "button", className: "btn btn-ghost" }, "Disconnect");
+    disconnect.addEventListener("click", async () => {
+      if (!window.confirm("Disconnect the Spott workspace? New Spott notes stop arriving.")) return;
+      disconnect.disabled = true;
+      try {
+        await api("/api/integrations/spott", { method: "DELETE" });
+        toast("Spott disconnected.");
+        await loadIntegrations();
+      } catch (err) {
+        disconnect.disabled = false;
+        showError(err);
+      }
+    });
+    actions.appendChild(disconnect);
+  }
+  return h(
+    "form",
+    {
+      className: "integration-form",
+      autocomplete: "off",
+      onSubmit: async (e) => {
+        e.preventDefault();
+        errorEl.textContent = "";
+        const key = apiKey.value.trim();
+        if (!key) {
+          errorEl.textContent = "Enter the Spott API key.";
+          return;
+        }
+        submit.disabled = true;
+        try {
+          await api("/api/integrations/spott", { method: "POST", body: { api_key: key, webhook_secret: secret.value.trim() || null } });
+          apiKey.value = "";
+          secret.value = "";
+          toast("Spott workspace connected.");
+          await loadIntegrations();
+        } catch (err) {
+          submit.disabled = false;
+          if (err instanceof ApiError && (err.status === 400 || err.status === 403)) errorEl.textContent = err.detail;
+          else showError(err);
+        }
+      },
+    },
+    h("h3", { className: "integration-form-title" }, spott.connected ? "Replace workspace" : "Connect workspace"),
+    h("label", { className: "field-label" }, "API key", apiKey),
+    h("label", { className: "field-label" }, "Webhook signing secret (optional)", secret),
+    errorEl,
+    actions,
+  );
+}
+
+function renderTalkdeskCard(talkdesk) {
+  return integrationCard({ iconName: "phone", logo: "talkdesk", title: "Talkdesk", subtitle: "Calls" }, h("p", { className: "connect-copy" }, talkdesk.text));
+}
+
+const MEETING_ACCEPT = ".mp3,.m4a,.wav,.webm,.ogg,.mp4";
+const MEETING_STATUS = { queued: ["Queued", "idle"], transcribing: ["Transcribing", "idle"], done: ["Done", "resolved"], failed: ["Failed", "open"] };
+let meetingsTimer = null;
+
+function renderMeetingsCard(meetings) {
+  const meta = { iconName: "mic", logo: "elevenlabs", title: "Meetings · ElevenLabs Scribe", subtitle: "Recorded meetings become graded sources" };
+  const copy = h("p", { className: "connect-copy" }, "Scribe transcribes the recording per speaker; only claims quoted verbatim become a source, graded against existing knowledge. You own what you upload.");
+  const folder = meetings.folder;
+  const folderInfo = folder.configured
+    ? facts([
+        ["Watched folder", "Configured"],
+        ["Owner", folder.owner_name || "–"],
+        ["Last scan", folder.last_scan_at ? relativeTime(folder.last_scan_at) : "Not yet"],
+        ["Files processed", String(folder.files_processed)],
+      ])
+    : h("p", { className: "muted-text" }, "No watched folder. Set TRUSTLABEL_MEETINGS_DIR and TRUSTLABEL_MEETINGS_OWNER to turn synced Teams recordings into sources automatically.");
+  if (!meetings.configured) {
+    return integrationCard({ ...meta, status: "Not configured" }, [
+      copy,
+      h("p", { className: "muted-text" }, "Set these environment variables on the server to enable:"),
+      h("ul", { className: "integration-env" }, ["ELEVENLABS_API_KEY", "OPENAI_API_KEY"].map((name) => h("li", null, h("code", null, name)))),
+    ]);
+  }
+  const listEl = h("ul", { className: "meeting-list", "aria-label": "Your meeting recordings", "aria-live": "polite" });
+  const fileInput = h("input", { type: "file", className: "meeting-file", accept: MEETING_ACCEPT, required: true });
+  const errorEl = h("p", { className: "form-error", role: "alert" });
+  const submit = h("button", { type: "submit", className: "btn btn-primary" }, icon("mic", "icon-sm"), "Upload recording");
+  const form = h(
+    "form",
+    {
+      className: "integration-form",
+      onSubmit: async (e) => {
+        e.preventDefault();
+        errorEl.textContent = "";
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) {
+          errorEl.textContent = "Choose a recording first.";
+          return;
+        }
+        if (file.size > meetings.max_mb * 1000000) {
+          errorEl.textContent = `Recording too large (max ${meetings.max_mb} MB).`;
+          return;
+        }
+        const fd = new FormData();
+        fd.append("recording", file, file.name);
+        submit.disabled = true;
+        try {
+          await api("/api/meetings", { method: "POST", formData: fd });
+          fileInput.value = "";
+          toast("Recording queued for transcription.");
+          refreshMeetings(listEl);
+        } catch (err) {
+          if (err instanceof ApiError && [413, 415, 422, 429, 503].includes(err.status)) errorEl.textContent = err.detail;
+          else showError(err);
+        } finally {
+          submit.disabled = false;
+        }
+      },
+    },
+    h("h3", { className: "integration-form-title" }, "Upload a meeting recording"),
+    h("label", { className: "field-label" }, `mp3, m4a, wav, webm, ogg or mp4 · max ${meetings.max_mb} MB`, fileInput),
+    errorEl,
+    h("div", { className: "connect-actions" }, submit),
+  );
+  refreshMeetings(listEl);
+  return integrationCard(
+    { ...meta, status: folder.configured ? "Watching folder" : "Upload only", tone: folder.configured ? "resolved" : "idle" },
+    [copy, form, listEl, folderInfo, folder.last_error ? h("p", { className: "integration-warning" }, icon("alert", "icon-xs"), "Last folder scan failed") : null],
+  );
+}
+
+function renderMeetingList(listEl, items) {
+  clear(listEl);
+  if (!items.length) {
+    listEl.appendChild(h("li", { className: "muted-text" }, "No recordings yet."));
+    return;
+  }
+  for (const m of items.slice(0, 8)) {
+    const [label, tone] = MEETING_STATUS[m.status] || [m.status, "idle"];
+    let detail = m.origin === "folder" ? "From folder" : "Uploaded";
+    if (m.status === "done") detail = m.claims ? plural(m.claims, "claim") : "No verbatim claim";
+    if (m.status === "failed") detail = m.error || "Error";
+    listEl.appendChild(
+      h("li", null, h("span", { className: "meeting-name", title: m.name }, m.name), h("span", { className: "muted-text" }, detail), h("span", { className: `req-status status-${tone}` }, label)),
+    );
+  }
+}
+
+// Polls only while a recording is queued or transcribing, and only while this card is on screen.
+async function refreshMeetings(listEl, previousInFlight = 0) {
+  clearTimeout(meetingsTimer);
+  let data;
+  try {
+    data = await api("/api/meetings");
+  } catch {
+    return;
+  }
+  renderMeetingList(listEl, data.items);
+  if (previousInFlight > data.in_flight) toast("Meeting recording processed.");
+  if (data.in_flight > 0) {
+    meetingsTimer = setTimeout(() => {
+      if (listEl.isConnected && state.view === "integrations") refreshMeetings(listEl, data.in_flight);
+    }, 3000);
+  }
 }
 
 function copyRow(label, value) {
   const button = h("button", { type: "button", className: "btn btn-icon copy-btn", title: `Copy ${label}`, "aria-label": `Copy ${label}` }, icon("copy", "icon-sm"));
+  let resetTimer = null;
   button.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(value);
-      toast("Copied to clipboard.");
+      clear(button);
+      button.appendChild(icon("check", "icon-sm"));
+      button.classList.add("is-copied");
+      toast("Copied");
+      clearTimeout(resetTimer);
+      resetTimer = setTimeout(() => {
+        clear(button);
+        button.appendChild(icon("copy", "icon-sm"));
+        button.classList.remove("is-copied");
+      }, 1500);
     } catch {
       toast("Copy failed; select the text instead", true);
     }
@@ -1635,10 +2065,586 @@ async function poll() {
     const v = fresh[0];
     toast(`${v.assignee_name} verified ${v.topic.label} for ${v.context_label}: ${v.resolution.value_display}.`);
   }
-  if (state.view === "ask" && !askViewEl.classList.contains("has-result")) {
-    loadOverview();
-    if (connectionsEl && !connectionToken) refreshConnection();
+  if (state.view === "ask" && !askViewEl.classList.contains("has-result")) loadOverview();
+}
+
+// ---------- chat: the standalone surface, by text or voice ----------
+
+const CHAT_PTT_MAX_SECONDS = 15;
+const CHAT_TAP_MS = 350; // shorter press = tap to start, tap again to send; longer = hold to talk
+const WAKE_MAX_SECONDS = 10;
+const WAKE_SILENCE_MS = 1500;
+const WAKE_NO_SPEECH_MS = 4000;
+const WAKE_LEVEL_RMS = 0.015;
+const WAKE_PHRASE = /\b(?:hey|hi|ok|okay)[\s,.!]*trust[\s-]*label\b/i;
+const SPEAK_MAX_CHARS = 600;
+ICONS.volume = [["path", { d: "M11 5 6 9H3v6h3l5 4z" }], ["path", { d: "M15.5 8.5a5 5 0 0 1 0 7" }], ["path", { d: "M18.5 5.5a9 9 0 0 1 0 13" }]];
+
+let chatThreadEl = null;
+let chatInput = null;
+let chatContextSelect = null;
+let chatSendBtn = null;
+let chatMicBtn = null;
+let chatMicLabel = null;
+let chatAutoAskToggle = null;
+let chatBusy = false;
+let chatAudio = null; // { audio, url } while an answer is being read aloud
+let ptt = null; // push-to-talk session: { pressedAt, released, stop }
+const handsFree = { on: false, recognition: null, recording: false, stopRecording: null, toggle: null, indicator: null };
+
+function speechRecognitionCtor() {
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function chatVoiceEnabled() {
+  return Boolean(state.me && state.me.features && state.me.features.voice_ask && pickRecorderType() && navigator.mediaDevices);
+}
+
+function renderChatView() {
+  clear(chatViewEl);
+  stopHandsFree();
+  const me = state.me;
+  const ctx = currentContext();
+
+  chatContextSelect = h(
+    "select",
+    {
+      "aria-label": "Context",
+      onChange: () => {
+        state.contextKey = chatContextSelect.value;
+        if (contextSelect) contextSelect.value = chatContextSelect.value;
+      },
+    },
+    me.contexts.map((c) => h("option", { value: c.key, selected: ctx && c.key === ctx.key }, c.label)),
+  );
+  chatAutoAskToggle = h("input", { type: "checkbox", checked: autoAskEnabled(), onChange: () => setAutoAsk(chatAutoAskToggle.checked) });
+  chatInput = h("input", {
+    className: "field chat-input",
+    type: "text",
+    maxLength: 300,
+    autocomplete: "off",
+    "aria-label": "Message",
+    placeholder: "Ask anything, e.g. What's the payroll cut-off for Van Dam?",
+  });
+  chatSendBtn = h("button", { type: "submit", className: "btn btn-primary" }, "Send");
+
+  const controls = h(
+    "div",
+    { className: "chat-controls" },
+    h("div", { className: "select-wrap" }, icon("briefcase", "icon-sm"), chatContextSelect, icon("chevronDown", "icon-sm chev")),
+    h("label", { className: "chat-switch", title: "When sources disagree or nothing applies, TrustLabel asks the right expert for you" }, chatAutoAskToggle, h("span", null, "Ask the expert automatically")),
+  );
+  const composerRow = h("div", { className: "chat-compose-row" }, chatInput);
+  const extras = [];
+  if (chatVoiceEnabled()) {
+    chatMicLabel = h("span", null, "Hold to talk");
+    chatMicBtn = h(
+      "button",
+      {
+        type: "button",
+        className: "btn btn-secondary btn-voice chat-mic",
+        title: `Hold to talk, or tap to start and tap again to send (max ${CHAT_PTT_MAX_SECONDS} s)`,
+        onPointerdown: (e) => {
+          e.preventDefault();
+          pttPress();
+        },
+        onPointerup: pttRelease,
+        onPointerleave: pttRelease,
+        onContextmenu: (e) => e.preventDefault(),
+        onKeydown: (e) => {
+          if ((e.key === " " || e.key === "Enter") && !e.repeat) {
+            e.preventDefault();
+            if (ptt) pttFinish();
+            else pttPress();
+          }
+        },
+      },
+      icon("mic", "icon-sm"),
+      h("span", { className: "rec-dot", "aria-hidden": "true" }),
+      chatMicLabel,
+    );
+    composerRow.appendChild(chatMicBtn);
+    if (speechRecognitionCtor()) {
+      handsFree.toggle = h("input", { type: "checkbox", onChange: () => (handsFree.toggle.checked ? startHandsFree() : stopHandsFree()) });
+      handsFree.indicator = h("span", { className: "wake-indicator", role: "status", "aria-live": "polite", hidden: true });
+      controls.appendChild(h("label", { className: "chat-switch" }, handsFree.toggle, h("span", null, "Hey TrustLabel")));
+      extras.push(h("div", { className: "chat-wake" }, handsFree.indicator, h("span", { className: "chat-disclosure" }, "Wake word uses your browser's speech recognition")));
+    }
+  } else {
+    chatMicBtn = null;
+    chatMicLabel = null;
+    handsFree.toggle = null;
+    handsFree.indicator = null;
   }
+  composerRow.appendChild(chatSendBtn);
+
+  const composer = h(
+    "form",
+    {
+      className: "chat-composer card",
+      onSubmit: (e) => {
+        e.preventDefault();
+        const question = chatInput.value.trim();
+        if (!question) {
+          toast("Type a question", true);
+          return;
+        }
+        chatInput.value = "";
+        chatSend({ question });
+      },
+    },
+    controls,
+    composerRow,
+    extras,
+  );
+
+  chatThreadEl = h(
+    "div",
+    { className: "chat-thread", "aria-live": "polite" },
+    chatRow(
+      "bot",
+      h(
+        "div",
+        { className: "chat-bubble chat-bot" },
+        h("p", null, `Hi ${firstName(me.user.name)}. Ask about pay, policies or deadlines for any of your contexts.`),
+        h("p", { className: "chat-note" }, "Every answer shows how far its sources can be trusted, and who can confirm it."),
+      ),
+    ),
+  );
+  chatViewEl.appendChild(
+    h(
+      "div",
+      { className: "chat" },
+      h("header", { className: "intro" }, h("p", { className: "eyebrow" }, "TrustLabel chat"), h("h1", null, "Ask, by text or voice.")),
+      chatThreadEl,
+      composer,
+    ),
+  );
+}
+
+function focusChat() {
+  const ctx = currentContext();
+  if (ctx && chatContextSelect) chatContextSelect.value = ctx.key;
+  if (chatAutoAskToggle) chatAutoAskToggle.checked = autoAskEnabled();
+  if (chatInput) chatInput.focus();
+  scrollChat();
+}
+
+function scrollChat() {
+  if (chatThreadEl) chatThreadEl.scrollTop = chatThreadEl.scrollHeight;
+}
+
+function chatRow(who, bubble) {
+  return h("div", { className: `chat-row chat-row-${who}` }, who === "bot" ? h("span", { className: "chat-avatar", "aria-hidden": "true" }, brandMark()) : null, bubble);
+}
+
+function appendChat(row) {
+  chatThreadEl.appendChild(row);
+  scrollChat();
+  return row;
+}
+
+function chatUserRow(text, { voice = false } = {}) {
+  const textEl = h("span", null, text);
+  const row = chatRow("user", h("div", { className: "chat-bubble chat-user" }, voice ? icon("mic", "icon-xs") : null, textEl));
+  row.textEl = textEl;
+  return row;
+}
+
+function chatPendingRow(text = "Checking sources…") {
+  return chatRow("bot", h("div", { className: "chat-bubble chat-bot chat-pending" }, h("span", { className: "chat-dots", "aria-hidden": "true" }, h("i"), h("i"), h("i")), text));
+}
+
+function chatErrorRow(err) {
+  const detail = err instanceof ApiError ? err.detail : String(err && err.message ? err.message : err);
+  return chatRow("bot", h("div", { className: "chat-bubble chat-bot chat-error" }, icon("alert", "icon-xs"), detail));
+}
+
+function setChatBusy(busy) {
+  chatBusy = busy;
+  if (chatSendBtn) chatSendBtn.disabled = busy;
+  if (chatMicBtn && !ptt) chatMicBtn.disabled = busy;
+}
+
+async function chatSend({ question, topic_id = null, shown = null }) {
+  if (chatBusy) return;
+  const ctx = currentContext();
+  appendChat(chatUserRow(shown || question));
+  const pending = appendChat(chatPendingRow());
+  setChatBusy(true);
+  try {
+    const data = await api("/api/ask", {
+      method: "POST",
+      body: { question: question || "", client_id: ctx ? ctx.client_id : null, topic_id, auto_ask: chatAutoAskToggle.checked },
+    });
+    pending.replaceWith(chatAnswerRow(data, { question }));
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) return;
+    pending.replaceWith(chatErrorRow(err));
+  } finally {
+    setChatBusy(false);
+    scrollChat();
+  }
+}
+
+function chatAnswerRow(data, { question = "", speech = null } = {}) {
+  if (data.restricted) {
+    const contact = data.restricted.contact;
+    return chatRow(
+      "bot",
+      h(
+        "div",
+        { className: "chat-bubble chat-bot chat-restricted" },
+        h("p", { className: "chat-verdict" }, icon("shield", "icon-xs"), "Not shared"),
+        h("p", null, data.restricted.message),
+        contact ? h("p", { className: "chat-note" }, icon("user", "icon-xs"), `Ask ${contact.name}, ${contact.title}`) : null,
+        speechButton(speech),
+      ),
+    );
+  }
+  if (!data.topic) {
+    return chatRow(
+      "bot",
+      h(
+        "div",
+        { className: "chat-bubble chat-bot" },
+        h("p", null, "I couldn't match that to a topic I know. Pick one:"),
+        h(
+          "div",
+          { className: "chips chat-chips" },
+          (data.suggestions || []).map((t) =>
+            h("button", { type: "button", className: "chip", onClick: () => chatSend({ question, topic_id: t.id, shown: t.label }) }, t.label),
+          ),
+        ),
+        speechButton(speech),
+      ),
+    );
+  }
+  const a = data.answer;
+  const banner = BANNERS[a.action] || BANNERS.ask_expert;
+  const expert = (data.experts || [])[0];
+  const competing = a.status === "conflict" ? a.competing || [] : [];
+  let followUp = null;
+  if (data.auto_request) {
+    followUp = renderAutoRequest(data.auto_request);
+  } else if (data.open_request) {
+    followUp = h("p", { className: "chat-follow" }, icon("clock", "icon-xs"), `${data.open_request.assignee_name} is already checking this`);
+  }
+  return chatRow(
+    "bot",
+    h(
+      "div",
+      { className: `chat-bubble chat-bot chat-answer ${banner.tone}` },
+      h("p", { className: "chat-verdict" }, icon(banner.icon, "icon-xs"), banner.text, h("span", { className: "chat-context" }, data.context.label)),
+      h("p", { className: "chat-headline" }, a.headline),
+      a.value_display && a.status !== "conflict" ? h("p", { className: "chat-value" }, a.grade ? gradeTile(a.grade, { small: true }) : null, a.value_display) : null,
+      competing.length
+        ? h("ul", { className: "chat-competing" }, competing.map((c) => h("li", null, gradeTile(c.best_grade, { small: true }), c.value_display)))
+        : null,
+      (data.sources || []).length
+        ? h(
+            "ul",
+            { className: "chat-sources" },
+            data.sources.slice(0, 3).map((s) =>
+              h("li", { className: MUTED_STATUSES.has(s.status) ? "muted" : null }, gradeTile(s.grade, { small: true, muted: MUTED_STATUSES.has(s.status) }), h("span", null, `${s.title} · ${s.kind_label} · grade ${s.grade}`)),
+            ),
+          )
+        : null,
+      expert ? h("p", { className: "chat-note" }, icon("user", "icon-xs"), `Who can confirm: ${expert.name}, ${expert.title}`) : null,
+      followUp,
+      speechButton(speech),
+    ),
+  );
+}
+
+function speechButton(speech) {
+  if (!speech || !state.me.features.speak) return null;
+  return h("button", { type: "button", className: "btn btn-ghost chat-replay", title: speech, onClick: () => speak(speech) }, icon("volume", "icon-xs"), "Play answer");
+}
+
+function stopSpeaking() {
+  if (!chatAudio) return;
+  const { audio } = chatAudio;
+  audio.pause(); // the pause listener revokes the blob URL
+}
+
+// Reads `text` aloud with ElevenLabs; resolves once playback ends (or fails), so hands-free can listen again.
+async function speak(text) {
+  stopSpeaking();
+  let res;
+  try {
+    res = await fetch("/api/voice/speak", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", Accept: "audio/mpeg" },
+      body: JSON.stringify({ text: text.slice(0, SPEAK_MAX_CHARS) }),
+    });
+  } catch {
+    toast("Network error — answer not read aloud", true);
+    return;
+  }
+  if (!res.ok) {
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+    toast(errorDetail(data, res.status), true);
+    return;
+  }
+  const url = URL.createObjectURL(await res.blob());
+  const audio = new Audio(url);
+  chatAudio = { audio, url };
+  await new Promise((resolve) => {
+    const done = () => {
+      if (chatAudio && chatAudio.audio === audio) chatAudio = null;
+      URL.revokeObjectURL(url);
+      resolve();
+    };
+    audio.addEventListener("ended", done, { once: true });
+    audio.addEventListener("pause", done, { once: true });
+    audio.addEventListener("error", done, { once: true });
+    audio.play().catch(() => {
+      toast("Your browser blocked audio playback; use Play answer", true);
+      done();
+    });
+  });
+}
+
+// One recording with MediaRecorder; with `stopOnSilence`, an AnalyserNode ends it after a pause in speech.
+async function openRecorder({ maxSeconds, stopOnSilence = false }) {
+  const type = pickRecorderType();
+  if (!type || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("Voice recording is not supported in this browser");
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  let recorder;
+  try {
+    recorder = type.mimeType ? new MediaRecorder(stream, { mimeType: type.mimeType }) : new MediaRecorder(stream);
+  } catch (err) {
+    stream.getTracks().forEach((t) => t.stop());
+    throw err;
+  }
+  const chunks = [];
+  let audioCtx = null;
+  let levelTimer = null;
+  let heard = !stopOnSilence;
+  const stop = () => {
+    if (recorder.state !== "inactive") recorder.stop();
+  };
+  const maxTimer = setTimeout(stop, maxSeconds * 1000);
+  const done = new Promise((resolve) => {
+    recorder.addEventListener("dataavailable", (e) => {
+      if (e.data && e.data.size) chunks.push(e.data);
+    });
+    recorder.addEventListener("stop", () => {
+      clearTimeout(maxTimer);
+      clearInterval(levelTimer);
+      stream.getTracks().forEach((t) => t.stop());
+      if (audioCtx) audioCtx.close().catch(() => {});
+      const blob = new Blob(chunks, { type: (recorder.mimeType || type.mimeType || "audio/webm").split(";")[0] });
+      resolve(heard && blob.size ? { blob, filename: type.filename.replace(/^answer/, "question") } : null);
+    });
+  });
+  recorder.start();
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (stopOnSilence && AudioCtx) {
+    audioCtx = new AudioCtx();
+    audioCtx.resume().catch(() => {});
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    audioCtx.createMediaStreamSource(stream).connect(analyser);
+    const samples = new Float32Array(analyser.fftSize);
+    const started = Date.now();
+    let lastLoud = started;
+    levelTimer = setInterval(() => {
+      analyser.getFloatTimeDomainData(samples);
+      let sum = 0;
+      for (const v of samples) sum += v * v;
+      const now = Date.now();
+      if (Math.sqrt(sum / samples.length) > WAKE_LEVEL_RMS) {
+        lastLoud = now;
+        heard = true;
+      }
+      if (heard ? now - lastLoud > WAKE_SILENCE_MS : now - started > WAKE_NO_SPEECH_MS) stop();
+    }, 100);
+  } else {
+    heard = true;
+  }
+  return { done, stop };
+}
+
+function setMicRecording(seconds) {
+  if (!chatMicBtn) return;
+  const recording = seconds !== null;
+  chatMicBtn.className = recording ? "btn btn-secondary btn-voice chat-mic recording" : "btn btn-secondary btn-voice chat-mic";
+  chatMicLabel.textContent = recording ? `Listening… ${seconds}s` : "Hold to talk";
+  chatMicBtn.disabled = !recording && chatBusy;
+}
+
+async function pttPress() {
+  if (ptt) {
+    pttFinish();
+    return;
+  }
+  if (chatBusy || handsFree.recording) return;
+  stopSpeaking();
+  const session = { pressedAt: Date.now(), released: false, stop: null };
+  ptt = session;
+  setMicRecording(0);
+  let rec;
+  try {
+    rec = await openRecorder({ maxSeconds: CHAT_PTT_MAX_SECONDS });
+  } catch (err) {
+    ptt = null;
+    setMicRecording(null);
+    toast(`Microphone unavailable: ${err && err.message ? err.message : err}`, true);
+    return;
+  }
+  session.stop = rec.stop;
+  if (session.released) rec.stop();
+  let seconds = 0;
+  const ticker = setInterval(() => setMicRecording(++seconds), 1000);
+  const result = await rec.done;
+  clearInterval(ticker);
+  ptt = null;
+  setMicRecording(null);
+  if (result) await chatVoiceAsk(result.blob, result.filename);
+}
+
+// Releasing a held button sends; releasing after a short tap keeps recording until the next tap.
+function pttRelease() {
+  if (ptt && !ptt.released && Date.now() - ptt.pressedAt >= CHAT_TAP_MS) pttFinish();
+}
+
+function pttFinish() {
+  if (!ptt) return;
+  ptt.released = true;
+  if (ptt.stop) ptt.stop();
+}
+
+async function chatVoiceAsk(blob, filename) {
+  if (!state.me) return;
+  const ctx = currentContext();
+  const userRow = appendChat(chatUserRow("Transcribing…", { voice: true }));
+  const pending = appendChat(chatPendingRow());
+  setChatBusy(true);
+  const form = new FormData();
+  form.append("audio", blob, filename);
+  if (ctx && ctx.client_id) form.append("client_id", ctx.client_id);
+  form.append("auto_ask", chatAutoAskToggle.checked ? "true" : "false");
+  let data;
+  try {
+    data = await api("/api/voice/ask", { method: "POST", formData: form });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) return;
+    userRow.textEl.textContent = "(not understood)";
+    pending.replaceWith(chatErrorRow(err));
+    setChatBusy(false);
+    return;
+  }
+  userRow.textEl.textContent = data.transcript;
+  pending.replaceWith(chatAnswerRow(data.result, { question: data.transcript, speech: data.speech }));
+  setChatBusy(false);
+  scrollChat();
+  if (state.me.features.speak) {
+    setWakeIndicator("speaking");
+    await speak(data.speech);
+  }
+}
+
+function setWakeIndicator(mode) {
+  const el = handsFree.indicator;
+  if (!el) return;
+  const text = {
+    waiting: "Listening for “Hey TrustLabel”",
+    recording: "Listening — ask your question",
+    speaking: "Answering…",
+  }[mode];
+  el.hidden = !handsFree.on || !text;
+  el.className = `wake-indicator wake-${mode}`;
+  el.textContent = text || "";
+}
+
+function startHandsFree() {
+  if (!speechRecognitionCtor()) return;
+  handsFree.on = true;
+  listenForWake();
+}
+
+function stopHandsFree() {
+  handsFree.on = false;
+  const recognition = handsFree.recognition;
+  handsFree.recognition = null;
+  if (recognition) recognition.abort();
+  if (handsFree.stopRecording) handsFree.stopRecording();
+  if (handsFree.toggle) handsFree.toggle.checked = false;
+  setWakeIndicator("off");
+}
+
+// Browser speech recognition only listens for the wake phrase; the question itself goes to ElevenLabs.
+function listenForWake() {
+  if (!handsFree.on || !state.me || state.view !== "chat") return;
+  const Recognition = speechRecognitionCtor();
+  const recognition = new Recognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = "en-US";
+  let woke = false;
+  recognition.addEventListener("result", (e) => {
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (WAKE_PHRASE.test(e.results[i][0].transcript)) {
+        woke = true;
+        recognition.abort();
+        return;
+      }
+    }
+  });
+  recognition.addEventListener("error", (e) => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed" || e.error === "audio-capture") {
+      toast("Microphone or speech recognition unavailable; hands-free is off", true);
+      stopHandsFree();
+    }
+  });
+  recognition.addEventListener("end", () => {
+    if (handsFree.recognition === recognition) handsFree.recognition = null;
+    if (!handsFree.on) return;
+    if (woke) captureAfterWake();
+    else setTimeout(listenForWake, 250);
+  });
+  handsFree.recognition = recognition;
+  try {
+    recognition.start();
+    setWakeIndicator("waiting");
+  } catch {
+    handsFree.recognition = null;
+    setTimeout(listenForWake, 1000);
+  }
+}
+
+async function captureAfterWake() {
+  if (!chatBusy && !ptt) {
+    stopSpeaking();
+    handsFree.recording = true;
+    setWakeIndicator("recording");
+    try {
+      const rec = await openRecorder({ maxSeconds: WAKE_MAX_SECONDS, stopOnSilence: true });
+      handsFree.stopRecording = rec.stop;
+      const result = await rec.done;
+      handsFree.stopRecording = null;
+      handsFree.recording = false;
+      if (handsFree.on) {
+        if (result) await chatVoiceAsk(result.blob, result.filename);
+        else toast("I didn't hear a question");
+      }
+    } catch (err) {
+      toast(`Microphone unavailable: ${err && err.message ? err.message : err}`, true);
+      stopHandsFree();
+    } finally {
+      handsFree.recording = false;
+      handsFree.stopRecording = null;
+    }
+  }
+  listenForWake();
 }
 
 boot();

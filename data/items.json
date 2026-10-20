@@ -206,5 +206,161 @@
         "quote": "must be submitted within 2 working days"
       }
     ]
+  },
+  {
+    "id": "POL-BE-031",
+    "kind": "policy",
+    "title": "Company car policy 2023 — Belgium",
+    "source": "SharePoint · Fleet & Mobility BE",
+    "author_id": "sofie",
+    "owner_id": "sofie",
+    "created_on": "2022-12-12",
+    "last_reviewed_on": "2024-01-15",
+    "review_cycle_days": 365,
+    "countries": ["BE"],
+    "client_ids": [],
+    "effective_from": "2023-01-01",
+    "effective_to": null,
+    "supersedes": [],
+    "body": "Company car policy (2023). Employees in a car-eligible function get a monthly lease budget of €650, including fuel card and insurance. A bigger car is possible with a personal contribution.",
+    "claims": [
+      {
+        "id": "POL-BE-031-1",
+        "topic_id": "mobility.car_lease_budget",
+        "value": "650",
+        "statement": "The company car lease budget in Belgium is €650 per month.",
+        "quote": "a monthly lease budget of €650"
+      }
+    ]
+  },
+  {
+    "id": "POL-NL-018",
+    "kind": "policy",
+    "title": "Leaseautoregeling 2025 — Nederland",
+    "source": "SharePoint · HR Policies NL",
+    "author_id": "sanne",
+    "owner_id": "sanne",
+    "created_on": "2024-12-02",
+    "last_reviewed_on": "2026-05-12",
+    "review_cycle_days": 365,
+    "countries": ["NL"],
+    "client_ids": [],
+    "effective_from": "2025-01-01",
+    "effective_to": null,
+    "supersedes": [],
+    "body": "Leaseautoregeling (2025). Medewerkers in een functie met leaseauto hebben een maandelijks leasebudget van €700, inclusief brandstof en verzekering.",
+    "claims": [
+      {
+        "id": "POL-NL-018-1",
+        "topic_id": "mobility.car_lease_budget",
+        "value": "700",
+        "statement": "The company car lease budget in the Netherlands is €700 per month.",
+        "quote": "een maandelijks leasebudget van €700"
+      }
+    ]
+  },
+  {
+    "id": "POL-BE-044",
+    "kind": "policy",
+    "title": "Company car policy 2025 — Belgium",
+    "source": "SharePoint · Fleet & Mobility BE",
+    "author_id": "sofie",
+    "owner_id": "sofie",
+    "created_on": "2024-11-28",
+    "last_reviewed_on": "2026-08-25",
+    "review_cycle_days": 365,
+    "countries": ["BE"],
+    "client_ids": [],
+    "effective_from": "2025-01-01",
+    "effective_to": null,
+    "supersedes": ["POL-BE-031"],
+    "body": "Company car policy (2025). From 1 January 2025 the monthly lease budget for car-eligible functions is €750, including fuel card, insurance and maintenance. Questions go to Fleet & Mobility BE (Sofie Verhaegen).",
+    "claims": [
+      {
+        "id": "POL-BE-044-1",
+        "topic_id": "mobility.car_lease_budget",
+        "value": "750",
+        "statement": "The company car lease budget in Belgium is €750 per month.",
+        "quote": "the monthly lease budget for car-eligible functions is €750"
+      }
+    ]
+  },
+  {
+    "id": "FAQ-BE-012",
+    "kind": "faq",
+    "title": "New joiner FAQ — company car (Belgium)",
+    "source": "SharePoint · HR Onboarding BE",
+    "author_id": "anke",
+    "owner_id": "anke",
+    "created_on": "2025-02-03",
+    "last_reviewed_on": "2026-03-02",
+    "review_cycle_days": 365,
+    "countries": ["BE"],
+    "client_ids": [],
+    "effective_from": "2025-01-01",
+    "effective_to": null,
+    "supersedes": [],
+    "body": "Q: How much can I spend on my lease car? A: €750 per month for car-eligible functions, as set in the 2025 car policy. Fleet & Mobility BE handles the order.",
+    "claims": [
+      {
+        "id": "FAQ-BE-012-1",
+        "topic_id": "mobility.car_lease_budget",
+        "value": "750",
+        "statement": "The company car lease budget is €750 per month.",
+        "quote": "€750 per month"
+      }
+    ]
+  },
+  {
+    "id": "TEAMS-5127",
+    "kind": "teams_message",
+    "title": "Jonas Wouters in #general-be",
+    "source": "Teams · #general-be",
+    "author_id": "jonas",
+    "owner_id": null,
+    "created_on": "2026-09-25",
+    "last_reviewed_on": null,
+    "review_cycle_days": null,
+    "countries": ["BE"],
+    "client_ids": [],
+    "effective_from": null,
+    "effective_to": null,
+    "supersedes": [],
+    "body": "FYI since the town hall our car lease budget is €800 per month, so you can go for a bigger model when you renew.",
+    "claims": [
+      {
+        "id": "TEAMS-5127-1",
+        "topic_id": "mobility.car_lease_budget",
+        "value": "800",
+        "statement": "The company car lease budget is €800 per month since the town hall.",
+        "quote": "since the town hall our car lease budget is €800 per month"
+      }
+    ]
+  },
+  {
+    "id": "MEET-BE-0924",
+    "kind": "meeting",
+    "title": "Town hall Q3 2026 — Belgium",
+    "source": "Teams meeting · Town hall BE (transcript)",
+    "author_id": null,
+    "owner_id": null,
+    "created_on": "2026-09-24",
+    "last_reviewed_on": null,
+    "review_cycle_days": null,
+    "countries": ["BE"],
+    "client_ids": [],
+    "effective_from": "2027-01-01",
+    "effective_to": null,
+    "supersedes": [],
+    "body": "Leadership: on mobility, the car lease budget will rise to €800 per month from 1 January 2027. Until then the 2025 car policy stays as it is; Fleet will update the policy before year end.",
+    "claims": [
+      {
+        "id": "MEET-BE-0924-1",
+        "topic_id": "mobility.car_lease_budget",
+        "value": "800",
+        "statement": "The company car lease budget will rise to €800 per month from 1 January 2027.",
+        "quote": "the car lease budget will rise to €800 per month from 1 January 2027"
+      }
+    ]
   }
 ]

@@ -278,7 +278,8 @@ def verification_summary(view: dict, created: bool) -> str:
     if created:
         return (
             f"Verification request sent to {view['assignee_name']} for {view['context_label']} "
-            f"({view['topic']['label']}). Ask again once they confirm to get the verified answer."
+            f"({view['topic']['label']}). Question sent: {view['question']} "
+            "Ask again once they confirm to get the verified answer."
         )
     return (
         f"You already have an open verification request with {view['assignee_name']} for "

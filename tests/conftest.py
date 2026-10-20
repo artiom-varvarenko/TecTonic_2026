@@ -42,13 +42,41 @@ def creds_file(tmp_path_factory):
 
 @pytest.fixture
 def make_client(creds_file):
-    def factory(extractor=None, transcriber=None, *, google_exchange=None, **settings_overrides) -> TestClient:
+    def factory(
+        extractor=None,
+        transcriber=None,
+        *,
+        google_exchange=None,
+        spott=None,
+        spott_factory=None,
+        salesforce=None,
+        teams_alerts=None,
+        speaker=None,
+        graph=None,
+        claude=None,
+        meeting_transcriber=None,
+        **settings_overrides,
+    ) -> TestClient:
         settings = Settings(
             secret_key=_SECRET_KEY, credentials_file=creds_file, cookie_secure=False, **settings_overrides
         )
-        return TestClient(
-            create_app(settings, extractor, transcriber, clock=lambda: TODAY, google_exchange=google_exchange)
+        extra = {"spott_factory": spott_factory} if spott_factory else {}
+        app = create_app(
+            settings,
+            extractor,
+            transcriber,
+            clock=lambda: TODAY,
+            google_exchange=google_exchange,
+            spott=spott,
+            salesforce=salesforce,
+            teams_alerts=teams_alerts,
+            speaker=speaker,
+            graph=graph,
+            claude=claude,
+            meeting_transcriber=meeting_transcriber,
+            **extra,
         )
+        return TestClient(app)
 
     return factory
 

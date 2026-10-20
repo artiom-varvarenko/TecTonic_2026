@@ -75,5 +75,16 @@
     "left_on": "2025-11-30",
     "client_ids": [],
     "expertise_topics": ["payroll.variables_cutoff"]
+  },
+  {
+    "id": "sofie",
+    "name": "Sofie Verhaegen",
+    "title": "Fleet & Mobility Manager BE",
+    "country": "BE",
+    "role": "expert",
+    "active": true,
+    "left_on": null,
+    "client_ids": [],
+    "expertise_topics": ["mobility.car_lease_budget"]
   }
 ]

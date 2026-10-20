@@ -4,6 +4,7 @@ Behind a tunnel on this machine (e.g. `cloudflared tunnel --url http://127.0.0.1
 so the login rate limit sees the real client IP. TRUSTLABEL_PORT changes the port.
 """
 
+import logging
 import os
 
 import uvicorn
@@ -12,6 +13,12 @@ from trustlabel.app import create_app
 from trustlabel.config import Settings
 
 if __name__ == "__main__":
+    # TrustLabel's own events (cases briefed, notes captured, connections); third-party loggers stay at WARNING.
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(levelname)s:     %(name)s: %(message)s"))
+    app_logger = logging.getLogger("trustlabel")
+    app_logger.addHandler(handler)
+    app_logger.setLevel(logging.INFO)
     uvicorn.run(
         create_app(Settings.from_env()),
         host="127.0.0.1",

@@ -16,5 +16,12 @@
     "label": "Sick leave certificate deadline",
     "value_type": "working_days",
     "keywords": ["sick", "illness", "medical certificate", "certificate", "doctor"]
+  },
+  {
+    "id": "mobility.car_lease_budget",
+    "label": "Company car lease budget",
+    "value_type": "amount_eur",
+    "unit": "per month",
+    "keywords": ["car policy", "car policies", "company car", "car lease", "lease car", "lease budget", "leasing", "leasewagen", "bedrijfswagen", "firmawagen", "voiture de société", "voiture de fonction", "mobility budget"]
   }
 ]

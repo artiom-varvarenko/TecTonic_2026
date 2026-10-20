@@ -15,12 +15,22 @@ from datetime import date, timedelta
 
 from .models import Claim, Client, Item, Person, Topic, Verification
 
-BASE_SCORE = {"policy": 80, "procedure": 75, "faq": 65, "teams_message": 60, "verified_answer": 95}
+BASE_SCORE = {
+    "policy": 80,
+    "procedure": 75,
+    "faq": 65,
+    "teams_message": 60,
+    "spott_note": 60,
+    "meeting": 55,
+    "verified_answer": 95,
+}
 KIND_LABELS = {
     "policy": "Policy",
     "procedure": "Procedure",
     "faq": "FAQ",
     "teams_message": "Teams message",
+    "spott_note": "Spott note",
+    "meeting": "Meeting transcript",
     "verified_answer": "Verified answer",
 }
 GRADES = "ABCDEFG"
@@ -31,8 +41,11 @@ COUNTRY_NAMES = {"BE": "Belgium", "NL": "Netherlands", "DE": "Germany"}
 MANAGED_KINDS = frozenset({"policy", "procedure", "faq", "verified_answer"})
 # Kinds strong enough to override a general rule for one client.
 AUTHORITATIVE_KINDS = frozenset({"policy", "procedure", "verified_answer"})
+# Messages, notes and things said in meetings: no owner or review cycle; they age, and never
+# supersede a formal source.
+CHAT_KINDS = frozenset({"teams_message", "spott_note", "meeting"})
 # Kinds that can only *claim* a client exception.
-INFORMAL_KINDS = frozenset({"teams_message", "faq"})
+INFORMAL_KINDS = CHAT_KINDS | {"faq"}
 
 ORPHANED = -20
 REVIEW_OVERDUE = -15
@@ -46,11 +59,15 @@ CORROBORATED = 10
 CONFIRMED_BY_VERIFICATION = 15
 
 STATUS_ORDER = {"effective": 0, "superseded": 1, "overridden": 2, "not_applicable": 3}
-VALUE_RANGES = {"day_of_month": (1, 31), "working_days": (1, 30)}
+VALUE_RANGES = {"day_of_month": (1, 31), "working_days": (1, 30), "amount_eur": (1, 100_000)}
 VALUE_ERRORS = {
     "day_of_month": "Value must be a day of the month (1–31)",
     "working_days": "Value must be a number of working days (1–30)",
+    "amount_eur": "Value must be a whole amount in euros (€1–€100000)",
 }
+# Whole euros: "750", "€750", "€ 750", "750 EUR", "750,00" / "750.00" (zero cents only).
+_AMOUNT_EUR = re.compile(r"(?:€\s*)?([0-9]{1,6})(?:[.,]00)?(?:\s*(?:eur|euros?))?", re.IGNORECASE)
+_SMALL_INT = re.compile(r"([0-9]{1,3})")
 
 
 @dataclass(frozen=True)
@@ -134,6 +151,8 @@ def value_display(topic: Topic, value: str) -> str:
     n = int(value)
     if topic.value_type == "day_of_month":
         return f"{ordinal(n)} of the month"
+    if topic.value_type == "amount_eur":
+        return f"€{n} {topic.unit}" if topic.unit else f"€{n}"
     return f"within {n} working day{'' if n == 1 else 's'}"
 
 
@@ -141,9 +160,11 @@ def validate_value(topic: Topic, raw: str) -> str:
     """Normalise a claimed value to a plain integer string, or raise ValueError."""
     text = str(raw).strip()
     lo, hi = VALUE_RANGES[topic.value_type]
-    if not re.fullmatch(r"[0-9]{1,3}", text) or not lo <= int(text) <= hi:
+    pattern = _AMOUNT_EUR if topic.value_type == "amount_eur" else _SMALL_INT
+    match = pattern.fullmatch(text)
+    if match is None or not lo <= int(match.group(1)) <= hi:
         raise ValueError(VALUE_ERRORS[topic.value_type])
-    return str(int(text))
+    return str(int(match.group(1)))
 
 
 def specificity(item: Item) -> int:
@@ -230,10 +251,10 @@ def _intrinsic_reasons(item: Item, today: date, people: Mapping[str, Person]) ->
                         REVIEW_DUE_SOON,
                     )
                 )
-    if item.kind == "teams_message":
+    if item.kind in CHAT_KINDS:
         age = (today - item.created_on).days
         if age > CHAT_MAX_AGE_DAYS:
-            reasons.append(Reason("chat_age", f"Chat message is {age} days old", CHAT_AGE))
+            reasons.append(Reason("chat_age", f"{KIND_LABELS[item.kind]} is {age} days old", CHAT_AGE))
     if item.kind == "verified_answer":
         until = f"; valid until {item.effective_to.isoformat()}" if item.effective_to else ""
         reasons.append(
@@ -291,7 +312,7 @@ def assess(
                 and value(y) != value(x)
                 and x.effective_from
                 and y.effective_from
-                and y.kind != "teams_message"
+                and y.kind not in CHAT_KINDS
                 and y.effective_from > x.effective_from
             ]
             by = max(newer, key=lambda y: y.effective_from, default=None)

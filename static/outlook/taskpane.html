@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TrustLabel</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/outlook/taskpane.css">
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <script src="/static/outlook/taskpane.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <span class="brand"><img src="/static/favicon.svg" alt="" width="22" height="22">TrustLabel</span>
+    <span id="account" class="account" hidden>
+      <span id="account-name"></span>
+      <button type="button" id="disconnect" class="link">Disconnect</button>
+    </span>
+  </header>
+
+  <main>
+    <p id="loading" class="muted">Loading…</p>
+
+    <form id="connect" class="card stack" hidden>
+      <label for="key-input">Paste your TrustLabel key (TrustLabel → Integrations → Personal key)</label>
+      <input id="key-input" class="field mono" type="password" autocomplete="off" spellcheck="false" maxlength="512" required>
+      <button type="submit" class="btn btn-primary">Connect</button>
+    </form>
+
+    <form id="demo" class="card stack" hidden>
+      <p class="demo-flag">Not in Outlook — demo mode</p>
+      <label for="demo-subject">Subject</label>
+      <textarea id="demo-subject" class="field" rows="2" maxlength="500"></textarea>
+      <label for="demo-body">Body</label>
+      <textarea id="demo-body" class="field" rows="6" maxlength="20000"></textarea>
+      <button type="submit" class="btn btn-primary">Check</button>
+    </form>
+
+    <p id="error" class="error" role="alert" hidden></p>
+    <section id="result" aria-live="polite"></section>
+  </main>
+</body>
+</html>

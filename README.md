@@ -14,7 +14,12 @@ Built for the SD Worx challenge of the Tectonic Hackathon 2026 preselection (30 
 An urgent customer question comes in. An assistant finds three documents: one recently updated, one without an owner,
 one that may apply to another country. A colleague then shares contradictory information from a Teams chat.
 The employee has found information but still cannot act with confidence. TrustLabel is the trust layer under
-whatever search or assistant SD Worx already uses; it is not another assistant.
+whatever search or assistant SD Worx already uses; it is not another assistant, and not another app to open.
+
+It works inside the channels SD Worx already uses: an **Outlook** add-in next to the client's email, an internal
+comment on new **Salesforce Service Cloud** cases (the platform behind MyServicePoint), **Microsoft Teams** through
+MCP, and optionally a **Spott** workspace. Talkdesk is reached through Salesforce and Teams, which it already
+connects to. The web app remains for experts (verification inbox) and setup (Integrations page).
 
 ## What it does
 
@@ -37,9 +42,21 @@ whatever search or assistant SD Worx already uses; it is not another assistant.
 - **Trust overview.** Before anyone asks, the Ask page shows each topic's verdict for the chosen client or country,
   the grade mix of current sources, knowledge debt (orphaned, overdue or superseded sources and their owner) and
   recent verifications. It refreshes every 15 s and tells a requester when their expert has answered.
+- **Outlook add-in.** Open a client email → TrustLabel shows the client, the label, up to three current sources and
+  the best verifier. "Reply with this" (or "Send holding reply" when the answer is *don't act yet*) opens Outlook's
+  reply form prefilled; it never sends. "Ask <expert>" creates a verification request.
+- **Salesforce cases.** New cases are polled every 15 s and get an internal case comment (never visible to the
+  client) with the label, sources, verifier and a suggested reply. The client comes from the case's account, else the
+  sender's email domain or a client name in the case text; if it can't tell, the comment says "Don't act yet" without
+  a value.
 - **Microsoft Teams over MCP.** TrustLabel is a remote MCP server (`POST /mcp`, Streamable HTTP) with the tools
   `ask_trustlabel`, `request_verification` and `capture_teams_message`. Add it to a Copilot Studio agent published
   in Teams: same grades, reasons, expert routing and client scoping as the web UI, under the user's own permissions.
+- **Spott, both ways.** [Spott](https://www.gospott.com) is an AI-native recruitment CRM. A note on a Spott client
+  record, typed or written by Spott's Note Taker, reaches TrustLabel through a signed webhook. TrustLabel fetches it,
+  keeps only the claims it states verbatim, scopes them to that client and grades them like a chat message. When an
+  expert verifies an answer for a client, it goes back onto that client's Spott record as a note. Nobody maintains a
+  document.
 - **Google sign-in (optional).** OpenID Connect code flow with PKCE, state and nonce; only allow-listed, verified
   Google emails mapped to a TrustLabel user can sign in. Password login stays.
 
@@ -49,10 +66,10 @@ whatever search or assistant SD Worx already uses; it is not another assistant.
 
 | Rule | Effect |
 |---|---|
-| Base by kind | policy 80 · procedure 75 · FAQ 65 · Teams message 60 · verified answer 95 |
+| Base by kind | policy 80 · procedure 75 · FAQ 65 · Teams message 60 · Spott note 60 · meeting transcript 55 · verified answer 95 |
 | No owner, or owner left | −20 |
 | Review overdue / due within 30 days | −15 / −5 |
-| Chat message older than 90 days | −10 |
+| Chat message, Spott note or meeting transcript older than 90 days | −10 |
 | Client exception claimed only informally | −10 on the general sources |
 | True conflict (same scope, different value) | −15 |
 | Corroborated by a source from another author | +10 |
@@ -62,6 +79,46 @@ whatever search or assistant SD Worx already uses; it is not another assistant.
 | Grade thresholds | A ≥ 95 · B ≥ 80 · C ≥ 70 · D ≥ 60 · E ≥ 50 · F ≥ 40 · G < 40 |
 
 A client-specific formal source (policy, procedure or verified answer) overrides the general rule for that client only.
+
+### Internal knowledge and personal data
+
+TrustLabel also grades SD Worx's own informal knowledge, not just client procedures. The seed data has the
+"four car policies" case for `mobility.car_lease_budget` (amounts in whole euros, shown as "€750 per month"):
+
+- the 2023 Belgian car policy (€650): superseded, grade F;
+- the 2025 Dutch policy (€700): applies to the Netherlands only;
+- the 2025 Belgian policy (€750, owned by Sofie Verhaegen, Fleet & Mobility Manager BE, reviewed in August 2026),
+  backed by the new-joiner FAQ;
+- a Teams message claiming €800 "since the town hall";
+- the town-hall transcript, which says €800 only *from 1 January 2027*, so it is not effective yet.
+
+Asking "What is my company car lease budget?" for Belgium gives "Don't act yet": €750 (C) vs €800 (F). Sofie is the
+top expert, as listed expert and owner of the current policy.
+
+Questions about another person's pay, health, performance review or private address (EN/NL/FR, e.g. "How much
+does my colleague earn?", "Wat verdient Jonas?", "Is Jonas sick?") are refused before any topic matching, on the web,
+by voice and through the Teams MCP tools. The refusal shows no sources and names who decides instead (Anke Claes, HR
+Policy Officer BE). Policy questions such as "When is the sick certificate due?" still get answered. The rules are
+in `trustlabel/guard.py`.
+
+### Meetings (ElevenLabs Scribe)
+
+Meeting recordings become sources without anyone typing them up (`trustlabel/meetings.py`). Upload one on the
+Integrations page ("Meetings · ElevenLabs Scribe", or `POST /api/meetings`, multipart field `recording`; mp3, m4a,
+wav, webm, ogg or mp4, max 25 MB; only this path accepts bodies above the 3 MB limit), or set
+`TRUSTLABEL_MEETINGS_DIR` and `TRUSTLABEL_MEETINGS_OWNER` to watch a folder, e.g. Teams meeting recordings synced from
+OneDrive/SharePoint. The watcher scans every 15 s and handles each file once (name + size + mtime), after its size
+has held across two scans. Scribe transcribes with speaker diarization ("Speaker 1: …"). The existing extractor reads
+the first 12,000 characters, and only claims quoted verbatim survive. They become one item of kind `meeting` per
+recording, titled "Meeting · {name} · {date}", owned by the uploader (or the folder owner, in their country), and
+graded against existing knowledge like any capture. Processing runs in the background, one recording at a time;
+`GET /api/meetings` lists your recordings as queued, transcribing, done or failed, with the claim count, item id and
+error class. A recording without a verbatim claim ends as done with 0 claims and adds no item.
+
+Live check (port 8014): a TTS two-voice recording, "From January the company car lease budget for consultants goes
+up to 800 euros per month", was transcribed as two speakers ("…eight hundred euros per month"), stored as a meeting
+item claiming €800 (grade E), and made the car-budget answer a conflict, €750 (C) vs €800 (E). A recording dropped in the
+watched folder ("Meal voucher orders close on the 8th…") became an item for the folder owner on the next scans.
 
 ## Demo video
 
@@ -83,15 +140,154 @@ uv run --env-file .env main.py            # then open http://127.0.0.1:8000
 Users: `lotte`, `jonas` (consultants); `ellen`, `pieter`, `anke`, `sanne` (experts).
 "Answer by voice" appears when both `OPENAI_API_KEY` and `ELEVENLABS_API_KEY` are set; "Capture a Teams message"
 needs `OPENAI_API_KEY`. `OPENAI_MODEL` defaults to `gpt-6-luna`; any model with Structured Outputs support can be set.
+`main.py` logs TrustLabel's own INFO events (Salesforce cases briefed, Spott notes captured, Teams alerts sent, Outlook
+brief outcomes as sizes and detected client/topic only, never email content); third-party loggers stay at WARNING.
 
 Demo path: log in as lotte → context "Van Dam Logistics NV (BE)" → ask *"What's the cut-off for submitting overtime
 this month?"* → "Don't act yet: 20th (C) vs 25th (D)" → "Ask Ellen to verify". Log in as ellen in a private window →
 Verification inbox → resolve (by voice or form). Lotte asks again → 25th, grade A, verified by Ellen.
 "Belgium — all clients" still answers 20th (B).
 
-**Connect Microsoft Teams.** Serve TrustLabel over public HTTPS (below). In TrustLabel, *Microsoft Teams → Connect
-Teams* shows the MCP URL and a personal key (shown once, 8 h). In Copilot Studio: agent → Tools → Add a tool → New
+**Integrations page.** The third tab in the web app holds everything a channel needs: your personal key (*Personal
+key*, shown once, 8 h, used by Teams and Outlook), the Teams MCP URL, the Outlook manifest URL with install steps,
+Salesforce status (domain, last checked, cases briefed, last error), the Spott workspace and how Talkdesk is reached.
+Users listed in `TRUSTLABEL_ADMINS` (comma-separated user ids, e.g. `lotte`) can connect, replace or disconnect a
+Spott workspace there with an API key and an optional `whsec_…` signing secret; the key is checked against Spott and
+clients are matched by name.
+
+**Connect Microsoft Teams.** Serve TrustLabel over public HTTPS (below). Integrations shows the MCP URL and the
+personal key. In Copilot Studio: agent → Tools → Add a tool → New
 tool → Model Context Protocol → URL `https://<host>/mcp`, authentication *API key*, header `X-API-Key`; publish to Teams.
+
+**Teams expert alerts** (`trustlabel/teams_alerts.py`). When a verification request is created from any channel (web
+app, Teams over MCP, Outlook via `POST /api/v1/verifications`), TrustLabel posts an Adaptive Card to a Teams workflow
+webhook in a background thread; one alert per new request, none when an open request is asked again. The card
+@mentions the routed expert (the same expert and reasons the requester saw), e.g. "@Ellen Maes, Lotte Janssens asks
+you to verify the payroll variables cut-off for Van Dam Logistics NV (BE).", lists Question, "Sources say" (each
+competing value once, with its best grade) and "Why you", and has an "Answer in TrustLabel" button to
+`<TRUSTLABEL_PUBLIC_URL>/?view=inbox`, which opens the Verification inbox. The payload is the Teams webhook message
+shape (`type: message`, `attachments[0].contentType = application/vnd.microsoft.card.adaptive`) plus a top-level
+`recipient` with the expert's Teams address. Setup (work/school account, non-premium): create a flow from the
+"Send webhook alerts to a chat" template (Power Automate or the Teams Workflows app). In its "Post card in a chat or
+channel" step (inside For each) set Post in = "Chat with Flow bot", Recipient = your address, and Adaptive Card =
+expression `item()?['content']` (changing Post in clears that field). Save, then copy the HTTP URL from the trigger
+"When a Teams webhook request is received". Then set:
+
+- `TEAMS_WORKFLOW_URL`: the workflow's webhook URL (secret; only https on port 443 to a host ending in
+  `.logic.azure.com` or `.api.powerplatform.com`, anything else stops startup).
+- `TRUSTLABEL_TEAMS_USERS`: comma-separated `user_id=name@company.com` pairs mapping TrustLabel users to Teams sign-in
+  addresses (unknown user ids stop startup). Experts without an address are named in plain text, without @mention.
+- `TRUSTLABEL_PUBLIC_URL`: needed for the button; without it the card has no button.
+
+Verified live on 20 October 2026 in a university Microsoft 365 tenant with that setup: the card arrived from the
+Workflows bot with the @mention, the drafted question, "Sources say", "Why you", and a working "Answer in TrustLabel"
+button. With the template's default Post in = "Group chat" and no real group chat selected, the flow run fails with
+NotFound. To route each card to the expert TrustLabel picked, set Recipient to the expression
+`triggerBody()?['recipient']`. The URL is never logged or shown; failures are logged as
+`Teams alert for <request id> failed: <ExceptionClass>`. Integrations shows "Expert alerts: On … (N mapped)" or
+"Off: set TEAMS_WORKFLOW_URL and TRUSTLABEL_TEAMS_USERS".
+
+**Auto-ask and drafted questions** (`trustlabel/claude.py`). When an answer says "Don't act yet" (sources conflict or
+nothing applies), TrustLabel asks the routed expert itself: the Ask view has a toggle "Ask the owner automatically"
+(on by default, stored in `localStorage` as `tl.autoAsk`) that sends `auto_ask` with `POST /api/ask`. The result then
+carries `auto_request` and the page shows "TrustLabel asked {expert} for you" with the question and its status. A safe
+answer never asks. If any colleague already has an open request for the same topic and context, it is reused (you
+follow it and it shows in your inbox) instead of asking the expert twice. With the toggle off, the "Ask {expert} to
+verify" button stays and shows the question it sent. Every request, from any channel, gets a drafted question in
+`Verification.question` (shown in the Teams alert and the expert's inbox); the requester's own words stay in
+`asked` ("Asked: …" in the inbox when they differ). With `ANTHROPIC_API_KEY` set, Claude (`ANTHROPIC_MODEL`, default
+`claude-haiku-5-5`, Messages API, 15 s timeout) drafts one neutral question naming the context, the
+topic and each competing value with its source title and grade. The draft is kept only if it is one line, at most 300
+characters, names every value and adds no number that is not in those facts. Otherwise, or without a key, a template
+is used: *"Which is right for {context}: {topic} {value} ({source}, grade X) or {value} ({source}, grade Y)?"* or, for
+a gap, *"What is the {topic} for {context}? No current source covers it."* Failures are logged by exception class only.
+
+**Chat with voice** (`trustlabel/voice.py`, Chat tab, `/?view=chat`). The standalone surface: a conversation thread
+over the same answer path as Ask (`ask_for`). Each TrustLabel bubble shows the verdict (Safe to use / Use with caution /
+Don't act yet), headline, value, the top 3 sources (title · kind · grade), who can confirm, and the auto-ask request
+when one was sent. Personal-data questions get a calm "Not shared" bubble with the person to ask instead; unmatched
+questions get tappable topic chips. The context select and the "Ask the expert automatically" toggle (`tl.autoAsk`,
+shared with Ask) sit above the text box. **Push-to-talk:** hold the mic (or tap to start, tap to send; max 15 s);
+`POST /api/voice/ask` (multipart `audio`, `client_id`, `auto_ask`) transcribes with ElevenLabs Scribe, answers the
+transcript exactly like a typed question and returns `{transcript, result, speech}`. `speech` is a template sentence
+built only from the graded result, e.g. *"Don't act yet: sources disagree, 20th of the month or 25th of the month.
+I've asked Ellen Maes to confirm."* or *"Safe to use: 10th of the month, from …, grade B."*. The browser then calls
+`POST /api/voice/speak` `{text ≤ 600 chars}`, which returns `audio/mpeg` (`Cache-Control: no-store`) from ElevenLabs
+text-to-speech (`eleven_flash_v2_5`, voice `ELEVENLABS_VOICE_ID`, default premade "Matilda" `XrExE9yKIg1WjnnlVkGX`),
+played from a blob URL (CSP `media-src 'self' blob:`). **Hands-free "Hey TrustLabel"** (shown only where the browser
+has `SpeechRecognition`): browser speech recognition listens for the wake phrase only; the question is then recorded
+until about 1.5 s of silence (AnalyserNode level) or 10 s and goes through the same pipeline. A status line shows
+"Listening for …", "Listening — ask your question" or "Answering…", with the disclosure "Wake word uses your browser's
+speech recognition". Both endpoints need a session, have per-user hourly budgets (60 voice questions, 120 spoken
+answers), accept only `audio/*` uploads up to 2 MB, return 503 without `ELEVENLABS_API_KEY` and 502 (no upstream
+body) when ElevenLabs fails. Verified live on a local server: TTS of *"What is the payroll cut-off for Van Dam?"* →
+`/api/voice/ask` transcribed it as "What is the payroll cutoff for VanDam?", answered "Don't act yet" (same result as
+the typed ask), and `/api/voice/speak` returned MP3; in headless Chromium, push-to-talk with a simulated microphone
+produced the same answer bubble.
+
+**Teams channel sync** (`trustlabel/teams_graph.py`). TrustLabel reads Teams channels through Microsoft Graph with
+app-only access and turns messages that state a verifiable fact into graded "Teams message" sources. Every 60 s, for
+each channel in `TEAMS_SYNC_CHANNELS`, it calls `GET /v1.0/teams/{team}/channels/{channel}/messages/delta`, follows
+`@odata.nextLink` pages, and keeps the `@odata.deltaLink` in memory for the next poll. The first round only fetches
+messages modified in the last 30 days (`$filter=lastModifiedDateTime gt …`). System events, deleted messages and
+messages it has already processed (by id) are skipped. HTML bodies become plain text (stdlib `html.parser`). The
+author's UPN and mail come from `GET /v1.0/users/{id}?$select=userPrincipalName,mail` (cached) and are matched against
+`TRUSTLABEL_TEAMS_USERS`. A matched author becomes the item's author and sets its country; unknown authors are kept by
+display name, marked "(external)" and scoped to every country. The text then goes through the same capture pipeline as
+"Capture a Teams message": AI extraction, the server-side verbatim-quote check and grading against existing knowledge.
+Only the sentences that hold a kept quote are stored. Messages without such a claim create no item. The source reads
+"Teams · {team}/{channel}"; the Item model has no URL field, so the message's `webUrl` is not stored. Setup: register an
+app in Entra ID, create a client secret and add the **application** permissions `ChannelMessage.Read.All` and
+`User.Read.All` with admin consent. `Team.ReadBasic.All` and `Channel.ReadBasic.All` are also needed to show the team
+and channel names; without them the source shows the ids. Then set `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET`
+(all three or none, otherwise startup stops) and `TEAMS_SYNC_CHANNELS=teamId/channelId,…` (ids from the channel's
+"Get link to channel"). Sync also needs `OPENAI_API_KEY` and shares a budget of 60 extractions per hour. The
+app token (client credentials, scope `https://graph.microsoft.com/.default`) is cached until 5 minutes before it
+expires. Errors are logged by exception class only; tokens and message text are never logged. Integrations → Microsoft
+Teams shows "Channel sync" (channels, last check, messages read, sources created) and the required permissions.
+Built against the Microsoft Graph documentation and tested with stubs (`tests/test_teams_graph.py`, httpx
+MockTransport); it has **not** been verified against a live tenant, which needs an admin to grant consent.
+
+**Connect Salesforce.** In the org: Setup → External Client App Manager → New External Client App. Enable OAuth,
+callback URL `https://localhost/callback` (unused), OAuth scope *Manage user data via APIs (api)*, and under Flow
+Enablement *Enable Client Credentials Flow*. Then Policies → Edit → OAuth Policies: enable the client credentials
+flow and set *Run As* to an API-enabled user (type the full username). Settings → OAuth Settings → Consumer Key and
+Secret. Set `SALESFORCE_DOMAIN` (the My Domain host, e.g. `orgfarm-xxxx-dev-ed.develop.my.salesforce.com`),
+`SALESFORCE_CLIENT_ID` (consumer key) and `SALESFORCE_CLIENT_SECRET` (all three or none). TrustLabel then polls for
+new cases every 15 s and adds an internal comment to those matching a topic; cases that already carry a comment by its
+own Salesforce user are skipped, so a restart never comments twice. To turn client emails into cases, enable
+Email-to-Case in the org. Verified in a Developer Edition org: a Brightwave overtime cut-off case got "Safe to use:
+20th of the month" with sources, verifier and a suggested reply; a Van Dam case got "Don't act yet — sources disagree"
+with a holding reply; both comments were internal, and no case was commented twice after a restart.
+
+**Install the Outlook add-in.** Needs public HTTPS (e.g. the cloudflared tunnel below); without it
+`/outlook/manifest.xml` returns 503. In Outlook on the web open https://aka.ms/olksideload → My add-ins → Custom
+Addins → Add a custom add-in → Add from URL `https://<host>/outlook/manifest.xml` (or download it and use Add from
+File). Open an email → TrustLabel → paste the personal key from Integrations → Personal key. Outside Outlook the pane
+(`/static/outlook/taskpane.html`) runs in demo mode: paste a subject and body. Verified live in Outlook on the web
+(Outlook.com), sideloaded from the manifest URL: after adding the add-in, reload Outlook (F5); only then does
+"TrustLabel" appear under Apps. On the email "Van Dam: overtime this month" it detected the client and showed the
+conflict brief with a holding reply. Outlook sends subjects with non-breaking spaces, so client and topic matching
+normalise whitespace (`trustlabel/brief.py`). `npx office-addin-manifest validate` reports the manifest as valid.
+
+**Connect Spott.** Set `SPOTT_API_KEY` (from Spott's API settings) to write verified answers back: when an expert
+resolves a request for a client, a note titled "TrustLabel · Verified: …" lands on the Spott client with the same name.
+To capture notes, serve TrustLabel over public HTTPS, add a Spott webhook for the event `note.created` with URL
+`https://<host>/api/integrations/spott/webhook`, and set `SPOTT_WEBHOOK_SECRET` to its `whsec_…` signing secret
+(capture also needs `OPENAI_API_KEY`). A quick tunnel works for a demo: `cloudflared tunnel --url
+http://127.0.0.1:8000` with `TRUSTLABEL_BEHIND_PROXY=1`. Demo: in Spott, note on "Brightwave Retail BV" *"From now on
+meal voucher orders must be in by the 5th of the month."* → lotte, context Brightwave → meal vouchers → the Spott note
+(5th) conflicts with the Belgian policy (10th).
+
+**Ask TrustLabel from Spott.** A note whose text starts with `@TrustLabel` or `TrustLabel:` (any case) is a question,
+not knowledge: it is never captured. TrustLabel matches the topic by rules (no AI call) and answers for the note's
+client with the same service-desk scope as a Salesforce case (general knowledge plus that client's own). The answer
+arrives as one reply note "TrustLabel · Answer: …" on the same Spott client, with the verdict, value, top sources with
+grades and who can verify. Notes on an unknown client or with no matching topic get a short "client not linked" or
+"no matching topic" reply. TrustLabel's own notes are never processed again, and questions share the webhook's
+signature check, deduplication and hourly budget. Verified live once: the real workspace key answered a question on
+"Van Dam Logistics NV" with one reply note (the question note itself was served locally, not created in Spott).
+Demo: in Spott, on "Van Dam Logistics NV", add the note *"@TrustLabel what is the payroll cut-off for overtime?"*.
 
 **Google sign-in.** Create an OAuth web client with redirect URI `<base>/api/auth/google/callback`
 (`http://127.0.0.1:8000/…` locally), then set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
@@ -103,6 +299,17 @@ with a start command that runs `uvicorn.run(create_app(Settings.from_env()), hos
 port=int(os.environ["PORT"]), proxy_headers=True, forwarded_allow_ips="*")` under `.venv/bin/python -c`. Secrets:
 `.credentials.json` as a secret file (`TRUSTLABEL_CREDENTIALS_FILE=/etc/secrets/credentials.json`), a fresh
 `TRUSTLABEL_SECRET_KEY`, the API keys and `TRUSTLABEL_COOKIE_SECURE=1`.
+
+### Channel API
+
+Used by the Outlook pane; any channel can call it with a personal key (`X-API-Key: <key>` or
+`Authorization: Bearer <key>`; session cookies are never accepted). 60 calls per 10 minutes per user, shared with MCP.
+
+| Endpoint | Does |
+|---|---|
+| `GET /api/v1/me` | The key's user and their client portfolio |
+| `POST /api/v1/brief` | `{subject, body, sender?, client_id?}` → client (and how it was matched), topic, label, up to 3 current sources, verifier, open request, reply template. Nothing stored, no AI called |
+| `POST /api/v1/verifications` | `{topic_id, client_id?, question}` → request id, assigned expert, status (201 new, 200 if one is already open) |
 
 ## Security
 
@@ -119,6 +326,11 @@ port=int(os.environ["PORT"]), proxy_headers=True, forwarded_allow_ips="*")` unde
   never work as a session cookie, and every tool call runs with that user's permissions (60 calls per 10 minutes).
 - Google sign-in uses a signed 10-minute flow cookie (state, nonce, PKCE verifier) and checks the ID token's issuer,
   audience, expiry, nonce and `email_verified`; errors never echo provider text.
+- Spott webhooks must carry a valid Standard Webhooks (Svix) HMAC-SHA256 signature, within a 5-minute timestamp
+  window; redelivered messages are processed once. The payload supplies only ids: the note is fetched from the Spott
+  API. A note counts only if it is linked to exactly one client known by exact name, and that link sets its scope.
+  Only the sentences stating a kept claim are stored, never the rest of the note. Note capture shares a budget of 60
+  AI calls per hour, and a Spott outage never blocks a verification.
 - Authorization: client-specific knowledge is only visible to that client's team, and verification requests for a
   client only go to experts on that client's team; the verifier is chosen by the server, never by the client; only
   the assigned expert can resolve or answer by voice (others get 404, same as a missing id); a context can only be
@@ -129,6 +341,16 @@ port=int(os.environ["PORT"]), proxy_headers=True, forwarded_allow_ips="*")` unde
   the value are all checked server-side. A model never decides who can see a claim (a capture takes the scope of the
   context it was made in). A voice statement is only shown to the requester, and kept as evidence, once the expert
   confirms the value it states.
+- Channels: channel API calls authenticate only with the personal key, and the Outlook pane keeps it in its own
+  storage and never uses cookies. Only `/static/outlook/` may be framed, and only by Outlook origins
+  (`frame-ancestors`); everything else stays `frame-ancestors 'none'`. Emails sent for a brief are not stored and never
+  sent to an AI: rules pick the client (sender domain, or exactly one client name or alias in the text; never a guess)
+  and the topic. Salesforce comments are internal (`IsPublished: false`), and nothing is sent automatically anywhere:
+  replies open Outlook's reply form. The Salesforce secret lives only in the environment. The Spott workspace form is
+  admin-only, the key is kept in memory only and never echoed back.
+- Teams expert alerts: `TEAMS_WORKFLOW_URL` is a secret (the URL is signed), accepted only as https on port 443 to
+  `*.logic.azure.com` or `*.api.powerplatform.com`, and never logged or shown in the UI. The card (question, client
+  name, competing values, reasons) goes to the customer's own Microsoft 365 tenant.
 - Strict CSP (`script-src 'self'`, no inline code), `nosniff`, `frame-ancestors 'none'`, no `innerHTML` in the UI,
   no API docs endpoints, `Cache-Control: no-store` on API responses. Fonts (Geist, Geist Mono, Instrument Serif;
   SIL OFL 1.1) are self-hosted in `static/fonts/`, so no third-party requests leave the browser.
@@ -141,10 +363,62 @@ uv run pytest -q
 
 Engine rules on the demo dataset (conflict triage, scoping of verified answers, caps, gaps), plus API tests for
 authentication, authorization, request guards, rate limiting, session revocation, voice and capture (AI services
-stubbed), the trust overview, the MCP server and Google sign-in (token exchange stubbed).
+stubbed), the trust overview, the MCP server and Google sign-in (token exchange stubbed). The channel and integration
+tests run against stubs of the outside services:
+
+- the Outlook pane and Channel API (`test_channels.py`, `test_outlook.py`)
+- Salesforce cases (`test_salesforce.py`)
+- Spott notes and questions asked from notes (`test_spott.py`, `test_spott_ask.py`)
+- Teams expert alerts and channel sync (`test_teams_alerts.py`, `test_teams_graph.py`)
+- auto-ask with Claude drafting (`test_auto_ask.py`)
+- chat and voice (`test_voice_chat.py`)
+- meetings (`test_meetings.py`)
+- the internal-knowledge example and the personal-data guard (`test_internal.py`)
+
+173 tests in total.
 
 ## Unfinished
 
 - State is in memory: a restart resets requests and verified answers. Data is synthetic and fictional.
-- Teams reaches TrustLabel through MCP, but sources still load from `data/*.json` (no SharePoint/Teams ingestion).
-- Topic matching is keyword-based over three demo topics.
+- Teams reaches TrustLabel through MCP; Teams channel sync (Graph) exists but sources otherwise load from
+  `data/*.json` (no SharePoint ingestion).
+- Teams channel sync: not verified against a live Microsoft 365 tenant (needs admin consent). Only top-level channel
+  messages are read (replies are not), edits of an already-processed message are ignored, and the delta link and the
+  processed ids live in memory, so a restart re-reads the last 30 days (TrustLabel's own captures are lost on restart
+  too). Polling, not Graph change notifications.
+- Spott: only `note.created` is handled (edited or deleted notes are not), clients are matched by exact name, and the
+  write-back uses one workspace API key. A restart forgets which webhook messages were already processed.
+- Spott questions: no "Open in Spott" link, because neither the API docs nor the app page give a stable web URL for a
+  client or note. A question linked to several clients gets a "client not linked" reply on the first one. A full
+  round trip with a question note created in Spott and delivered by a real webhook has not been run. The webhook,
+  questions included, stays off without `OPENAI_API_KEY`, although answering a question calls no AI.
+- Topic matching is keyword-based over four demo topics, and client detection is rule-based (email domain, name,
+  alias), so an unrelated email or case containing topic words can still match.
+- The personal-data guard is keyword rules, not a classifier. It needs a sensitive word plus a pointer to a person
+  (colleague word, pronoun, known name, possessive), so a rephrased question can slip through, and some legitimate
+  questions get refused (e.g. "When must Jonas's bonus be submitted?"). The Outlook, Salesforce and Spott briefs do
+  not run it; they only answer the seeded topics, none of which holds personal data.
+- The car-policy topic is internal knowledge, but expert routing still applies client scoping: with a client selected
+  (e.g. Van Dam), Sofie is not suggested because she is not on that client's team. Ask with "Belgium — all clients".
+- No direct Talkdesk integration: calls reach TrustLabel only through Salesforce cases and Teams.
+- Not in Agentforce: it can register external MCP servers but requires OAuth 2.0; TrustLabel's MCP uses API keys.
+- Salesforce is polled every 15 s (no Platform Events or Change Data Capture), and comments post as the Run As user.
+- Outlook add-in: XML manifest (VersionOverrides 1.0) and the pane can't be pinned.
+- Teams expert alerts: the expert answers in TrustLabel (one click from the card), not inside Teams. Verified live with
+  a fixed Recipient only; routing per expert through `triggerBody()?['recipient']` and posting into a group chat or
+  channel were not tried live.
+- Chat "Hey TrustLabel": the wake-word path was not tested in a real browser with a real microphone (headless
+  Chromium has no speech recognition service); push-to-talk was tested with a simulated microphone only. Browser
+  speech recognition in Chrome sends audio to Google; Firefox has none, so the toggle is hidden there. A question
+  spoken in the same breath as the wake phrase is lost; pause after "Hey TrustLabel". Text answers are not read aloud
+  (only voice questions get `speech`; "Play answer" replays it).
+- A Spott workspace connected on the Integrations page is lost on restart; the personal key lasts 8 hours.
+- Auto-ask: Claude drafting was checked live once (`claude-haiku-5-5`, confirmed in `GET /v1/models`; the model rejects
+  `temperature`, so none is sent). Drafts are still model output: a draft that fails the checks falls back to the
+  template silently, apart from a log line. Followers of a shared request are not notified separately when it is
+  resolved; they see the verified answer on their next ask.
+- Meetings: the job list and the watcher's "already processed" keys are in memory, so a restart reprocesses the
+  folder (the items are in memory too). No speaker names, only "Speaker N". Claims are kept from the first 12,000
+  transcript characters only. Recordings are not tied to a client, and nothing is fetched from Teams or Graph
+  directly: the folder must be synced by OneDrive/SharePoint. Tested with short TTS recordings, not a real
+  multi-person meeting or a 25 MB file.

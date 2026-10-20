@@ -22,8 +22,8 @@ def test_overview_scopes_board_and_debt_to_context(make_client):
     debt = {a["id"]: a for a in data["attention"]}
     assert "DOC-BE-009" in debt and debt["DOC-BE-009"]["owner_name"] is None
     assert "DOC-NL-004" not in debt  # other country: out of scope, not this context's debt
-    # Superseded DOC-BE-009 is in scope but not current; the Dutch sources are out of scope.
-    assert (data["health"]["in_scope"], data["health"]["current"]) == (6, 5)
+    # Superseded DOC-BE-009 and POL-BE-031 are in scope but not current; the Dutch sources are out of scope.
+    assert (data["health"]["in_scope"], data["health"]["current"]) == (10, 8)
     assert lotte.get("/api/overview", params={"client_id": "noordhaven"}).status_code == 403
 
     # Pieter is not on the Van Dam team: the client-specific Teams claim must not reach his board.

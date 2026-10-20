@@ -1,5 +1,5 @@
 [
-  {"id": "vandam", "name": "Van Dam Logistics NV", "country": "BE", "sector": "Logistics"},
-  {"id": "brightwave", "name": "Brightwave Retail BV", "country": "BE", "sector": "Retail"},
-  {"id": "noordhaven", "name": "Noordhaven Zorg B.V.", "country": "NL", "sector": "Healthcare"}
+  {"id": "vandam", "name": "Van Dam Logistics NV", "country": "BE", "sector": "Logistics", "aliases": ["Van Dam"], "email_domains": ["vandam-logistics.example"]},
+  {"id": "brightwave", "name": "Brightwave Retail BV", "country": "BE", "sector": "Retail", "aliases": ["Brightwave"], "email_domains": ["brightwave.example"]},
+  {"id": "noordhaven", "name": "Noordhaven Zorg B.V.", "country": "NL", "sector": "Healthcare", "aliases": ["Noordhaven"], "email_domains": ["noordhaven-zorg.example"]}
 ]
