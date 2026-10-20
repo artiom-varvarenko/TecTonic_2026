@@ -118,7 +118,7 @@ def test_watcher_processes_a_stable_file_once(make_client, tmp_path):
 
 def test_watcher_skips_oversize_files_and_rescans_changed_ones(tmp_path):
     handed: list[str] = []
-    watcher = FolderWatcher(tmp_path, lambda path, mtime: handed.append(path.name), max_bytes=10)
+    watcher = FolderWatcher(tmp_path, lambda path, mtime, kind: handed.append(path.name), max_bytes=10)
     big, small = tmp_path / "big.wav", tmp_path / "small.ogg"
     big.write_bytes(b"x" * 11)
     small.write_bytes(b"x" * 5)

@@ -104,6 +104,7 @@ from .mcp import (
     verification_summary,
 )
 from .meetings import (
+    CALL_SOURCE,
     IN_FLIGHT,
     MAX_MEETING_BODY_BYTES,
     MAX_MEETING_BYTES,
@@ -115,6 +116,7 @@ from .meetings import (
     Meeting,
     MeetingLog,
     NoSpeech,
+    RecordingKind,
     ScribeMeetingTranscriber,
     media_type,
     meeting_name,
@@ -124,6 +126,8 @@ from .models import (
     BriefBody,
     Candidate,
     CaptureBody,
+    CaptureKind,
+    ChannelCaptureBody,
     ChannelVerificationBody,
     Claim,
     Client,
@@ -139,7 +143,7 @@ from .models import (
 )
 from .outlook import ASSET_PREFIX as OUTLOOK_ASSET_PREFIX
 from .outlook import OUTLOOK_CSP, manifest_xml
-from .salesforce import CasePoller, HttpSalesforceApi, SalesforceApi, SalesforceCase
+from .salesforce import CasePoller, HttpSalesforceApi, SalesforceApi, SalesforceCase, SalesforceSource, SourcePoller
 from .spott import (
     MAX_WEBHOOK_BYTES,
     NOTE_TITLE_MARKER,
@@ -158,7 +162,25 @@ from .spott import (
     webhook_key,
 )
 from .store import Store
-from .teams_alerts import TEAMS_ERRORS, HttpTeamsAlerts, TeamsAlerts, request_card, workflow_payload
+from .teams_alerts import (
+    ANSWER_VALID_DAYS,
+    MAX_NOTE_CHARS,
+    MAX_OUTGOING_BODY_BYTES,
+    OUTGOING_PATH,
+    TEAMS_ERRORS,
+    HttpTeamsAlerts,
+    TeamsAlerts,
+    message_text,
+    outgoing_key,
+    outgoing_reply,
+    parse_reply,
+    request_card,
+    request_code,
+    resolved_card,
+    split_answer,
+    verify_outgoing,
+    workflow_payload,
+)
 from .teams_graph import (
     NAME_PERMISSIONS,
     PERMISSIONS,
@@ -183,6 +205,23 @@ MAX_AUDIO_BYTES = 2_000_000
 MAX_TRANSCRIPT_CHARS = 5_000
 AI_CALLS_PER_HOUR = 20
 AI_FAILED = "Speech or AI service failed; try again or answer manually"
+# Title and source line of a captured item, per kind; a channel may pass its own (e.g. the email subject).
+CAPTURE_TITLES: dict[str, str] = {
+    "teams_message": "{name} (captured)",
+    "email": "Email captured by {name}",
+    "meeting_summary": "Meeting summary captured by {name}",
+    "phone_call": "Call notes captured by {name}",
+    "note": "{name} (captured)",
+}
+CAPTURE_SOURCES: dict[str, str] = {
+    "teams_message": "Teams · captured via TrustLabel",
+    "email": "Email · captured via TrustLabel",
+    "meeting_summary": "Teams meeting · summary captured via TrustLabel",
+    "phone_call": "Phone call · notes captured via TrustLabel",
+    "note": "Captured via TrustLabel",
+}
+# An email added as a source from Outlook: the first characters are enough for the claims that matter.
+EMAIL_CAPTURE_CHARS = 4_000
 # Spoken questions and read-aloud answers in the Chat view, per user and hour.
 VOICE_ASKS_PER_HOUR = 60
 SPEAK_CALLS_PER_HOUR = 120
@@ -192,13 +231,16 @@ ATTENTION_CODES = frozenset(
 )
 # Claim extraction budget for Spott notes, shared by the whole workspace.
 SPOTT_AI_CALLS_PER_HOUR = 60
+# Claim extraction budget for closed Salesforce cases and logged calls, shared by the whole workspace.
+SALESFORCE_AI_CALLS_PER_HOUR = 60
 # Sources shown with a channel brief (Outlook pane, Salesforce case comment).
 BRIEF_SOURCES = 3
 OUTLOOK_MANIFEST_PATH = "/outlook/manifest.xml"
 TALKDESK_TEXT = (
     "Talkdesk already logs calls in Salesforce and connects to Microsoft Teams, so TrustLabel reaches calls "
-    "through both: cases logged from a call get the same internal brief, and agents can ask TrustLabel in "
-    "Teams during the call. There is no direct Talkdesk connection."
+    "through both: cases logged from a call get the same internal brief, call logs (Tasks of subtype Call) "
+    "become graded sources, and agents can ask TrustLabel in Teams during the call. There is no direct "
+    "Talkdesk connection."
 )
 logger = logging.getLogger("trustlabel")
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
@@ -431,6 +473,9 @@ def create_app(
     unknown_teams = set(settings.teams_users).difference(store.people)
     if unknown_teams:
         raise ValueError(f"TRUSTLABEL_TEAMS_USERS: unknown user(s) {', '.join(sorted(unknown_teams))}")
+    unknown_teams_ids = set(settings.teams_ids).difference(store.people)
+    if unknown_teams_ids:
+        raise ValueError(f"TRUSTLABEL_TEAMS_IDS: unknown user(s) {', '.join(sorted(unknown_teams_ids))}")
     if settings.meetings_owner is not None and settings.meetings_owner not in store.people:
         raise ValueError(f"TRUSTLABEL_MEETINGS_OWNER: unknown user {settings.meetings_owner}")
     if settings.meetings_dir is not None and settings.meetings_owner is None:
@@ -469,6 +514,13 @@ def create_app(
         )
     # `brief_case` is defined with the other channel handlers below; the poller only calls it after startup.
     case_poller = CasePoller(salesforce, lambda case: brief_case(case)) if salesforce is not None else None
+    # Closed cases and logged calls become sources; needs claim extraction. `sync_salesforce_source` is below.
+    source_poller = (
+        SourcePoller(salesforce, lambda source: sync_salesforce_source(source))
+        if salesforce is not None and extractor is not None
+        else None
+    )
+    salesforce_budget = SlidingWindow(3600)
     if teams_alerts is None and settings.teams_workflow_url:
         teams_alerts = HttpTeamsAlerts(settings.teams_workflow_url)
     # Alerts leave the request thread: a slow Teams workflow never delays creating the request.
@@ -492,7 +544,7 @@ def create_app(
     meeting_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="meetings") if meetings_on else None
     # `ingest_meeting_file` is defined with the meeting handlers below; the watcher only calls it after startup.
     meeting_watcher = (
-        FolderWatcher(settings.meetings_dir, lambda path, mtime: ingest_meeting_file(path, mtime))
+        FolderWatcher(settings.meetings_dir, lambda path, mtime, kind: ingest_meeting_file(path, mtime, kind))
         if settings.meetings_dir is not None and meetings_on
         else None
     )
@@ -501,6 +553,8 @@ def create_app(
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         if case_poller is not None:
             case_poller.start()
+        if source_poller is not None:
+            source_poller.start()
         if teams_sync is not None:
             teams_sync.start()
         if meeting_watcher is not None:
@@ -510,6 +564,8 @@ def create_app(
         finally:
             if case_poller is not None:
                 await run_in_threadpool(case_poller.stop)
+            if source_poller is not None:
+                await run_in_threadpool(source_poller.stop)
             if teams_sync is not None:
                 await run_in_threadpool(teams_sync.stop)
             if meeting_watcher is not None:
@@ -531,6 +587,7 @@ def create_app(
     app.state.store = store
     app.state.sessions = sessions
     app.state.case_poller = case_poller
+    app.state.source_poller = source_poller
     app.state.teams_sync = teams_sync
     app.state.alert_pool = alert_pool
     app.state.meetings = meetings
@@ -923,6 +980,7 @@ def create_app(
             candidates=list(claims.items()),
             reasons=match.reasons,
             open_url=f"{settings.public_url}/?view=inbox" if settings.public_url else None,
+            reply_code=request_code(v.id) if settings.teams_outgoing_secret else None,
         )
         return workflow_payload(card, address)
 
@@ -1042,48 +1100,71 @@ def create_app(
             raise HTTPException(409, "Already resolved")
         return verification
 
-    @app.post("/api/verifications/{vid}/resolve")
-    def resolve_verification(
-        vid: str, body: ResolveBody, background: BackgroundTasks, user: Person = Depends(current_user)
-    ) -> dict:
+    def resolved_payload(resolved: list[Verification], expert: Person, topic: Topic, grade: str) -> dict:
+        """One Teams card for everyone who asked or followed the resolved requests, the expert excluded."""
+        people: list[str] = []
+        for v in resolved:
+            for person_id in (v.requester_id, *v.follower_ids):
+                if person_id != expert.id and person_id not in people and person_id in store.people:
+                    people.append(person_id)
+        first = resolved[0]
+        resolution = first.resolution
+        card, recipient = resolved_card(
+            people=[(store.people[p].name, settings.teams_users.get(p)) for p in people],
+            expert_name=expert.name,
+            topic_label=topic.label,
+            context_label=context_label(first.country, first.client_id),
+            value_display=resolution.value_display,
+            grade=grade,
+            note=resolution.note,
+            open_url=f"{settings.public_url}/?view=ask" if settings.public_url else None,
+        )
+        return workflow_payload(card, recipient)
+
+    def resolve_request(
+        vid: str, user: Person, raw_value: str, note: str, valid_until: date, background: BackgroundTasks
+    ) -> tuple[Verification, str]:
+        """The expert's answer becomes a verified answer (inbox and Teams alike); returns (request, grade).
+
+        Raises HTTPException. Every open request for the same context is resolved with it; the askers and
+        followers get one Teams card, and a Spott-linked client gets a note.
+        """
         today = clock()
         with store.lock:
             verification = assigned_open_request(vid, user)
             topic = store.topics_by_id[verification.topic_id]
             try:
-                value = validate_value(topic, body.value)
+                value = validate_value(topic, raw_value)
             except ValueError as exc:
                 raise HTTPException(422, str(exc)) from None
-            if not today < body.valid_until <= today + timedelta(days=MAX_VALIDITY_DAYS):
+            if not today < valid_until <= today + timedelta(days=MAX_VALIDITY_DAYS):
                 raise HTTPException(422, "Valid until must be after today and at most 2 years ahead")
-            note = body.note.strip()
+            note = note.strip()
             if value != verification.voice_value:
                 # A voice statement is only evidence for the value it was recognised as stating.
                 verification.voice_transcript = verification.voice_value = None
-            item = make_verified_item(
-                verification,
-                value,
-                note,
-                body.valid_until,
-                user,
-                topic,
-                context_label(verification.country, verification.client_id),
-                today,
-            )
+            ctx_label = context_label(verification.country, verification.client_id)
+            item = make_verified_item(verification, value, note, valid_until, user, topic, ctx_label, today)
             store.add_item(item)
             resolution = Resolution(
                 value=value,
                 value_display=value_display(topic, value),
                 note=note,
-                valid_until=body.valid_until,
+                valid_until=valid_until,
                 resolved_at=datetime.now().astimezone().replace(microsecond=0),
                 item_id=item.id,
             )
             key = (verification.topic_id, verification.country, verification.client_id)
+            resolved: list[Verification] = []
             for other in store.verifications.values():
                 if other.status == "open" and (other.topic_id, other.country, other.client_id) == key:
                     other.status = "resolved"
                     other.resolution = resolution
+                    resolved.append(other)
+            ctx = Context(verification.country, verification.client_id, ctx_label, today)
+            grade = assess(topic, ctx, [item], store.people, store.clients).source(item.id).grade
+            if alert_pool is not None:
+                alert_pool.submit(send_alert, verification.id, resolved_payload(resolved, user, topic, grade))
             if spott_link.api is not None and verification.client_id:
                 client = store.clients[verification.client_id]
                 background.add_task(
@@ -1094,13 +1175,94 @@ def create_app(
                         f"{topic.label} for {client.name}: {resolution.value_display}",
                         (
                             f"Verified by {user.name} ({user.title}) on {today.isoformat()}, "
-                            f"valid until {body.valid_until.isoformat()}."
+                            f"valid until {valid_until.isoformat()}."
                         ),
                         f"Note: {note}" if note else "",
                         f"TrustLabel verified answer {item.id}",
                     ],
                 )
+            return verification, grade
+
+    @app.post("/api/verifications/{vid}/resolve")
+    def resolve_verification(
+        vid: str, body: ResolveBody, background: BackgroundTasks, user: Person = Depends(current_user)
+    ) -> dict:
+        verification, _ = resolve_request(vid, user, body.value, body.note, body.valid_until, background)
+        with store.lock:
             return verification_view(verification, user)
+
+    # --- Reply in Teams: a Teams Outgoing Webhook posts "@TrustLabel TL-7F2K 25 …" from a channel, HMAC-signed ---
+
+    teams_outgoing_key = outgoing_key(settings.teams_outgoing_secret) if settings.teams_outgoing_secret else None
+    teams_senders = {object_id: user_id for user_id, object_id in settings.teams_ids.items()}
+    teams_usage = "To answer a verification request: @TrustLabel TL-XXXX <your answer>, e.g. @TrustLabel TL-7F2K 25"
+
+    def answer_from_teams(object_id: str, text: str, background: BackgroundTasks) -> str:
+        """Reply text for one outgoing-webhook message; a valid answer resolves exactly like the inbox."""
+        person = store.people.get(teams_senders.get(object_id, ""))
+        if person is None or not person.active:
+            shown = object_id or "missing"
+            return (
+                f"TrustLabel doesn't know this Teams account yet (aadObjectId {shown}). Ask the TrustLabel admin to "
+                f"add <your TrustLabel user id>={shown} to TRUSTLABEL_TEAMS_IDS."
+            )
+        parsed = parse_reply(text)
+        if parsed is None:
+            return teams_usage
+        code, answer = parsed
+        with store.lock:
+            verification = next((v for v in store.verifications.values() if request_code(v.id) == code), None)
+            if verification is None or verification.assignee_id != person.id:
+                return f"{code} is not a verification request assigned to you."
+            if verification.status != "open":
+                return f"{code} was already answered."
+            topic = store.topics_by_id[verification.topic_id]
+        if not answer:
+            return teams_usage
+        try:
+            raw_value, note = split_answer(topic, answer)
+        except ValueError as exc:
+            return f"{code}: {exc}. {teams_usage}"
+        if len(note) > MAX_NOTE_CHARS:
+            return f"{code}: the note is too long (max {MAX_NOTE_CHARS} characters)."
+        valid_until = clock() + timedelta(days=ANSWER_VALID_DAYS)
+        try:
+            verification, grade = resolve_request(verification.id, person, raw_value, note, valid_until, background)
+        except HTTPException as exc:
+            return f"{code}: {exc.detail}"
+        resolution = verification.resolution
+        return (
+            f"Verified: {topic.label} for {context_label(verification.country, verification.client_id)} is "
+            f"{resolution.value_display} (grade {grade}), valid until {resolution.valid_until.isoformat()}. "
+            "Everyone who asked sees it in TrustLabel now."
+        )
+
+    @app.post(OUTGOING_PATH, include_in_schema=False)
+    async def teams_outgoing(request: Request, background: BackgroundTasks) -> JSONResponse:
+        """Teams Outgoing Webhook: verify the HMAC over the raw body, then answer in the thread (within 5 s)."""
+        if teams_outgoing_key is None:
+            raise HTTPException(404, "Not found")
+        raw = bytearray()
+        async for chunk in request.stream():
+            raw += chunk
+            if len(raw) > MAX_OUTGOING_BODY_BYTES:
+                raise HTTPException(413, "Request too large")
+        body = bytes(raw)
+        if not verify_outgoing(teams_outgoing_key, request.headers.get("authorization"), body):
+            raise HTTPException(401, "Invalid signature")
+        try:
+            activity = json.loads(body)
+        except ValueError:
+            raise HTTPException(400, "Invalid JSON") from None
+        if not isinstance(activity, dict):
+            raise HTTPException(400, "Invalid message")
+        sender = activity.get("from")
+        object_id = sender.get("aadObjectId") if isinstance(sender, dict) else None
+        object_id = object_id.strip().lower()[:64] if isinstance(object_id, str) else ""
+        raw_text = activity.get("text")
+        text = message_text(raw_text) if isinstance(raw_text, str) else ""
+        reply = await run_in_threadpool(answer_from_teams, object_id, text, background)
+        return JSONResponse(outgoing_reply(reply))
 
     @app.post("/api/verifications/{vid}/voice")
     def voice_answer(
@@ -1171,8 +1333,15 @@ def create_app(
             for n, claim in enumerate(first.values(), start=1)
         ]
 
-    def capture_for(user: Person, text: str, client_id: str | None) -> dict:
-        """Turn a pasted Teams message into graded claims; only verbatim-quoted claims survive."""
+    def capture_for(
+        user: Person,
+        text: str,
+        client_id: str | None,
+        kind: CaptureKind = "teams_message",
+        title: str | None = None,
+        source: str | None = None,
+    ) -> dict:
+        """Turn pasted or forwarded text into graded claims; only verbatim-quoted claims survive."""
         ctx = resolve_context(user, client_id)
         if extractor is None:
             raise HTTPException(503, "Capture is not configured")
@@ -1192,9 +1361,9 @@ def create_app(
             raise HTTPException(422, "No verifiable claim found in the text (quotes must appear verbatim)")
         item = Item(
             id=item_id,
-            kind="teams_message",
-            title=f"{user.name} (captured)",
-            source="Teams · captured via TrustLabel",
+            kind=kind,
+            title=title or CAPTURE_TITLES[kind].format(name=user.name),
+            source=source or CAPTURE_SOURCES[kind],
             author_id=user.id,
             owner_id=None,
             created_on=ctx.today,
@@ -1215,15 +1384,16 @@ def create_app(
 
     @app.post("/api/capture", status_code=201)
     def capture(body: CaptureBody, user: Person = Depends(current_user)) -> dict:
-        return capture_for(user, body.text, body.client_id)
+        return capture_for(user, body.text, body.client_id, body.kind)
 
-    # --- Meetings: recordings (upload or watched folder) → diarized Scribe transcript → one graded item each ---
+    # --- Recordings: meetings and phone calls (upload or watched folder) → diarized Scribe transcript → one item each
 
     def meeting_view(m: Meeting) -> dict:
         return {
             "id": m.id,
             "name": m.name,
             "origin": m.origin,
+            "kind": m.kind,
             "meeting_on": m.meeting_on.isoformat(),
             "created_at": iso(m.created_at),
             "status": m.status,
@@ -1260,9 +1430,10 @@ def create_app(
                 store.add_item(
                     Item(
                         id=meeting.id,
-                        kind="meeting",
-                        title=f"Meeting · {meeting.name} · {meeting.meeting_on.isoformat()}",
-                        source=MEETING_SOURCE,
+                        kind=meeting.kind,
+                        title=f"{'Call' if meeting.kind == 'phone_call' else 'Meeting'} · {meeting.name} · "
+                        f"{meeting.meeting_on.isoformat()}",
+                        source=CALL_SOURCE if meeting.kind == "phone_call" else MEETING_SOURCE,
                         author_id=owner.id,
                         owner_id=owner.id,
                         created_on=meeting.meeting_on,
@@ -1285,17 +1456,23 @@ def create_app(
         logger.info("Meeting %s (%s) transcribed: %d verbatim claim(s)", meeting_id, meeting.name, len(claims))
 
     def queue_meeting(
-        name: str, owner_id: str, origin: Literal["upload", "folder"], meeting_on: date, data: bytes, filename: str
+        name: str,
+        owner_id: str,
+        origin: Literal["upload", "folder"],
+        meeting_on: date,
+        data: bytes,
+        filename: str,
+        kind: RecordingKind,
     ) -> Meeting:
         if meeting_pool is None:
             raise HTTPException(503, "Meeting capture is not configured")
         content_type = media_type(filename, None) or "application/octet-stream"
-        meeting = meetings.add(name, owner_id, origin, meeting_on)
+        meeting = meetings.add(name, owner_id, origin, meeting_on, kind)
         meeting_pool.submit(process_meeting, meeting.id, data, filename, content_type)
         return meeting
 
-    def ingest_meeting_file(path: Path, mtime: float) -> None:
-        """Folder watcher: a stable new recording becomes a meeting owned by TRUSTLABEL_MEETINGS_OWNER."""
+    def ingest_meeting_file(path: Path, mtime: float, kind: RecordingKind) -> None:
+        """Folder watcher: a stable new recording (a phone call inside `calls/`) owned by TRUSTLABEL_MEETINGS_OWNER."""
         if settings.meetings_owner is None:
             return
         with path.open("rb") as recording:
@@ -1304,11 +1481,15 @@ def create_app(
             raise ValueError("recording grew past the size limit")
         filename = re.sub(r"[^A-Za-z0-9._-]", "", path.name)[-100:] or "recording" + path.suffix.lower()
         meeting_on = min(date.fromtimestamp(mtime), clock())
-        queue_meeting(meeting_name(path.name), settings.meetings_owner, "folder", meeting_on, data, filename)
+        queue_meeting(meeting_name(path.name), settings.meetings_owner, "folder", meeting_on, data, filename, kind)
 
     @app.post(MEETINGS_PATH, status_code=202)
-    def upload_meeting(recording: UploadFile = File(), user: Person = Depends(current_user)) -> dict:
-        """Upload a meeting recording (≤ 25 MB); transcription and extraction run in the background."""
+    def upload_meeting(
+        recording: UploadFile = File(),
+        kind: RecordingKind = Form("meeting"),
+        user: Person = Depends(current_user),
+    ) -> dict:
+        """Upload a meeting or phone call recording (≤ 25 MB); transcription and extraction run in the background."""
         if meeting_pool is None:
             raise HTTPException(503, "Meeting capture is not configured")
         original = recording.filename or ""
@@ -1325,8 +1506,8 @@ def create_app(
             raise HTTPException(429, "AI usage limit reached; try again later")
         suffix = Path(original).suffix.lower()
         filename = re.sub(r"[^A-Za-z0-9._-]", "", original)[-100:] or "recording" + suffix
-        meeting = queue_meeting(meeting_name(original), user.id, "upload", clock(), data, filename)
-        logger.info("Meeting %s uploaded by %s (%d bytes)", meeting.id, user.id, len(data))
+        meeting = queue_meeting(meeting_name(original), user.id, "upload", clock(), data, filename, kind)
+        logger.info("Recording %s (%s) uploaded by %s (%d bytes)", meeting.id, kind, user.id, len(data))
         return meeting_view(meeting)
 
     @app.get(MEETINGS_PATH)
@@ -1566,7 +1747,7 @@ def create_app(
 
     def mcp_tools() -> list[str]:
         tools = ["ask_trustlabel", "request_verification"]
-        return tools + ["capture_teams_message"] if extractor is not None else tools
+        return tools + ["capture_source"] if extractor is not None else tools
 
     def call_mcp_tool(user: Person, name: str, args: AskArgs | CaptureArgs) -> dict:
         if not mcp_calls.try_add(user.id, MCP_CALLS_PER_WINDOW):
@@ -1574,7 +1755,7 @@ def create_app(
         try:
             client_id = resolve_client(user, args.client)
             if isinstance(args, CaptureArgs):
-                captured = capture_for(user, args.text, client_id)
+                captured = capture_for(user, args.text, client_id, args.kind)
                 text = f"Captured as {captured['captured_item_id']}.\n" + ask_summary(captured["result"])
                 return tool_result(text, captured)
             if (refusal := restricted_for(args.question)) is not None:
@@ -1750,6 +1931,42 @@ def create_app(
             )
         return brief | brief_payload(topic, ctx, items, user.id, client, user.name) | {"open_request": open_request}
 
+    @app.post("/api/v1/capture", status_code=201)
+    def channel_capture(body: ChannelCaptureBody, user: Person = Depends(channel_user)) -> dict:
+        """Add one email as a source because the user asked to; unlike the brief, this stores the email text."""
+        subject = plain_text(body.subject)
+        text = plain_text(body.subject, body.body)[:EMAIL_CAPTURE_CHARS]
+        name, address = plain_text(body.sender_name or ""), plain_text(body.sender_email or "")
+        sender = f"{name} <{address}>" if name and address else name or address
+        logger.info("Email capture for %s: %d chars kept, client %s", user.id, len(text), body.client_id)
+        captured = capture_for(
+            user,
+            text,
+            body.client_id,
+            kind="email",
+            title=subject or "Email",
+            source=f"Email · from {sender}" if sender else None,
+        )
+        item_id = captured["captured_item_id"]
+        ctx = resolve_context(user, body.client_id)
+        claims = []
+        with store.lock:
+            item = next(i for i in store.items() if i.id == item_id)
+            items = visible_items(store.items(), user)
+            for claim in item.claims:
+                topic = store.topics_by_id[claim.topic_id]
+                sources = assess(topic, ctx, items, store.people, store.clients).sources
+                graded = next((s for s in sources if s.item.id == item_id), None)
+                claims.append(
+                    {
+                        "topic": topic_view(topic),
+                        "value_display": value_display(topic, claim.value),
+                        "quote": claim.quote,
+                        "grade": graded.grade if graded else None,
+                    }
+                )
+        return captured | {"claims": claims}
+
     @app.post("/api/v1/verifications", status_code=201)
     def channel_verification(
         body: ChannelVerificationBody, response: Response, user: Person = Depends(channel_user)
@@ -1778,6 +1995,56 @@ def create_app(
             items = [i for i in store.items() if not i.client_ids or client.id in i.client_ids]
         logger.info("Salesforce case %s briefed: %s for %s", case.number, topic.id, client.id)
         return brief_text(brief_payload(topic, ctx, items, "", client, None))
+
+    def sync_salesforce_source(source: SalesforceSource) -> str | None:
+        """Keep the claims a closed case or logged call states verbatim, scoped to the client it is about.
+
+        The client comes from the account (or related record) name, else from the text, as for case briefs.
+        A record no TrustLabel client matches is skipped: a case or call answer is client-specific.
+        """
+        clients = list(store.clients.values())
+        client, _ = detect_client(source.account_name or "", None, clients)
+        if client is None:
+            client, _ = detect_client(source.text, source.supplied_email, clients)
+        if client is None:
+            logger.info("Salesforce %s %s skipped: no matching client", source.kind, source.id)
+            return None
+        if extractor is None or not salesforce_budget.try_add("salesforce", SALESFORCE_AI_CALLS_PER_HOUR):
+            logger.warning("Salesforce %s %s skipped: AI budget reached", source.kind, source.id)
+            return None
+        today = clock()
+        try:
+            extracted = extractor.extract(source.text, store.topics, today)
+        except AI_SERVICE_ERRORS as exc:
+            logger.warning("Claim extraction failed: %s", type(exc).__name__)
+            return None
+        item_id = "SF-" + secrets.token_hex(4).upper()
+        claims = claim_rows(item_id, validate_extracted(extracted, source.text, store.topics_by_id, today))
+        if not claims:
+            logger.info("Salesforce %s %s: no verifiable claim", source.kind, source.id)
+            return None
+        store.add_item(
+            Item(
+                id=item_id,
+                kind=source.kind,
+                title=source.title,
+                source=source.source,
+                author_id=None,
+                owner_id=None,
+                created_on=min(source.happened_on, today),
+                last_reviewed_on=None,
+                review_cycle_days=None,
+                countries=[client.country],
+                client_ids=[client.id],
+                effective_from=None,
+                effective_to=None,
+                supersedes=[],
+                body=evidence_text(source.text, [c.quote for c in claims]),
+                claims=claims,
+            )
+        )
+        logger.info("Salesforce %s %s captured as %s for %s", source.kind, source.id, item_id, client.id)
+        return item_id
 
     # --- Integrations page: personal key, channel addresses, shared workspaces (admin) ---
 
@@ -1839,6 +2106,10 @@ def create_app(
                 "last_poll_at": iso(case_poller.last_poll_at) if case_poller else None,
                 "cases_briefed": case_poller.cases_briefed if case_poller else 0,
                 "last_error": case_poller.last_error if case_poller else None,
+                "sources_sync": source_poller is not None,
+                "sources_synced": source_poller.sources_synced if source_poller else 0,
+                "sources_last_poll_at": iso(source_poller.last_poll_at) if source_poller else None,
+                "sources_last_error": source_poller.last_error if source_poller else None,
             },
             "spott": spott_view(request),
             "talkdesk": {"text": TALKDESK_TEXT},

@@ -12,9 +12,11 @@ import threading
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+
+from trustlabel.models import CaptureKind
 
 MCP_PATH = "/mcp"
 MAX_MCP_BODY_BYTES = 64 * 1024
@@ -97,8 +99,9 @@ class VerificationArgs(AskArgs):
 
 
 class CaptureArgs(_ToolArgs):
-    text: str = Field(min_length=1, max_length=1000)
+    text: str = Field(min_length=1, max_length=4000)
     client: str | None = Field(default=None, max_length=100)
+    kind: CaptureKind = "teams_message"
 
 
 _CLIENT_SCHEMA = {
@@ -158,19 +161,27 @@ TOOLS: dict[str, ToolSpec] = {
         },
         VerificationArgs,
     ),
-    "capture_teams_message": ToolSpec(
+    "capture_source": ToolSpec(
         {
-            "name": "capture_teams_message",
-            "title": "Capture a Teams message",
+            "name": "capture_source",
+            "title": "Capture a knowledge source",
             "description": (
-                "Capture a Teams message as a knowledge source. Only claims quoted verbatim from the text "
-                "are kept; each is graded and conflict-checked against the existing sources."
+                "Capture pasted text as a knowledge source: a Teams message, an email, a meeting summary "
+                "(e.g. a Teams recap), phone call notes or another note; set kind accordingly. Only claims "
+                "quoted verbatim from the text are kept; each is graded and conflict-checked against the "
+                "existing sources."
             ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "text": {"type": "string", "minLength": 1, "maxLength": 1000},
+                    "text": {"type": "string", "minLength": 1, "maxLength": 4000},
                     "client": _CLIENT_SCHEMA,
+                    "kind": {
+                        "type": "string",
+                        "enum": list(get_args(CaptureKind)),
+                        "default": "teams_message",
+                        "description": "What the text is. Defaults to a Teams message.",
+                    },
                 },
                 "required": ["text"],
                 "additionalProperties": False,

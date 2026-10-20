@@ -100,7 +100,9 @@ def test_protocol_errors(make_client):
     assert rpc(teams, token, "resources/list").json()["error"]["code"] == -32601
     unknown_tool = rpc(teams, token, "tools/call", {"name": "delete_everything", "arguments": {}})
     assert unknown_tool.json()["error"]["code"] == -32602
-    extra_key = rpc(teams, token, "tools/call", {"name": "ask_trustlabel", "arguments": {"question": "x", "as": "ellen"}})
+    extra_key = rpc(
+        teams, token, "tools/call", {"name": "ask_trustlabel", "arguments": {"question": "x", "as": "ellen"}}
+    )
     assert extra_key.json()["error"]["code"] == -32602
 
     batch = teams.post("/mcp", json=[{"jsonrpc": "2.0", "id": 1, "method": "ping"}], headers=auth)
@@ -112,11 +114,11 @@ def test_capture_tool_is_offered_only_with_an_extractor(make_client):
     without = make_client()
     token = connect(login(without, "lotte"))
     tools = rpc(TestClient(without.app), token, "tools/list").json()["result"]["tools"]
-    assert "capture_teams_message" not in [t["name"] for t in tools]
+    assert "capture_source" not in [t["name"] for t in tools]
 
     with_extractor = make_client(StubExtractor("close on the 8th"))
     token = connect(login(with_extractor, "lotte"))
-    result = call(TestClient(with_extractor.app), token, "capture_teams_message", text=MESSAGE, client="vandam")
+    result = call(TestClient(with_extractor.app), token, "capture_source", text=MESSAGE, client="vandam")
     assert result["isError"] is False
     captured_id = result["structuredContent"]["captured_item_id"]
     assert captured_id in [s["id"] for s in result["structuredContent"]["result"]["sources"]]

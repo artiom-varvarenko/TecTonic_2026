@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -10,7 +11,7 @@ from urllib.parse import urlsplit
 
 from .salesforce import check_domain
 from .spott import webhook_key
-from .teams_alerts import check_workflow_url
+from .teams_alerts import check_workflow_url, outgoing_key
 from .teams_graph import ChannelRef, check_tenant, parse_sync_channels
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -63,6 +64,34 @@ def parse_teams_users(raw: str) -> dict[str, str]:
             raise SystemExit("TRUSTLABEL_TEAMS_USERS must be comma-separated user_id=name@company.com pairs")
         users[user_id] = address
     return users
+
+
+_AAD_OBJECT_ID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
+def parse_teams_ids(raw: str) -> dict[str, str]:
+    """`user_id=<Entra object id>,…` → {user id: lowercased aadObjectId} for answers sent from Teams."""
+    ids: dict[str, str] = {}
+    for entry in raw.split(","):
+        if not entry.strip():
+            continue
+        user_id, sep, object_id = entry.partition("=")
+        user_id, object_id = user_id.strip().lower(), object_id.strip().lower()
+        if not sep or not user_id or not _AAD_OBJECT_ID.fullmatch(object_id):
+            raise SystemExit("TRUSTLABEL_TEAMS_IDS must be comma-separated user_id=<aadObjectId> pairs")
+        ids[user_id] = object_id
+    return ids
+
+
+def teams_outgoing_secret_from_env() -> str | None:
+    raw = _optional("TEAMS_OUTGOING_SECRET")
+    if raw is None:
+        return None
+    try:
+        outgoing_key(raw)
+    except ValueError:
+        raise SystemExit("TEAMS_OUTGOING_SECRET must be the base64 security token Teams shows") from None
+    return raw
 
 
 def teams_workflow_url_from_env() -> str | None:
@@ -171,6 +200,10 @@ class Settings:
     teams_workflow_url: str | None = None
     # TrustLabel user id → Teams sign-in address, so the alert @mentions (or messages) the right person.
     teams_users: Mapping[str, str] = field(default_factory=dict)
+    # Teams Outgoing Webhook security token (base64): experts answer with "@TrustLabel TL-7F2K <answer>".
+    teams_outgoing_secret: str | None = None
+    # TrustLabel user id → Entra object id (aadObjectId) of the Teams account that may answer from Teams.
+    teams_ids: Mapping[str, str] = field(default_factory=dict)
     # Claude drafts the question sent to the expert; without a key a deterministic template is used.
     anthropic_api_key: str | None = None
     anthropic_model: str = DEFAULT_ANTHROPIC_MODEL
@@ -220,6 +253,8 @@ class Settings:
             ),
             teams_workflow_url=teams_workflow_url_from_env(),
             teams_users=parse_teams_users(os.environ.get("TRUSTLABEL_TEAMS_USERS", "")),
+            teams_outgoing_secret=teams_outgoing_secret_from_env(),
+            teams_ids=parse_teams_ids(os.environ.get("TRUSTLABEL_TEAMS_IDS", "")),
             anthropic_api_key=_optional("ANTHROPIC_API_KEY"),
             anthropic_model=_optional("ANTHROPIC_MODEL") or DEFAULT_ANTHROPIC_MODEL,
             **ms_graph_from_env(),

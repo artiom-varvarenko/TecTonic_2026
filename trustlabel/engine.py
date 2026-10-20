@@ -21,7 +21,12 @@ BASE_SCORE = {
     "faq": 65,
     "teams_message": 60,
     "spott_note": 60,
+    "salesforce_case": 60,
     "meeting": 55,
+    "email": 55,
+    "meeting_summary": 50,
+    "phone_call": 50,
+    "note": 45,
     "verified_answer": 95,
 }
 KIND_LABELS = {
@@ -30,7 +35,12 @@ KIND_LABELS = {
     "faq": "FAQ",
     "teams_message": "Teams message",
     "spott_note": "Spott note",
+    "salesforce_case": "Salesforce case",
     "meeting": "Meeting transcript",
+    "email": "Email",
+    "meeting_summary": "Meeting summary",
+    "phone_call": "Phone call",
+    "note": "Note",
     "verified_answer": "Verified answer",
 }
 GRADES = "ABCDEFG"
@@ -41,9 +51,11 @@ COUNTRY_NAMES = {"BE": "Belgium", "NL": "Netherlands", "DE": "Germany"}
 MANAGED_KINDS = frozenset({"policy", "procedure", "faq", "verified_answer"})
 # Kinds strong enough to override a general rule for one client.
 AUTHORITATIVE_KINDS = frozenset({"policy", "procedure", "verified_answer"})
-# Messages, notes and things said in meetings: no owner or review cycle; they age, and never
+# Messages, mails, calls, notes and things said in meetings: no owner or review cycle; they age, and never
 # supersede a formal source.
-CHAT_KINDS = frozenset({"teams_message", "spott_note", "meeting"})
+CHAT_KINDS = frozenset(
+    {"teams_message", "spott_note", "salesforce_case", "meeting", "email", "meeting_summary", "phone_call", "note"}
+)
 # Kinds that can only *claim* a client exception.
 INFORMAL_KINDS = CHAT_KINDS | {"faq"}
 

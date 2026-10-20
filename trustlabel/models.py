@@ -7,7 +7,22 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-Kind = Literal["policy", "procedure", "faq", "teams_message", "spott_note", "meeting", "verified_answer"]
+Kind = Literal[
+    "policy",
+    "procedure",
+    "faq",
+    "teams_message",
+    "spott_note",
+    "meeting",
+    "meeting_summary",
+    "email",
+    "phone_call",
+    "salesforce_case",
+    "note",
+    "verified_answer",
+]
+# Kinds a person can paste or forward into TrustLabel themselves.
+CaptureKind = Literal["teams_message", "email", "meeting_summary", "phone_call", "note"]
 ValueType = Literal["day_of_month", "working_days", "amount_eur"]
 
 
@@ -139,8 +154,9 @@ class ResolveBody(StrictBody):
 
 
 class CaptureBody(StrictBody):
-    text: str = Field(min_length=1, max_length=1000)
+    text: str = Field(min_length=1, max_length=4000)
     client_id: str | None = Field(default=None, max_length=64)
+    kind: CaptureKind = "teams_message"
 
 
 class BriefBody(StrictBody):
@@ -149,6 +165,16 @@ class BriefBody(StrictBody):
     subject: str = Field(default="", max_length=500)
     body: str = Field(default="", max_length=20_000)
     sender: str | None = Field(default=None, max_length=320)
+    client_id: str | None = Field(default=None, max_length=64)
+
+
+class ChannelCaptureBody(StrictBody):
+    """An email the user chose to add as a source; the server keeps at most EMAIL_CAPTURE_CHARS of it."""
+
+    subject: str = Field(default="", max_length=500)
+    sender_name: str | None = Field(default=None, max_length=200)
+    sender_email: str | None = Field(default=None, max_length=320)
+    body: str = Field(default="", max_length=20_000)
     client_id: str | None = Field(default=None, max_length=64)
 
 

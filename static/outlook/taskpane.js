@@ -172,6 +172,7 @@
     }
     if (!data.matched) {
       els.result.appendChild(el("p", "card empty", "No known topic in this email"));
+      els.result.appendChild(captureCard(data));
       return;
     }
     const answer = data.answer;
@@ -203,6 +204,76 @@
       actions.appendChild(ask);
     }
     if (actions.firstChild) els.result.appendChild(actions);
+    els.result.appendChild(captureCard(data));
+  }
+
+  // ---------- add this email as a source (stores the email text, so only on an explicit click) ----------
+
+  const CAPTURE_ERRORS = {
+    403: "This client is not in your portfolio.",
+    422: "No verifiable claim found in this email. A claim is only kept when its quote appears word for word.",
+    429: "Rate limit reached. Try again later.",
+    502: "The AI service failed. Try again.",
+    503: "Adding emails as sources needs the AI extractor, which is not configured on this TrustLabel server.",
+  };
+
+  function captureCard(data) {
+    const card = el("section", "card stack");
+    const button = el("button", "btn btn-secondary", "Add this email as a source");
+    button.type = "button";
+    const context = data.client ? data.client.name : data.context_label;
+    const hint = el("p", "muted", "Stores this email's text in TrustLabel" + (context ? " for " + context : "") + ".");
+    const status = el("div", "stack");
+    button.addEventListener("click", () => {
+      const pick = document.getElementById("client-pick");
+      const clientId = data.client ? data.client.id : (pick && pick.value) || null;
+      captureEmail(button, status, clientId);
+    });
+    card.append(button, hint, status);
+    return card;
+  }
+
+  async function captureEmail(button, status, clientId) {
+    if (!email) return;
+    button.disabled = true;
+    clear(status);
+    status.appendChild(el("p", "muted", "Adding…"));
+    try {
+      const data = await api("/api/v1/capture", {
+        subject: email.subject,
+        sender_name: email.senderName,
+        sender_email: email.sender,
+        body: email.body,
+        client_id: clientId,
+      });
+      clear(status);
+      status.appendChild(el("p", "note", "Added as a source"));
+      status.appendChild(claimList(data.claims || []));
+      button.textContent = "Added";
+    } catch (err) {
+      clear(status);
+      button.disabled = false;
+      if (err instanceof ApiError && err.status === 401) {
+        handleError(err);
+        return;
+      }
+      const message = (err instanceof ApiError && CAPTURE_ERRORS[err.status]) || "TrustLabel could not add this email.";
+      status.appendChild(el("p", "error", message));
+    }
+  }
+
+  function claimList(claims) {
+    const list = el("ul", "sources");
+    for (const claim of claims) {
+      const item = el("li", "source");
+      item.appendChild(gradeTile(claim.grade, "sm"));
+      const text = el("div", "source-text");
+      text.appendChild(el("span", "source-title", claim.topic.label + ": " + claim.value_display));
+      text.appendChild(el("span", "muted", "“" + claim.quote + "”"));
+      item.appendChild(text);
+      list.appendChild(item);
+    }
+    return list;
   }
 
   function clientPicker(clients) {
@@ -332,6 +403,7 @@
     }
     const ticket = ++generation;
     const sender = item.from && item.from.emailAddress ? String(item.from.emailAddress) : null;
+    const senderName = item.from && item.from.displayName ? String(item.from.displayName).slice(0, 200) : null;
     const subject = String(item.subject || "").slice(0, SUBJECT_LIMIT);
     item.body.getAsync(Office.CoercionType.Text, (result) => {
       if (ticket !== generation) return;
@@ -339,7 +411,7 @@
         showError("Could not read this email.");
         return;
       }
-      email = { subject, body: String(result.value || "").slice(0, BODY_LIMIT), sender };
+      email = { subject, body: String(result.value || "").slice(0, BODY_LIMIT), sender, senderName };
       brief(null);
     });
   }
@@ -354,6 +426,7 @@
       subject: els.demoSubject.value.slice(0, SUBJECT_LIMIT),
       body: els.demoBody.value.slice(0, BODY_LIMIT),
       sender: null,
+      senderName: null,
     };
     brief(null);
   });

@@ -1,7 +1,8 @@
-"""Meeting recordings as sources: ElevenLabs Scribe with speaker diarization, an in-memory job log, a folder watcher.
+"""Meeting and phone call recordings as sources: ElevenLabs Scribe with diarization, a job log, a folder watcher.
 
-Recordings arrive by upload or by a synced folder (e.g. Teams meeting recordings in OneDrive/SharePoint). The app
-turns each transcript into one graded item through the same extractor and verbatim-quote check as any capture.
+Recordings arrive by upload or by a synced folder (e.g. Teams meeting recordings in OneDrive/SharePoint; files in its
+`calls/` subfolder are phone calls). The app turns each transcript into one graded item through the same extractor and
+verbatim-quote check as any capture.
 """
 
 from __future__ import annotations
@@ -28,6 +29,9 @@ MAX_MEETING_BODY_BYTES = MAX_MEETING_BYTES + 1_000_000
 # Extraction input and stored body: the first part of the transcript, so every stored quote is in the body.
 MAX_MEETING_TEXT_CHARS = 12_000
 MEETING_SOURCE = "Meeting recording · ElevenLabs Scribe"
+CALL_SOURCE = "Phone call · recording (Scribe transcript)"
+CALLS_SUBFOLDER = "calls"  # inside the watched folder: recordings here are phone calls
+RecordingKind = Literal["meeting", "phone_call"]
 MEETINGS_PATH = "/api/meetings"
 SCAN_INTERVAL_SECONDS = 15.0
 MAX_MEETINGS_IN_FLIGHT = 3  # per uploader
@@ -111,6 +115,7 @@ class Meeting:
     owner_id: str
     origin: Literal["upload", "folder"]
     meeting_on: date
+    kind: RecordingKind
     created_at: datetime
     status: MeetingStatus = "queued"
     claims: int = 0
@@ -125,13 +130,16 @@ class MeetingLog:
     _jobs: dict[str, Meeting] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
-    def add(self, name: str, owner_id: str, origin: Literal["upload", "folder"], meeting_on: date) -> Meeting:
+    def add(
+        self, name: str, owner_id: str, origin: Literal["upload", "folder"], meeting_on: date, kind: RecordingKind
+    ) -> Meeting:
         meeting = Meeting(
             id="MTG-" + secrets.token_hex(4).upper(),
             name=name,
             owner_id=owner_id,
             origin=origin,
             meeting_on=meeting_on,
+            kind=kind,
             created_at=datetime.now().astimezone().replace(microsecond=0),
         )
         with self._lock:
@@ -158,14 +166,15 @@ class MeetingLog:
 
 
 class FolderWatcher:
-    """Scans a folder for new recordings; a file is handed over once, after its size held across two scans."""
+    """Scans a folder and its `calls/` subfolder for new recordings; a file is handed over once, after its size held
+    across two scans. The callback gets the recording's kind: phone_call inside `calls/`, meeting otherwise."""
 
     SEEN_MAX = 5000
 
     def __init__(
         self,
         folder: Path,
-        on_file: Callable[[Path, float], None],
+        on_file: Callable[[Path, float, RecordingKind], None],
         interval: float = SCAN_INTERVAL_SECONDS,
         max_bytes: int = MAX_MEETING_BYTES,
     ) -> None:
@@ -173,8 +182,8 @@ class FolderWatcher:
         self._on_file = on_file
         self._interval = interval
         self._max_bytes = max_bytes
-        self._pending: dict[str, tuple[int, int]] = {}  # name → (size, mtime_ns) at the previous scan
-        self._seen: set[tuple[str, int, int]] = set()  # (name, size, mtime_ns) already handled or skipped
+        self._pending: dict[str, tuple[int, int]] = {}  # relative name → (size, mtime_ns) at the previous scan
+        self._seen: set[tuple[str, int, int]] = set()  # (relative name, size, mtime_ns) already handled or skipped
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self.last_scan_at: datetime | None = None
@@ -185,13 +194,16 @@ class FolderWatcher:
         handed = 0
         pending: dict[str, tuple[int, int]] = {}
         try:
-            entries = sorted(p for p in self.folder.iterdir() if p.suffix.lower() in MEETING_TYPES)
+            entries = self._recordings(self.folder, "meeting")
+            calls = self.folder / CALLS_SUBFOLDER
+            if calls.is_dir():
+                entries += self._recordings(calls, "phone_call")
             self.last_error = None
         except OSError as exc:
             entries = []
             self.last_error = type(exc).__name__
             log.warning("Meetings folder scan failed: %s", self.last_error)
-        for path in entries:
+        for path, kind in entries:
             if path.name.startswith("."):
                 continue
             try:
@@ -200,21 +212,22 @@ class FolderWatcher:
                 continue
             if not path.is_file() or stat.st_size == 0:
                 continue
+            name = path.relative_to(self.folder).as_posix()
             state = (stat.st_size, stat.st_mtime_ns)
-            key = (path.name, *state)
+            key = (name, *state)
             if key in self._seen:
                 continue
             if stat.st_size > self._max_bytes:
                 log.info("Meeting recording %s skipped: %d bytes is over the 25 MB limit", path.name, stat.st_size)
                 self._mark_seen(key)
                 continue
-            if self._pending.get(path.name) != state:
-                pending[path.name] = state  # new or still growing: wait for one more scan
+            if self._pending.get(name) != state:
+                pending[name] = state  # new or still growing: wait for one more scan
                 continue
             self._mark_seen(key)
-            log.info("Meeting recording %s found (%d bytes)", path.name, stat.st_size)
+            log.info("Recording %s found (%d bytes)", name, stat.st_size)
             try:
-                self._on_file(path, stat.st_mtime)
+                self._on_file(path, stat.st_mtime, kind)
                 handed += 1
                 self.files_processed += 1
             except Exception as exc:  # one bad file must not stop the watcher
@@ -223,6 +236,10 @@ class FolderWatcher:
         self._pending = pending
         self.last_scan_at = datetime.now().astimezone().replace(microsecond=0)
         return handed
+
+    @staticmethod
+    def _recordings(folder: Path, kind: RecordingKind) -> list[tuple[Path, RecordingKind]]:
+        return [(p, kind) for p in sorted(folder.iterdir()) if p.suffix.lower() in MEETING_TYPES]
 
     def _mark_seen(self, key: tuple[str, int, int]) -> None:
         if len(self._seen) >= self.SEEN_MAX:

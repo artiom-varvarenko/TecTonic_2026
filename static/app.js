@@ -690,19 +690,43 @@ function renderRestricted(r) {
   );
 }
 
+// Capture kinds: same values as CaptureKind on the server.
+const CAPTURE_KINDS = [
+  { value: "teams_message", option: "Teams message", label: "Teams message", empty: "Paste a message to capture", placeholder: "Paste a Teams message, e.g. \"From November meal voucher orders close on the 8th.\"" },
+  { value: "email", option: "Email", label: "Email text", empty: "Paste the email to capture", placeholder: "Paste the email body, e.g. \"Hi Lotte, from November meal voucher orders close on the 8th.\"" },
+  { value: "meeting_summary", option: "Meeting summary", label: "Meeting summary", empty: "Paste the meeting summary to capture", placeholder: "Paste a Teams meeting recap or your meeting notes, e.g. \"Agreed: meal voucher orders close on the 8th.\"" },
+  { value: "phone_call", option: "Phone call notes", label: "Call notes", empty: "Paste your call notes to capture", placeholder: "Paste your notes from the call, e.g. \"Client confirmed meal voucher orders close on the 8th.\"" },
+  { value: "note", option: "Other note", label: "Note", empty: "Paste a note to capture", placeholder: "Paste any note, e.g. \"Meal voucher orders close on the 8th.\"" },
+];
+
 function renderCapture() {
+  const kindOf = () => CAPTURE_KINDS.find((k) => k.value === kindSelect.value) || CAPTURE_KINDS[0];
+  const textLabel = h("span", null, CAPTURE_KINDS[0].label);
   const textarea = h("textarea", {
     className: "field capture-text",
-    maxLength: 1000,
+    maxLength: 4000,
     rows: 3,
-    "aria-label": "Teams message",
-    placeholder: "Paste a Teams message, e.g. \"From November meal voucher orders close on the 8th.\"",
+    placeholder: CAPTURE_KINDS[0].placeholder,
   });
+  const kindSelect = h(
+    "select",
+    {
+      className: "field",
+      onChange: () => {
+        const kind = kindOf();
+        textLabel.textContent = kind.label;
+        textarea.placeholder = kind.placeholder;
+        textarea.rows = kind.value === "teams_message" ? 3 : 6;
+      },
+    },
+    CAPTURE_KINDS.map((k) => h("option", { value: k.value }, k.option)),
+  );
   const btn = h("button", { type: "button", className: "btn btn-primary" }, "Capture");
   btn.addEventListener("click", async () => {
     const text = textarea.value.trim();
+    const kind = kindOf();
     if (!text) {
-      toast("Paste a message to capture", true);
+      toast(kind.empty, true);
       return;
     }
     const ctx = currentContext();
@@ -712,11 +736,11 @@ function renderCapture() {
       const data = await withSkeleton(() =>
         api("/api/capture", {
           method: "POST",
-          body: { text, client_id: ctx ? ctx.client_id : null },
+          body: { text, client_id: ctx ? ctx.client_id : null, kind: kind.value },
         }),
       );
       renderAskResponse(data.result, { question: "", newItemId: data.captured_item_id });
-      toast("Captured, graded and checked against existing knowledge.");
+      toast(`${kind.option} captured, graded and checked against existing knowledge.`);
     } catch (err) {
       showError(err);
     } finally {
@@ -731,14 +755,15 @@ function renderCapture() {
       "summary",
       null,
       icon("message", "icon-sm"),
-      h("span", null, "Capture a Teams message"),
+      h("span", null, "Capture a source"),
       h("span", { className: "sub" }, "AI reads it, the rules grade it"),
       icon("chevronDown", "icon-sm chev"),
     ),
     h(
       "div",
       { className: "capture-body" },
-      textarea,
+      h("label", { className: "field-label" }, "Type", kindSelect),
+      h("label", { className: "field-label" }, textLabel, textarea),
       h(
         "div",
         { className: "capture-actions" },
@@ -950,15 +975,23 @@ function reasonBadge(r) {
 function renderSource(s, isNew) {
   const muted = MUTED_STATUSES.has(s.status);
   let owner;
+  const by = s.author_name ? ` by ${s.author_name}` : "";
   if (s.kind === "teams_message") owner = h("span", null, icon("message", "icon-xs"), `Posted by ${s.author_name || "unknown author"}`);
   else if (s.kind === "spott_note") owner = h("span", null, icon("message", "icon-xs"), "Captured from Spott");
   else if (s.kind === "meeting") owner = h("span", null, icon("message", "icon-xs"), s.author_name ? `Said by ${s.author_name} in a meeting` : "Said in a meeting");
+  else if (s.kind === "email") owner = h("span", null, icon("message", "icon-xs"), `Email, added${by}`);
+  else if (s.kind === "meeting_summary") owner = h("span", null, icon("message", "icon-xs"), `Meeting summary, added${by}`);
+  else if (s.kind === "phone_call") owner = h("span", null, icon("message", "icon-xs"), `Said on a phone call${s.author_name ? `, added by ${s.author_name}` : ""}`);
+  else if (s.kind === "salesforce_case") owner = h("span", null, icon("message", "icon-xs"), "From a resolved Salesforce case");
+  else if (s.kind === "note") owner = h("span", null, icon("message", "icon-xs"), `Note, added${by}`);
   else if (s.owner_active) owner = h("span", null, icon("user", "icon-xs"), `Owner: ${s.owner_name}`);
   else owner = h("span", { className: "no-owner" }, icon("alert", "icon-xs"), "No active owner");
   let dated;
   if (s.kind === "teams_message") dated = `Posted ${s.created_on}`;
   else if (s.kind === "spott_note") dated = `Noted ${s.created_on}`;
-  else if (s.kind === "meeting") dated = `Recorded ${s.created_on}`;
+  else if (s.kind === "meeting" || s.kind === "phone_call") dated = `Recorded ${s.created_on}`;
+  else if (s.kind === "salesforce_case") dated = `Closed ${s.created_on}`;
+  else if (s.kind === "email" || s.kind === "meeting_summary" || s.kind === "note") dated = `Added ${s.created_on}`;
   else if (s.last_reviewed_on) dated = `Last reviewed ${s.last_reviewed_on}`;
   else dated = `Created ${s.created_on}`;
 
@@ -1789,8 +1822,11 @@ function renderSalesforceCard(sf) {
       ["Domain", sf.domain || "–"],
       ["Last checked", sf.last_poll_at ? relativeTime(sf.last_poll_at) : "Not yet"],
       ["Cases briefed", String(sf.cases_briefed)],
+      ["Sources sync", sf.sources_sync ? "On · closed cases and logged calls" : "Off (needs OpenAI extraction)"],
+      ...(sf.sources_sync ? [["Sources added", String(sf.sources_synced)]] : []),
     ]),
     sf.last_error ? h("p", { className: "integration-warning" }, icon("alert", "icon-xs"), "Last check failed") : null,
+    sf.sources_last_error ? h("p", { className: "integration-warning" }, icon("alert", "icon-xs"), "Last sources sync failed") : null,
   ]);
 }
 
@@ -1898,10 +1934,11 @@ function renderTalkdeskCard(talkdesk) {
 
 const MEETING_ACCEPT = ".mp3,.m4a,.wav,.webm,.ogg,.mp4";
 const MEETING_STATUS = { queued: ["Queued", "idle"], transcribing: ["Transcribing", "idle"], done: ["Done", "resolved"], failed: ["Failed", "open"] };
+const RECORDING_KINDS = { meeting: "Meeting", phone_call: "Phone call" };
 let meetingsTimer = null;
 
 function renderMeetingsCard(meetings) {
-  const meta = { iconName: "mic", logo: "elevenlabs", title: "Meetings · ElevenLabs Scribe", subtitle: "Recorded meetings become graded sources" };
+  const meta = { iconName: "mic", logo: "elevenlabs", title: "Recordings · ElevenLabs Scribe", subtitle: "Recorded meetings and phone calls become graded sources" };
   const copy = h("p", { className: "connect-copy" }, "Scribe transcribes the recording per speaker; only claims quoted verbatim become a source, graded against existing knowledge. You own what you upload.");
   const folder = meetings.folder;
   const folderInfo = folder.configured
@@ -1911,7 +1948,7 @@ function renderMeetingsCard(meetings) {
         ["Last scan", folder.last_scan_at ? relativeTime(folder.last_scan_at) : "Not yet"],
         ["Files processed", String(folder.files_processed)],
       ])
-    : h("p", { className: "muted-text" }, "No watched folder. Set TRUSTLABEL_MEETINGS_DIR and TRUSTLABEL_MEETINGS_OWNER to turn synced Teams recordings into sources automatically.");
+    : h("p", { className: "muted-text" }, "No watched folder. Set TRUSTLABEL_MEETINGS_DIR and TRUSTLABEL_MEETINGS_OWNER to turn synced Teams recordings into sources automatically; files in its calls/ subfolder are phone calls.");
   if (!meetings.configured) {
     return integrationCard({ ...meta, status: "Not configured" }, [
       copy,
@@ -1919,8 +1956,9 @@ function renderMeetingsCard(meetings) {
       h("ul", { className: "integration-env" }, ["ELEVENLABS_API_KEY", "OPENAI_API_KEY"].map((name) => h("li", null, h("code", null, name)))),
     ]);
   }
-  const listEl = h("ul", { className: "meeting-list", "aria-label": "Your meeting recordings", "aria-live": "polite" });
+  const listEl = h("ul", { className: "meeting-list", "aria-label": "Your recordings", "aria-live": "polite" });
   const fileInput = h("input", { type: "file", className: "meeting-file", accept: MEETING_ACCEPT, required: true });
+  const kindSelect = h("select", { className: "field" }, Object.entries(RECORDING_KINDS).map(([value, label]) => h("option", { value }, label)));
   const errorEl = h("p", { className: "form-error", role: "alert" });
   const submit = h("button", { type: "submit", className: "btn btn-primary" }, icon("mic", "icon-sm"), "Upload recording");
   const form = h(
@@ -1941,6 +1979,7 @@ function renderMeetingsCard(meetings) {
         }
         const fd = new FormData();
         fd.append("recording", file, file.name);
+        fd.append("kind", kindSelect.value);
         submit.disabled = true;
         try {
           await api("/api/meetings", { method: "POST", formData: fd });
@@ -1955,7 +1994,8 @@ function renderMeetingsCard(meetings) {
         }
       },
     },
-    h("h3", { className: "integration-form-title" }, "Upload a meeting recording"),
+    h("h3", { className: "integration-form-title" }, "Upload a meeting or call recording"),
+    h("label", { className: "field-label" }, "Type", kindSelect),
     h("label", { className: "field-label" }, `mp3, m4a, wav, webm, ogg or mp4 · max ${meetings.max_mb} MB`, fileInput),
     errorEl,
     h("div", { className: "connect-actions" }, submit),
@@ -1978,6 +2018,7 @@ function renderMeetingList(listEl, items) {
     let detail = m.origin === "folder" ? "From folder" : "Uploaded";
     if (m.status === "done") detail = m.claims ? plural(m.claims, "claim") : "No verbatim claim";
     if (m.status === "failed") detail = m.error || "Error";
+    detail = `${RECORDING_KINDS[m.kind] || "Meeting"} · ${detail}`;
     listEl.appendChild(
       h("li", null, h("span", { className: "meeting-name", title: m.name }, m.name), h("span", { className: "muted-text" }, detail), h("span", { className: `req-status status-${tone}` }, label)),
     );
@@ -1994,7 +2035,7 @@ async function refreshMeetings(listEl, previousInFlight = 0) {
     return;
   }
   renderMeetingList(listEl, data.items);
-  if (previousInFlight > data.in_flight) toast("Meeting recording processed.");
+  if (previousInFlight > data.in_flight) toast("Recording processed.");
   if (data.in_flight > 0) {
     meetingsTimer = setTimeout(() => {
       if (listEl.isConnected && state.view === "integrations") refreshMeetings(listEl, data.in_flight);
