@@ -3,7 +3,7 @@ from datetime import timedelta
 from conftest import TODAY, login, password_for
 from fastapi.testclient import TestClient
 
-from trustlabel.app import LOGIN_MAX_FAILURES_PER_IP, SESSION_MAX_AGE_SECONDS
+from trustlabel.app import LOGIN_ADMISSION_WINDOW_SECONDS, LOGIN_MAX_CHECKS_PER_WINDOW, SESSION_MAX_AGE_SECONDS
 
 CUTOFF_QUESTION = {"question": "What's the cut-off for submitting overtime this month?", "client_id": "vandam"}
 
@@ -52,7 +52,7 @@ def test_verification_flow_only_assignee_resolves_once_and_everyone_sees_it(make
     assert (answer["status"], answer["value"]) == ("verified", "25")
 
 
-def test_resolving_closes_only_the_resolvers_own_requests_for_that_context(make_client):
+def test_resolving_never_closes_another_experts_request_for_that_context(make_client):
     client = make_client()
     lotte, ellen, pieter = (login(client, user) for user in ("lotte", "ellen", "pieter"))
     body = {"topic_id": "payroll.variables_cutoff", "client_id": None, "question": "Cut-off?"}
@@ -113,25 +113,29 @@ def test_client_request_is_never_routed_outside_the_client_team(make_client):
     assert response.status_code == 422
 
 
-def test_cycling_usernames_from_one_ip_is_capped(make_client):
-    client = make_client()
-    for attempt in range(30):
+def test_cycling_usernames_has_only_a_short_global_admission_limit(make_client):
+    now = [1000.0]
+    client = make_client(monotonic=lambda: now[0])
+    for attempt in range(LOGIN_MAX_CHECKS_PER_WINDOW):
         response = client.post("/api/login", json={"username": f"nobody{attempt}", "password": "x"})
         assert response.status_code == 401
-    blocked = client.post("/api/login", json={"username": "lotte", "password": password_for("lotte")})
+    blocked = client.post("/api/login", json={"username": "nobody-last", "password": "x"})
     assert blocked.status_code == 429
+    now[0] += LOGIN_ADMISSION_WINDOW_SECONDS
+    # Arbitrary unknown usernames cannot lock unrelated accounts out for five minutes.
+    assert client.post("/api/login", json={"username": "lotte", "password": password_for("lotte")}).status_code == 200
 
 
-def test_every_login_attempt_counts_per_ip_but_successes_give_theirs_back(make_client):
-    client = make_client()
-    for attempt in range(LOGIN_MAX_FAILURES_PER_IP - 1):
-        response = client.post("/api/login", json={"username": f"nobody{attempt}", "password": "x"})
-        assert response.status_code == 401
-    ok = client.post("/api/login", json={"username": "lotte", "password": password_for("lotte")})
-    assert ok.status_code == 200
-    # The success released its slot, so one more attempt still reaches the password check.
-    assert client.post("/api/login", json={"username": "nobody-last", "password": "x"}).status_code == 401
-    assert client.post("/api/login", json={"username": "lotte", "password": password_for("lotte")}).status_code == 429
+def test_successful_checks_also_count_toward_short_global_cpu_budget(make_client, monkeypatch):
+    monkeypatch.setattr("trustlabel.app.LOGIN_MAX_CHECKS_PER_WINDOW", 3)
+    now = [1000.0]
+    client = make_client(monotonic=lambda: now[0])
+    body = {"username": "lotte", "password": password_for("lotte")}
+    for _ in range(3):
+        assert client.post("/api/login", json=body).status_code == 200
+    assert client.post("/api/login", json=body).status_code == 429
+    now[0] += LOGIN_ADMISSION_WINDOW_SECONDS
+    assert client.post("/api/login", json=body).status_code == 200
 
 
 def test_sessions_expire_server_side_and_are_purged(make_client):

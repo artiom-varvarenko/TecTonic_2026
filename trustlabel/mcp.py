@@ -168,8 +168,8 @@ TOOLS: dict[str, ToolSpec] = {
             "description": (
                 "Capture pasted text as a knowledge source: a Teams message, an email, a meeting summary "
                 "(e.g. a Teams recap), phone call notes or another note; set kind accordingly. Only claims "
-                "quoted verbatim from the text are kept; each is graded and conflict-checked against the "
-                "existing sources."
+                "quoted verbatim from the text are kept. Pasted text is an unverified submission: only you "
+                "see it, as a graded preview, and it is never used in answers until an expert verifies it."
             ),
             "inputSchema": {
                 "type": "object",

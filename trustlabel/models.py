@@ -24,6 +24,13 @@ Kind = Literal[
 # Kinds a person can paste or forward into TrustLabel themselves.
 CaptureKind = Literal["teams_message", "email", "meeting_summary", "phone_call", "note"]
 ValueType = Literal["day_of_month", "working_days", "amount_eur"]
+# Where an item came from, which decides who may see it and how far it can be trusted:
+# knowledge_base: curated seed knowledge, shared (out-of-country items stay visible as not applicable);
+# connector: read from an authenticated integration (Teams Graph, Spott, Salesforce, the recordings folder);
+# expert: an expert's verification in TrustLabel; connector and expert items stay in their country/client scope;
+# submitted: text, mail or a recording a user pasted, forwarded or uploaded themselves. Its origin is unverified,
+# so it is quarantined: only its submitter sees it, and it never takes part in answers; an expert verifies instead.
+Provenance = Literal["knowledge_base", "connector", "expert", "submitted"]
 
 
 class Person(BaseModel):
@@ -64,6 +71,8 @@ class Claim(BaseModel):
     value: str
     statement: str
     quote: str
+    # Last day this claim holds, when the source states one (a temporary rule); the item may hold other claims.
+    valid_until: date | None = None
 
 
 class Item(BaseModel):
@@ -83,6 +92,7 @@ class Item(BaseModel):
     supersedes: list[str]
     body: str
     claims: list[Claim]
+    provenance: Provenance = "knowledge_base"
 
     def claim_for(self, topic_id: str) -> Claim | None:
         return next((c for c in self.claims if c.topic_id == topic_id), None)

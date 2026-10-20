@@ -13,7 +13,11 @@ import os
 import secrets
 import sys
 import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
+
+from starlette.concurrency import run_in_threadpool
 
 from .config import REPO_ROOT, credentials_path_from_env
 
@@ -24,40 +28,43 @@ KEY_LEN = 32
 MAX_PASSWORD_CHARS = 256  # LoginBody.password's max_length
 # Each scrypt call needs ~16 MiB; cap concurrency so a login flood cannot exhaust memory.
 _SCRYPT_SLOTS = threading.BoundedSemaphore(4)
-# A flood must not queue threadpool workers forever behind the slots.
-SCRYPT_WAIT_SECONDS = 2.0
 
 
 class PasswordCheckBusy(Exception):
-    """No scrypt slot freed within SCRYPT_WAIT_SECONDS."""
+    """All password-verification slots are occupied; callers must retry later."""
+
+
+@contextmanager
+def _scrypt_slot() -> Iterator[None]:
+    if not _SCRYPT_SLOTS.acquire(blocking=False):
+        raise PasswordCheckBusy
+    try:
+        yield
+    finally:
+        _SCRYPT_SLOTS.release()
 
 
 def _derive(password: str, salt: bytes) -> bytes:
-    if not _SCRYPT_SLOTS.acquire(timeout=SCRYPT_WAIT_SECONDS):
-        raise PasswordCheckBusy
-    try:
-        return hashlib.scrypt(
-            password.encode(), salt=salt, n=SCRYPT_N, r=SCRYPT_R, p=SCRYPT_P, dklen=KEY_LEN
-        )
-    finally:
-        _SCRYPT_SLOTS.release()
+    """Derive a key while the caller holds a scrypt slot."""
+    return hashlib.scrypt(
+        password.encode(), salt=salt, n=SCRYPT_N, r=SCRYPT_R, p=SCRYPT_P, dklen=KEY_LEN
+    )
 
 
 def hash_password(password: str) -> str:
     if len(password) > MAX_PASSWORD_CHARS:
         raise ValueError(f"Password is longer than {MAX_PASSWORD_CHARS} characters")
     salt = os.urandom(16)
-    return f"scrypt${salt.hex()}${_derive(password, salt).hex()}"
+    with _scrypt_slot():
+        return f"scrypt${salt.hex()}${_derive(password, salt).hex()}"
 
 
 # Unknown users are checked against this so the response time does not reveal valid usernames.
 _DUMMY_HASH = hash_password(secrets.token_urlsafe(16))
 
 
-def verify_password(password: str, encoded: str | None) -> bool:
-    """True when `password` matches `encoded`; raises PasswordCheckBusy when every scrypt slot stays taken."""
-    if len(password) > MAX_PASSWORD_CHARS:
-        return False  # cannot match a stored hash: hash_password refuses such passwords
+def _verify_password(password: str, encoded: str | None) -> bool:
+    """Check a credential while the caller holds a scrypt slot."""
     try:
         scheme, salt_hex, hash_hex = (encoded or _DUMMY_HASH).split("$")
         salt, expected = bytes.fromhex(salt_hex), bytes.fromhex(hash_hex)
@@ -67,6 +74,24 @@ def verify_password(password: str, encoded: str | None) -> bool:
         return False
     matches = hmac.compare_digest(_derive(password, salt), expected)
     return matches and encoded is not None
+
+
+def verify_password(password: str, encoded: str | None) -> bool:
+    """Check a password, rejecting saturated verifier capacity without waiting."""
+    if len(password) > MAX_PASSWORD_CHARS:
+        return False  # hash_password refuses passwords this long
+    with _scrypt_slot():
+        return _verify_password(password, encoded)
+
+
+async def verify_password_async(password: str, encoded: str | None) -> bool:
+    """Reserve capacity before entering the general request threadpool."""
+    if len(password) > MAX_PASSWORD_CHARS:
+        return False
+    with _scrypt_slot():
+        # run_in_threadpool waits for its worker on cancellation, so the slot remains
+        # held until scrypt finishes; only admitted checks can occupy worker threads.
+        return await run_in_threadpool(_verify_password, password, encoded)
 
 
 def load_credentials(path: Path) -> dict[str, str]:

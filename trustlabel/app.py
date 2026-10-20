@@ -40,7 +40,7 @@ from .ai import (
 from .brief import brief_text, detect_client, plain_text, reply_for, unscoped_case_text
 from .claude import ClaudeClient, DraftCandidate, template_question
 from .config import REPO_ROOT, Settings
-from .credentials import PasswordCheckBusy, load_credentials, verify_password
+from .credentials import PasswordCheckBusy, load_credentials, verify_password_async
 from .engine import (
     COUNTRY_NAMES,
     GRADES,
@@ -162,7 +162,7 @@ from .spott import (
     verify_signature,
     webhook_key,
 )
-from .store import Store
+from .store import Store, StoreCapacityError
 from .teams_alerts import (
     ANSWER_VALID_DAYS,
     MAX_NOTE_CHARS,
@@ -200,8 +200,10 @@ SESSION_MAX_AGE_SECONDS = 8 * 3600
 # Server-side sessions kept at once; the oldest are dropped first.
 MAX_SESSIONS = 10_000
 LOGIN_MAX_FAILURES = 5
-LOGIN_MAX_FAILURES_PER_IP = 30
+AUTH_MAX_FAILURES_PER_IP = 30  # OAuth and bearer-token authentication use independent windows.
 LOGIN_WINDOW_SECONDS = 300
+LOGIN_ADMISSION_WINDOW_SECONDS = 1
+LOGIN_MAX_CHECKS_PER_WINDOW = 30
 # Spott and Teams webhook calls per client IP and minute.
 WEBHOOK_CALLS_PER_MINUTE = 120
 # All MCP messages (initialize, ping, tools/list, tools/call) per user and MCP_WINDOW_SECONDS.
@@ -212,7 +214,8 @@ MAX_AUDIO_BYTES = 2_000_000
 MAX_TRANSCRIPT_CHARS = 5_000
 AI_CALLS_PER_HOUR = 20
 AI_FAILED = "Speech or AI service failed; try again or answer manually"
-# Title and source line of a captured item, per kind; a channel may pass its own (e.g. the email subject).
+# Title and source line of a captured item, per kind; a channel may pass its own (e.g. the email subject). The source
+# line says the text was pasted in by a user: it must never read like a message a connector fetched from Teams.
 CAPTURE_TITLES: dict[str, str] = {
     "teams_message": "{name} (captured)",
     "email": "Email captured by {name}",
@@ -221,11 +224,11 @@ CAPTURE_TITLES: dict[str, str] = {
     "note": "{name} (captured)",
 }
 CAPTURE_SOURCES: dict[str, str] = {
-    "teams_message": "Teams · captured via TrustLabel",
-    "email": "Email · captured via TrustLabel",
-    "meeting_summary": "Teams meeting · summary captured via TrustLabel",
-    "phone_call": "Phone call · notes captured via TrustLabel",
-    "note": "Captured via TrustLabel",
+    "teams_message": "Teams message · pasted into TrustLabel, unverified",
+    "email": "Email · pasted into TrustLabel, unverified",
+    "meeting_summary": "Teams meeting summary · pasted into TrustLabel, unverified",
+    "phone_call": "Phone call notes · pasted into TrustLabel, unverified",
+    "note": "Note · pasted into TrustLabel, unverified",
 }
 # An email added as a source from Outlook: the first characters are enough for the claims that matter.
 EMAIL_CAPTURE_CHARS = 4_000
@@ -292,18 +295,12 @@ class SlidingWindow:
         """Record an event unless `limit` events already happened inside the window."""
         with self._lock:
             now = self._clock()
-            self._prune(now)
             events = self._recent(key, now)
             if len(events) >= limit:
                 return False
             events.append(now)
-            return True
-
-    def add(self, key: Hashable) -> None:
-        with self._lock:
-            now = self._clock()
             self._prune(now)
-            self._recent(key, now).append(now)
+            return True
 
     def count(self, key: Hashable) -> int:
         with self._lock:
@@ -507,8 +504,13 @@ def create_app(
         raise ValueError("TRUSTLABEL_MEETINGS_DIR needs TRUSTLABEL_MEETINGS_OWNER")
     credentials = load_credentials(settings.credentials_file)
     sessions: dict[str, tuple[str, float]] = {}  # sid → (user id, issued at on `monotonic`), oldest first
-    login_attempts = SlidingWindow(LOGIN_WINDOW_SECONDS)  # per (username, IP)
-    ip_failures = SlidingWindow(LOGIN_WINDOW_SECONDS)  # per IP: sign-in attempts and failed MCP/channel auth
+    # Known accounts cannot lose their failure history to a flood of arbitrary usernames.
+    login_attempts = SlidingWindow(LOGIN_WINDOW_SECONDS, monotonic)  # per account, independent of IP
+    login_attempts.MAX_KEYS = len(store.people)  # fixed account set: no live account budget is evicted
+    unknown_login_attempts = SlidingWindow(LOGIN_WINDOW_SECONDS, monotonic)
+    login_admission = SlidingWindow(LOGIN_ADMISSION_WINDOW_SECONDS, monotonic)
+    ip_failures = SlidingWindow(LOGIN_WINDOW_SECONDS, monotonic)  # MCP/channel token authentication only
+    oauth_attempts = SlidingWindow(LOGIN_WINDOW_SECONDS, monotonic)
     webhook_calls = SlidingWindow(60)  # per ("spott" | "teams", IP)
     ai_budget = SlidingWindow(3600)
     if extractor is None and settings.openai_api_key:
@@ -636,6 +638,11 @@ def create_app(
     app.state.meeting_watcher = meeting_watcher
     app.state.meeting_pool = meeting_pool
     app.add_exception_handler(RequestValidationError, _validation_error)
+
+    @app.exception_handler(StoreCapacityError)
+    async def storage_full(_: Request, exc: StoreCapacityError) -> JSONResponse:
+        return JSONResponse({"detail": str(exc)}, status_code=429)
+
     # Added innermost first: headers wrap the guard, the guard wraps the session layer.
     app.add_middleware(
         SessionMiddleware,
@@ -727,6 +734,7 @@ def create_app(
             "kind_label": KIND_LABELS[item.kind],
             "title": item.title,
             "source": item.source,
+            "provenance": item.provenance,
             "author_name": author.name if author else None,
             "owner_name": owner.name if owner and owner.active else None,
             "owner_active": bool(owner and owner.active),
@@ -737,6 +745,7 @@ def create_app(
             "body": item.body,
             "value": result.claim.value,
             "value_display": value_display(topic, result.claim.value),
+            "valid_until": result.claim.valid_until.isoformat() if result.claim.valid_until else None,
             "status": result.status,
             "applicability": {"code": result.applicability_code, "text": result.applicability_text},
             "score": result.score,
@@ -764,9 +773,27 @@ def create_app(
             "resolution": v.resolution.model_dump(mode="json") if v.resolution else None,
         }
 
+    def visible_to(user: Person) -> list[Item]:
+        """Every item `user` may see (provenance, client and country scoped); call with the store lock held."""
+        return visible_items(store.items(), user, store.clients)
+
+    def service_desk_items(client: Client) -> list[Item]:
+        """What a shared channel (Salesforce case, Spott note) may use for `client`: shared knowledge for its country
+        plus the client's own, never anyone's private submissions. Call with the store lock held."""
+        return [
+            i
+            for i in store.items()
+            if i.provenance != "submitted"
+            and (
+                client.id in i.client_ids
+                if i.client_ids
+                else i.provenance == "knowledge_base" or client.country in i.countries
+            )
+        ]
+
     def build_ask_result(user: Person, topic: Topic, ctx: Context, matched: list[str]) -> dict:
         with store.lock:
-            assessment = assess(topic, ctx, visible_items(store.items(), user), store.people, store.clients)
+            assessment = assess(topic, ctx, visible_to(user), store.people, store.clients)
             experts = rank_experts(topic, ctx, assessment, store.people, store.clients, user.id)
             pending = find_open_request(user, topic.id, ctx)
             return {
@@ -784,26 +811,29 @@ def create_app(
             }
 
     @app.post("/api/login")
-    def login(body: LoginBody, request: Request) -> dict:
+    async def login(body: LoginBody, request: Request) -> dict:
         username = body.username.strip().lower()
-        ip = request.client.host if request.client else "unknown"
-        key = (username, ip)
-        # Every attempt counts against the IP up front, so a concurrent burst cannot queue up scrypt checks;
-        # a successful login gives its slot back. The per-(username, IP) slots are cleared on success.
-        if not ip_failures.try_add(ip, LOGIN_MAX_FAILURES_PER_IP) or not login_attempts.try_add(
-            key, LOGIN_MAX_FAILURES
-        ):
-            raise HTTPException(429, "Too many failed attempts. Try again in 5 minutes.")
         person = store.people.get(username)
+        attempts = login_attempts if person is not None else unknown_login_attempts
+        # Rotating forwarded IPs cannot reset an account's failure budget.
+        if attempts.count(username) >= LOGIN_MAX_FAILURES:
+            raise HTTPException(429, "Too many failed attempts. Try again in 5 minutes.")
+        # Limit total expensive work, but never impose a five-minute lock on unrelated NAT users.
+        # Admission and scrypt saturation reject before entering the synchronous worker pool.
+        if not login_admission.try_add("password", LOGIN_MAX_CHECKS_PER_WINDOW):
+            raise HTTPException(429, "Too many sign-in attempts; try again shortly")
+        # The reservation, not the early count above, enforces the limit under concurrency.
+        if not attempts.try_add(username, LOGIN_MAX_FAILURES):
+            raise HTTPException(429, "Too many failed attempts. Try again in 5 minutes.")
         encoded = credentials.get(username) if person is not None and person.active else None
         try:
-            valid = verify_password(body.password, encoded)
+            valid = await verify_password_async(body.password, encoded)
         except PasswordCheckBusy:
+            attempts.release(username)
             raise HTTPException(429, "Too many sign-in attempts; try again shortly") from None
         if not valid or person is None:
             raise HTTPException(401, "Invalid username or password")
-        login_attempts.clear(key)
-        ip_failures.release(ip)
+        attempts.clear(username)
         issue_session(request, person)
         return {"user": user_view(person)}
 
@@ -875,7 +905,7 @@ def create_app(
             grades[s["grade"]] += 1
 
         with store.lock:
-            visible_ids = {i.id for i in visible_items(store.items(), user)}
+            visible_ids = {i.id for i in visible_to(user)}
             mine = [v for v in store.verifications.values() if user.id in (v.requester_id, v.assignee_id)]
             events: list[tuple[datetime, str, str]] = []
             announced: set[str] = set()
@@ -1105,7 +1135,7 @@ def create_app(
             raise HTTPException(422, "Question must not be empty")
         with store.lock:
             # Server recomputes everything; the client never chooses the verifier or the candidates.
-            assessment = assess(topic, ctx, visible_items(store.items(), user), store.people, store.clients)
+            assessment = assess(topic, ctx, visible_to(user), store.people, store.clients)
             if assessment.answer.status == "verified":
                 raise HTTPException(409, "Already verified for this context")
             existing = open_request_to_reuse(user, topic.id, ctx, share)
@@ -1149,7 +1179,10 @@ def create_app(
                 created_at=datetime.now().astimezone(),
                 candidates=candidates,
             )
-            store.verifications[verification.id] = verification
+            try:
+                store.add_verification(verification)
+            except StoreCapacityError as exc:
+                raise HTTPException(429, str(exc)) from None
             if alert_pool is not None:
                 alert_pool.submit(send_alert, verification.id, alert_payload(verification, user, experts[0]))
             return verification_view(verification, user), True
@@ -1172,20 +1205,18 @@ def create_app(
             raise HTTPException(409, "Already resolved")
         return verification
 
-    def resolved_payload(resolved: list[Verification], expert: Person, topic: Topic, grade: str) -> dict:
-        """One Teams card for everyone who asked or followed the resolved requests, the expert excluded."""
+    def resolved_payload(v: Verification, expert: Person, topic: Topic, grade: str) -> dict:
+        """One Teams card for everyone who asked or followed the resolved request, the expert excluded."""
         people: list[str] = []
-        for v in resolved:
-            for person_id in (v.requester_id, *v.follower_ids):
-                if person_id != expert.id and person_id not in people and person_id in store.people:
-                    people.append(person_id)
-        first = resolved[0]
-        resolution = first.resolution
+        for person_id in (v.requester_id, *v.follower_ids):
+            if person_id != expert.id and person_id not in people and person_id in store.people:
+                people.append(person_id)
+        resolution = v.resolution
         card, recipient = resolved_card(
             people=[(store.people[p].name, settings.teams_users.get(p)) for p in people],
             expert_name=expert.name,
             topic_label=topic.label,
-            context_label=context_label(first.country, first.client_id),
+            context_label=context_label(v.country, v.client_id),
             value_display=resolution.value_display,
             grade=grade,
             note=resolution.note,
@@ -1198,9 +1229,9 @@ def create_app(
     ) -> tuple[Verification, str]:
         """The expert's answer becomes a verified answer (inbox and Teams alike); returns (request, grade).
 
-        Raises HTTPException. The resolver's other open requests for the same context are resolved with it (requests
-        assigned to other experts stay theirs); the askers and followers get one Teams card, and a Spott-linked
-        client gets a note.
+        Raises HTTPException (429 when storage is full, before anything changed). Only the addressed request is
+        resolved: other open requests for the same context, whoever they are assigned to, keep their own question and
+        stay open for their assignee. Its asker and followers get one Teams card, and a Spott-linked client a note.
         """
         today = clock()
         with store.lock:
@@ -1213,12 +1244,17 @@ def create_app(
             if not today < valid_until <= today + timedelta(days=MAX_VALIDITY_DAYS):
                 raise HTTPException(422, "Valid until must be after today and at most 2 years ahead")
             note = note.strip()
+            # A voice statement is only evidence for the value it was recognised as stating.
+            stated = verification
             if value != verification.voice_value:
-                # A voice statement is only evidence for the value it was recognised as stating.
-                verification.voice_transcript = verification.voice_value = None
+                stated = verification.model_copy(update={"voice_transcript": None, "voice_value": None})
             ctx_label = context_label(verification.country, verification.client_id)
-            item = make_verified_item(verification, value, note, valid_until, user, topic, ctx_label, today)
-            store.add_item(item)
+            item = make_verified_item(stated, value, note, valid_until, user, topic, ctx_label, today)
+            try:
+                store.add_item(item)
+            except StoreCapacityError as exc:
+                raise HTTPException(429, str(exc)) from None
+            verification.voice_transcript, verification.voice_value = stated.voice_transcript, stated.voice_value
             resolution = Resolution(
                 value=value,
                 value_display=value_display(topic, value),
@@ -1227,18 +1263,12 @@ def create_app(
                 resolved_at=datetime.now().astimezone().replace(microsecond=0),
                 item_id=item.id,
             )
-            key = (verification.topic_id, verification.country, verification.client_id)
-            resolved: list[Verification] = []
-            for other in store.verifications.values():
-                same_context = (other.topic_id, other.country, other.client_id) == key
-                if other.status == "open" and other.assignee_id == user.id and same_context:
-                    other.status = "resolved"
-                    other.resolution = resolution
-                    resolved.append(other)
+            verification.status = "resolved"
+            verification.resolution = resolution
             ctx = Context(verification.country, verification.client_id, ctx_label, today)
             grade = assess(topic, ctx, [item], store.people, store.clients).source(item.id).grade
             if alert_pool is not None:
-                alert_pool.submit(send_alert, verification.id, resolved_payload(resolved, user, topic, grade))
+                alert_pool.submit(send_alert, verification.id, resolved_payload(verification, user, topic, grade))
             if spott_link.api is not None and verification.client_id:
                 client = store.clients[verification.client_id]
                 background.add_task(
@@ -1402,7 +1432,7 @@ def create_app(
         }
 
     def claim_rows(item_id: str, valid: list[ValidClaim]) -> list[Claim]:
-        """The first valid claim per topic, as stored on a captured item."""
+        """The first valid claim per topic, as stored on a captured item; each keeps its own stated expiry."""
         first: dict[str, ValidClaim] = {}
         for claim in valid:
             first.setdefault(claim.topic.id, claim)
@@ -1413,6 +1443,7 @@ def create_app(
                 value=claim.value,
                 statement=f"{claim.topic.label}: {claim.value_display}",
                 quote=claim.quote,
+                valid_until=claim.valid_until,
             )
             for n, claim in enumerate(first.values(), start=1)
         ]
@@ -1425,7 +1456,11 @@ def create_app(
         title: str | None = None,
         source: str | None = None,
     ) -> dict:
-        """Turn pasted or forwarded text into graded claims; only verbatim-quoted claims survive."""
+        """Turn pasted or forwarded text into graded claims; only verbatim-quoted claims survive.
+
+        The caller's text proves nothing about where it came from, so the item is a quarantined submission: only the
+        caller sees it (as an unverified preview) and it never feeds an answer until an expert verifies the value.
+        """
         ctx = resolve_context(user, client_id)
         if extractor is None:
             raise HTTPException(503, "Capture is not configured")
@@ -1461,6 +1496,7 @@ def create_app(
             supersedes=[],
             body=text,
             claims=claims,
+            provenance="submitted",
         )
         store.add_item(item)
         first_topic = store.topics_by_id[claims[0].topic_id]
@@ -1530,6 +1566,8 @@ def create_app(
                         supersedes=[],
                         body=text,
                         claims=claims,
+                        # An uploaded recording is the uploader's own submission; the configured folder is a connector.
+                        provenance="submitted" if meeting.origin == "upload" else "connector",
                     )
                 )
         except Exception as exc:  # kept on the job; one bad recording must not stop the queue
@@ -1648,6 +1686,7 @@ def create_app(
             supersedes=[],
             body=evidence_text(message.text, [c.quote for c in claims]),
             claims=claims,
+            provenance="connector",
         )
         store.add_item(item)
         logger.info("Teams channel message captured as %s", item_id)
@@ -1709,6 +1748,7 @@ def create_app(
             supersedes=[],
             body=evidence_text(note.text, [c.quote for c in claims]),
             claims=claims,
+            provenance="connector",
         )
         try:
             store.add_item(item)
@@ -1744,8 +1784,7 @@ def create_app(
         else:
             ctx = Context(client.country, client.id, context_label(client.country, client.id), clock())
             with store.lock:
-                # Service-desk view, as for Salesforce cases: general knowledge plus this client's own.
-                items = [i for i in store.items() if not i.client_ids or client.id in i.client_ids]
+                items = service_desk_items(client)
             title = f"{NOTE_TITLE_MARKER} Answer: {topic.label}"
             # Recruiters asked internally, so the labelled answer is enough; no client-facing reply template.
             lines = brief_text(brief_payload(topic, ctx, items, "", client, None) | {"reply": None}).split("\n")
@@ -1864,6 +1903,8 @@ def create_app(
             return tool_result(ask_summary(result), result)
         except HTTPException as exc:
             return tool_error(str(exc.detail))
+        except StoreCapacityError as exc:
+            return tool_error(str(exc))
 
     def mcp_response(status: int, payload: dict | None = None, headers: dict | None = None) -> Response:
         headers = {"Cache-Control": "no-store", **(headers or {})}
@@ -1876,7 +1917,7 @@ def create_app(
         """Streamable HTTP transport, stateless, JSON responses only. Token auth only, never cookies."""
         ip = request.client.host if request.client else "unknown"
         # Failed token checks count per IP (released again on success), so tokens cannot be guessed at speed.
-        if not ip_failures.try_add(("auth", ip), LOGIN_MAX_FAILURES_PER_IP):
+        if not ip_failures.try_add(("auth", ip), AUTH_MAX_FAILURES_PER_IP):
             return mcp_response(429, rpc_error(None, INVALID_REQUEST, "Too many failed attempts; try again later"))
         user_id = connections.authenticate(bearer_token(request.headers))
         user = store.people.get(user_id) if user_id else None
@@ -1972,7 +2013,7 @@ def create_app(
     def channel_user(request: Request) -> Person:
         """Personal connection key (X-API-Key or Bearer) only; channel calls never use the session cookie."""
         ip = request.client.host if request.client else "unknown"
-        if not ip_failures.try_add(("auth", ip), LOGIN_MAX_FAILURES_PER_IP):
+        if not ip_failures.try_add(("auth", ip), AUTH_MAX_FAILURES_PER_IP):
             raise HTTPException(429, "Too many failed attempts; try again later")
         user_id = connections.authenticate(bearer_token(request.headers))
         user = store.people.get(user_id) if user_id else None
@@ -2025,7 +2066,7 @@ def create_app(
         if topic is None:
             return brief
         with store.lock:
-            items = visible_items(store.items(), user)
+            items = visible_to(user)
             pending = find_open_request(user, topic.id, ctx)
             open_request = (
                 {"id": pending.id, "assignee_name": store.people[pending.assignee_id].name} if pending else None
@@ -2046,14 +2087,15 @@ def create_app(
             body.client_id,
             kind="email",
             title=subject or "Email",
-            source=f"Email · from {sender}" if sender else None,
+            # The add-in reports the sender; TrustLabel cannot check it, so the source line says so.
+            source=f"Email · from {sender} (as forwarded, unverified)" if sender else None,
         )
         item_id = captured["captured_item_id"]
         ctx = resolve_context(user, body.client_id)
         claims = []
         with store.lock:
             item = next(i for i in store.items() if i.id == item_id)
-            items = visible_items(store.items(), user)
+            items = visible_to(user)
             for claim in item.claims:
                 topic = store.topics_by_id[claim.topic_id]
                 sources = assess(topic, ctx, items, store.people, store.clients).sources
@@ -2063,6 +2105,7 @@ def create_app(
                         "topic": topic_view(topic),
                         "value_display": value_display(topic, claim.value),
                         "quote": claim.quote,
+                        "valid_until": claim.valid_until.isoformat() if claim.valid_until else None,
                         "grade": graded.grade if graded else None,
                     }
                 )
@@ -2092,8 +2135,7 @@ def create_app(
             return unscoped_case_text(topic)
         ctx = Context(client.country, client.id, context_label(client.country, client.id), clock())
         with store.lock:
-            # Service-desk view: general knowledge plus this client's own, whoever captured it.
-            items = [i for i in store.items() if not i.client_ids or client.id in i.client_ids]
+            items = service_desk_items(client)
         logger.info("Salesforce case %s briefed: %s for %s", case.number, topic.id, client.id)
         return brief_text(brief_payload(topic, ctx, items, "", client, None))
 
@@ -2142,6 +2184,7 @@ def create_app(
                 supersedes=[],
                 body=evidence_text(source.text, [c.quote for c in claims]),
                 claims=claims,
+                provenance="connector",
             )
         )
         logger.info("Salesforce %s %s captured as %s for %s", source.kind, source.id, item_id, client.id)
@@ -2324,10 +2367,11 @@ def create_app(
         if not google_on:
             raise HTTPException(404, "Not found")
         ip = request.client.host if request.client else "unknown"
+        # A separate, bounded callback budget cannot poison password or bearer-token login.
+        # Capped requests do not allocate another event or emit another warning.
+        if not oauth_attempts.try_add(ip, AUTH_MAX_FAILURES_PER_IP):
+            return finish_google("/?" + urlencode({"login_error": FAILED}))
         try:
-            # Every callback counts against the IP before the outbound token exchange; success gives it back.
-            if not ip_failures.try_add(ip, LOGIN_MAX_FAILURES_PER_IP):
-                raise GoogleAuthError(FAILED, "too many sign-in attempts from this IP")
             if error is not None:
                 # Provider text is never logged or reflected; only the fixed code goes back.
                 raise GoogleAuthError(CANCELLED if error == "access_denied" else FAILED, "provider returned an error")
@@ -2350,7 +2394,7 @@ def create_app(
         except GoogleAuthError as exc:
             logger.warning("Google sign-in failed from %s: %s", ip, exc.reason)
             return finish_google("/?" + urlencode({"login_error": exc.code}))
-        ip_failures.release(ip)
+        oauth_attempts.release(ip)
         issue_session(request, person)
         return finish_google("/")
 

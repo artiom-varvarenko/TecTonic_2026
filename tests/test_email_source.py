@@ -2,7 +2,7 @@ from conftest import login
 from test_capture import StubExtractor
 from test_channels import pane
 
-from trustlabel.app import EMAIL_CAPTURE_CHARS
+from trustlabel.app import CAPTURE_SOURCES, EMAIL_CAPTURE_CHARS
 
 # Outlook hands over non-breaking spaces; the quote below uses plain ones.
 EMAIL = {
@@ -28,7 +28,8 @@ def test_email_is_stored_as_a_graded_email_source(make_client):
     stored = next(s for s in data["result"]["sources"] if s["id"] == data["captured_item_id"])
     assert stored["kind"] == "email"
     assert stored["title"] == "Meal vouchers"
-    assert stored["source"] == "Email · from Anna Peeters <anna@vandam.example>"
+    assert stored["source"] == "Email · from Anna Peeters <anna@vandam.example> (as forwarded, unverified)"
+    assert (stored["provenance"], stored["applicability"]["code"]) == ("submitted", "unverified")
     assert stored["body"].startswith("Meal vouchers Hi, from November") and len(stored["body"]) <= EMAIL_CAPTURE_CHARS
     assert stored["quote"] == "close on the 8th"
     [claim] = data["claims"]
@@ -41,7 +42,7 @@ def test_email_without_subject_or_sender_gets_default_labels(make_client):
     email = {"body": "Orders close on the 8th.", "client_id": "vandam"}
     data = outlook.post("/api/v1/capture", json=email).json()
     stored = next(s for s in data["result"]["sources"] if s["id"] == data["captured_item_id"])
-    assert (stored["title"], stored["source"]) == ("Email", "Email · captured via TrustLabel")
+    assert (stored["title"], stored["source"]) == ("Email", CAPTURE_SOURCES["email"])
 
 
 def test_email_capture_stays_inside_the_portfolio(make_client):

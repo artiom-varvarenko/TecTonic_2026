@@ -69,6 +69,8 @@ POSSIBLE_EXCEPTION = -10
 CONFLICT = -15
 CORROBORATED = 10
 CONFIRMED_BY_VERIFICATION = 15
+# Best grade shown on a (quarantined) user submission: below the "use" threshold (C).
+SUBMITTED_CAP = "D"
 
 STATUS_ORDER = {"effective": 0, "superseded": 1, "overridden": 2, "not_applicable": 3}
 VALUE_RANGES = {"day_of_month": (1, 31), "working_days": (1, 30), "amount_eur": (1, 100_000)}
@@ -195,16 +197,26 @@ def match_topic(question: str, topics: Sequence[Topic]) -> tuple[Topic | None, l
     return best, best_hits
 
 
-def visible_items(items: Iterable[Item], user: Person) -> list[Item]:
-    """Client-specific knowledge is only visible to that client's team (and its own author/owner)."""
+def visible_items(items: Iterable[Item], user: Person, clients: Mapping[str, Client]) -> list[Item]:
+    """The items `user` may see: always their own; a client's items only on that client's team.
+
+    Submitted items (pasted, forwarded or uploaded by a user) stay private to their author. Curated knowledge
+    without a client is shared, also across countries (assessed there as not applicable); connector and expert
+    items without a client stay inside the countries the user works in: their own and their clients'.
+    """
     portfolio = set(user.client_ids)
-    return [
-        item
-        for item in items
-        if not item.client_ids
-        or portfolio.intersection(item.client_ids)
-        or user.id in (item.owner_id, item.author_id)
-    ]
+    countries = {user.country} | {clients[c].country for c in portfolio if c in clients}
+
+    def visible(item: Item) -> bool:
+        if user.id in (item.owner_id, item.author_id):
+            return True
+        if item.provenance == "submitted":
+            return False
+        if item.client_ids:
+            return bool(portfolio.intersection(item.client_ids))
+        return item.provenance == "knowledge_base" or bool(countries.intersection(item.countries))
+
+    return [item for item in items if visible(item)]
 
 
 def country_list(codes: Iterable[str]) -> str:
@@ -220,7 +232,7 @@ def _person_name(person_id: str | None, people: Mapping[str, Person]) -> str:
     return person.name if person else "an expert"
 
 
-def _applicability(item: Item, ctx: Context, clients: Mapping[str, Client]) -> tuple[str, str]:
+def _applicability(item: Item, claim: Claim, ctx: Context, clients: Mapping[str, Client]) -> tuple[str, str]:
     if ctx.country not in item.countries:
         return "country_mismatch", f"Applies to {country_list(item.countries)} only"
     if item.client_ids and ctx.client_id not in item.client_ids:
@@ -229,9 +241,16 @@ def _applicability(item: Item, ctx: Context, clients: Mapping[str, Client]) -> t
         return "not_yet_effective", f"Not effective until {item.effective_from.isoformat()}"
     if item.effective_to and item.effective_to < ctx.today:
         return "expired", f"Expired on {item.effective_to.isoformat()}"
+    # A temporary claim lapses on its own; the item's other claims keep their own validity.
+    if claim.valid_until and claim.valid_until < ctx.today:
+        return "expired", f"Expired on {claim.valid_until.isoformat()}"
+    if item.provenance == "submitted":
+        # Quarantined: shown to its submitter only, never part of conflicts, corroboration, answers or candidates.
+        return "unverified", "Not used in answers: submitted by a user and not verified by an expert"
+    until = f" until {claim.valid_until.isoformat()}" if claim.valid_until else ""
     if item.client_ids:
-        return "applies", f"Applies to {_client_list(item.client_ids, clients)}"
-    return "applies", f"Applies to all clients in {country_list(item.countries)}"
+        return "applies", f"Applies to {_client_list(item.client_ids, clients)}{until}"
+    return "applies", f"Applies to all clients in {country_list(item.countries)}{until}"
 
 
 def _intrinsic_reasons(item: Item, today: date, people: Mapping[str, Person]) -> list[Reason]:
@@ -267,6 +286,15 @@ def _intrinsic_reasons(item: Item, today: date, people: Mapping[str, Person]) ->
         age = (today - item.created_on).days
         if age > CHAT_MAX_AGE_DAYS:
             reasons.append(Reason("chat_age", f"{KIND_LABELS[item.kind]} is {age} days old", CHAT_AGE))
+    if item.provenance == "submitted":
+        # Pasted, forwarded or uploaded by a user: nothing proves the text came from where it says it did.
+        reasons.append(
+            Reason(
+                "unverified_origin",
+                f"Submitted by {_person_name(item.author_id, people)}; origin not verified",
+                cap=SUBMITTED_CAP,
+            )
+        )
     if item.kind == "verified_answer":
         until = f"; valid until {item.effective_to.isoformat()}" if item.effective_to else ""
         reasons.append(
@@ -307,8 +335,8 @@ def assess(
     def value(item: Item) -> str:
         return claims[item.id].value
 
-    # 1. Applicability to the asker's country / client / date.
-    applicability = {item.id: _applicability(item, ctx, clients) for item, _ in entries}
+    # 1. Applicability to the asker's country / client / date (the item's, then the claim's own validity).
+    applicability = {item.id: _applicability(item, claim, ctx, clients) for item, claim in entries}
     applicable = [item for item, _ in entries if applicability[item.id][0] == "applies"]
 
     # 2. Superseded: explicitly listed, or a newer same-scope formal source with another value.
@@ -639,4 +667,6 @@ def make_verified_item(
                 quote=vd,
             )
         ],
+        # The body carries the expert's note and voice statement: kept inside the request's country/client scope.
+        provenance="expert",
     )

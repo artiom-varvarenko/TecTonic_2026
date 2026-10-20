@@ -15,7 +15,7 @@ BELGIUM = Context("BE", None, "Belgium — all clients", TODAY)
 
 
 def run(store, topic_id, ctx, user="lotte"):
-    items = visible_items(store.items(), store.people[user])
+    items = visible_items(store.items(), store.people[user], store.clients)
     return assess(store.topics_by_id[topic_id], ctx, items, store.people, store.clients)
 
 

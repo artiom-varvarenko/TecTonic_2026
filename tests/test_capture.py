@@ -20,16 +20,23 @@ class StubExtractor:
         ]
 
 
-def test_captured_chat_claim_is_graded_and_flagged_against_policy(make_client):
+def test_captured_chat_claim_is_previewed_to_its_submitter_but_not_used(make_client):
     lotte = login(make_client(StubExtractor("close on the 8th")), "lotte")
     response = lotte.post("/api/capture", json={"text": MESSAGE, "client_id": "vandam"})
 
     assert response.status_code == 201
     body = response.json()
     result = body["result"]
-    assert result["answer"]["status"] == "conflict"
+    # Pasted text is quarantined: the answer stays with the policy and the Teams reminder it contradicts.
+    assert (result["answer"]["status"], result["answer"]["value"]) == ("consistent", "10")
     captured = next(s for s in result["sources"] if s["id"] == body["captured_item_id"])
     assert (captured["kind"], captured["value"], captured["quote"]) == ("teams_message", "8", "close on the 8th")
+    assert (captured["provenance"], captured["status"], captured["applicability"]["code"]) == (
+        "submitted",
+        "not_applicable",
+        "unverified",
+    )
+    assert "unverified_origin" in {r["code"] for r in captured["reasons"]}
 
 
 def test_capture_rejects_claims_without_verbatim_quote(make_client):

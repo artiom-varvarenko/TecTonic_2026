@@ -40,6 +40,25 @@ class ApiError extends Error {
   }
 }
 
+// A reply to a request started under an earlier sign-in state of this tab; see beginSession().
+class StaleSessionError extends ApiError {
+  constructor() {
+    super(0, "Session changed");
+  }
+}
+
+// One object per sign-in state of this tab (the login screen, or one signed-in session; a re-login of the
+// same user is a new one). Every request belongs to the session that started it: beginSession() aborts
+// the old session's requests and api() rejects their replies with StaleSessionError, so a slow reply
+// from a previous account can never write its key, data, toasts or a 401 logout into the current one.
+let session = { controller: new AbortController() };
+
+function beginSession() {
+  session.controller.abort();
+  session = { controller: new AbortController() };
+  issuedKey = null;
+}
+
 function errorDetail(data, status) {
   if (data && typeof data.detail === "string") return data.detail;
   if (data && Array.isArray(data.detail) && data.detail.length && data.detail[0].msg) return data.detail[0].msg;
@@ -47,7 +66,8 @@ function errorDetail(data, status) {
 }
 
 async function api(path, { method = "GET", body, formData, skipAuthRedirect = false } = {}) {
-  const init = { method, credentials: "same-origin", headers: { Accept: "application/json" } };
+  const owner = session;
+  const init = { method, credentials: "same-origin", headers: { Accept: "application/json" }, signal: owner.controller.signal };
   if (formData) {
     init.body = formData;
   } else if (body !== undefined) {
@@ -55,20 +75,21 @@ async function api(path, { method = "GET", body, formData, skipAuthRedirect = fa
     init.body = JSON.stringify(body);
   }
   let res;
+  let text = "";
   try {
     res = await fetch(path, init);
+    if (res.status !== 204) text = await res.text();
   } catch {
+    if (owner !== session) throw new StaleSessionError();
     throw new ApiError(0, "Network error — is the server running?");
   }
+  if (owner !== session) throw new StaleSessionError();
   let data = null;
-  if (res.status !== 204) {
-    const text = await res.text();
-    if (text) {
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = null;
-      }
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = null;
     }
   }
   if (!res.ok) {
@@ -202,6 +223,7 @@ function toast(message, isError = false) {
 }
 
 function showError(err) {
+  if (err instanceof StaleSessionError) return; // reply for a previous session: never shown in this one
   if (err instanceof ApiError && err.status === 401) return; // login view already shown
   toast(err instanceof ApiError ? err.detail : String(err && err.message ? err.message : err), true);
 }
@@ -261,6 +283,7 @@ async function boot() {
   try {
     state.me = await api("/api/me", { skipAuthRedirect: true });
   } catch (err) {
+    if (err instanceof StaleSessionError) return;
     if (err instanceof ApiError && err.status === 401) {
       renderLogin();
       return;
@@ -275,6 +298,7 @@ async function boot() {
 }
 
 function renderLogin() {
+  beginSession();
   clear(root);
   const username = h("input", { id: "login-username", className: "field", name: "username", autocomplete: "username", required: true, maxLength: 64 });
   const password = h("input", { id: "login-password", className: "field", name: "password", type: "password", autocomplete: "current-password", required: true, maxLength: 256 });
@@ -359,6 +383,7 @@ let chatViewEl = null;
 let chatNavBtn = null;
 
 function renderShell() {
+  beginSession();
   clear(root);
   const me = state.me;
   askNavBtn = h(
@@ -401,7 +426,6 @@ function renderShell() {
   root.appendChild(inboxViewEl);
   root.appendChild(integrationsViewEl);
   root.appendChild(chatViewEl);
-  issuedKey = null;
   renderAskView();
   renderChatView();
   switchView(state.view);
@@ -444,7 +468,6 @@ async function logout() {
       return;
     }
   }
-  issuedKey = null;
   stopPolling();
   stopHandsFree();
   state.me = null;
@@ -626,6 +649,7 @@ async function withSkeleton(work) {
   try {
     return await work();
   } catch (err) {
+    if (err instanceof StaleSessionError) throw err; // the view now belongs to another session
     clear(resultEl);
     previous.forEach((n) => resultEl.appendChild(n));
     askViewEl.classList.toggle("has-result", hadResult);
@@ -746,7 +770,7 @@ function renderCapture() {
         }),
       );
       renderAskResponse(data.result, { question: "", newItemId: data.captured_item_id });
-      toast(`${kind.option} captured, graded and checked against existing knowledge.`);
+      toast(`${kind.option} saved privately as unverified; an expert must confirm it before it can support an answer.`);
     } catch (err) {
       showError(err);
     } finally {
@@ -762,7 +786,7 @@ function renderCapture() {
       null,
       icon("message", "icon-sm"),
       h("span", null, "Capture a source"),
-      h("span", { className: "sub" }, "AI reads it, the rules grade it"),
+      h("span", { className: "sub" }, "Private, unverified evidence for expert review"),
       icon("chevronDown", "icon-sm chev"),
     ),
     h(
@@ -982,7 +1006,8 @@ function renderSource(s, isNew) {
   const muted = MUTED_STATUSES.has(s.status);
   let owner;
   const by = s.author_name ? ` by ${s.author_name}` : "";
-  if (s.kind === "teams_message") owner = h("span", null, icon("message", "icon-xs"), `Posted by ${s.author_name || "unknown author"}`);
+  if (s.provenance === "submitted") owner = h("span", null, icon("user", "icon-xs"), `Submitted${by}`);
+  else if (s.kind === "teams_message") owner = h("span", null, icon("message", "icon-xs"), `Posted by ${s.author_name || "unknown author"}`);
   else if (s.kind === "spott_note") owner = h("span", null, icon("message", "icon-xs"), "Captured from Spott");
   else if (s.kind === "meeting") owner = h("span", null, icon("message", "icon-xs"), s.author_name ? `Said by ${s.author_name} in a meeting` : "Said in a meeting");
   else if (s.kind === "email") owner = h("span", null, icon("message", "icon-xs"), `Email, added${by}`);
@@ -993,7 +1018,8 @@ function renderSource(s, isNew) {
   else if (s.owner_active) owner = h("span", null, icon("user", "icon-xs"), `Owner: ${s.owner_name}`);
   else owner = h("span", { className: "no-owner" }, icon("alert", "icon-xs"), "No active owner");
   let dated;
-  if (s.kind === "teams_message") dated = `Posted ${s.created_on}`;
+  if (s.provenance === "submitted") dated = `Submitted ${s.created_on}`;
+  else if (s.kind === "teams_message") dated = `Posted ${s.created_on}`;
   else if (s.kind === "spott_note") dated = `Noted ${s.created_on}`;
   else if (s.kind === "meeting" || s.kind === "phone_call") dated = `Recorded ${s.created_on}`;
   else if (s.kind === "salesforce_case") dated = `Closed ${s.created_on}`;
@@ -1041,6 +1067,8 @@ function renderSource(s, isNew) {
       { className: "source-meta" },
       owner,
       h("span", null, icon("calendar", "icon-xs"), dated),
+      s.valid_until ? h("span", null, `Valid until ${s.valid_until}`) : null,
+      s.provenance === "submitted" ? h("span", { className: "pill pill-warn" }, "Unverified · only you see this") : null,
       h("span", { className: pillClass(s.applicability.code) }, s.applicability.text),
     ),
     h("p", { className: "statement" }, s.statement),
@@ -1060,6 +1088,7 @@ async function loadInbox() {
     noteResolutions(data.items);
     renderInbox(data.items);
   } catch (err) {
+    if (err instanceof StaleSessionError) return;
     clear(inboxViewEl);
     showError(err);
   }
@@ -1422,9 +1451,9 @@ async function loadOverview() {
     if (snapshot === lastOverview) return;
     lastOverview = snapshot;
     renderDashboard(data);
-  } catch {
+  } catch (err) {
     // The overview is supplementary: on failure drop it quietly instead of interrupting the ask flow.
-    if (seq === overviewSeq) clear(dashboardEl);
+    if (seq === overviewSeq && !(err instanceof StaleSessionError)) clear(dashboardEl);
   }
 }
 
@@ -1625,7 +1654,7 @@ async function loadIntegrations() {
     const data = await api("/api/integrations");
     if (seq === integrationsSeq && state.view === "integrations") renderIntegrations(data);
   } catch (err) {
-    if (seq !== integrationsSeq) return;
+    if (seq !== integrationsSeq || err instanceof StaleSessionError) return;
     clear(integrationsViewEl);
     integrationsViewEl.appendChild(h("section", { className: "card inbox-empty" }, icon("alert"), h("p", null, "Integrations could not be loaded.")));
     showError(err);
@@ -1723,9 +1752,12 @@ function renderKeyCard(key) {
   const create = h("button", { type: "button", className: active ? "btn btn-secondary" : "btn btn-primary" }, icon("key", "icon-sm"), "Create key");
   create.addEventListener("click", async () => {
     if (active && !window.confirm("A new key replaces your current key. Teams and Outlook stop working until you paste the new one. Continue?")) return;
+    const owner = session;
     create.disabled = true;
     try {
-      issuedKey = await api("/api/connections/teams", { method: "POST" });
+      const key = await api("/api/connections/teams", { method: "POST" });
+      if (owner !== session) return; // signed out or switched account meanwhile: never show this key
+      issuedKey = key;
       toast("Key created. Copy it now: it is shown only once.");
       await loadIntegrations();
     } catch (err) {
@@ -1738,9 +1770,11 @@ function renderKeyCard(key) {
     const revoke = h("button", { type: "button", className: "btn btn-ghost" }, "Revoke");
     revoke.addEventListener("click", async () => {
       if (!window.confirm("Revoke your personal key? Teams and Outlook lose access right away.")) return;
+      const owner = session;
       revoke.disabled = true;
       try {
         await api("/api/connections/teams", { method: "DELETE" });
+        if (owner !== session) return;
         issuedKey = null;
         toast("Personal key revoked.");
         await loadIntegrations();
@@ -2420,18 +2454,23 @@ function stopSpeaking() {
 // Reads `text` aloud with ElevenLabs; resolves once playback ends (or fails), so hands-free can listen again.
 async function speak(text) {
   stopSpeaking();
+  const owner = session;
   let res;
+  let audioBlob = null;
   try {
     res = await fetch("/api/voice/speak", {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json", Accept: "audio/mpeg" },
       body: JSON.stringify({ text: text.slice(0, SPEAK_MAX_CHARS) }),
+      signal: owner.controller.signal,
     });
+    if (res.ok) audioBlob = await res.blob();
   } catch {
-    toast("Network error — answer not read aloud", true);
+    if (owner === session) toast("Network error — answer not read aloud", true);
     return;
   }
+  if (owner !== session) return; // signed out meanwhile: no logout, toast or audio for the old session
   if (!res.ok) {
     if (res.status === 401) {
       // Session expired or revoked: same handling as api(), never keep acting as signed in.
@@ -2446,10 +2485,11 @@ async function speak(text) {
     } catch {
       data = null;
     }
+    if (owner !== session) return;
     toast(errorDetail(data, res.status), true);
     return;
   }
-  const url = URL.createObjectURL(await res.blob());
+  const url = URL.createObjectURL(audioBlob);
   const audio = new Audio(url);
   chatAudio = { audio, url };
   await new Promise((resolve) => {

@@ -37,22 +37,22 @@ connects to. The web app remains for experts (verification inbox) and setup (Int
   context, and only in that context (a Van Dam exception never leaks into "Belgium — all clients").
 - **Verify by voice.** The expert answers with a short voice note: ElevenLabs Scribe transcribes it, OpenAI
   structured outputs extract value, valid-until and a verbatim quote, the form is prefilled and the expert confirms.
-- **Capture from chat, email, meetings and calls.** Paste a Teams message, an email, a meeting summary (e.g. a Teams
-  recap), phone call notes or another note (up to 4,000 characters) and pick its type; OpenAI extracts claims, the
-  server keeps only claims whose quote appears verbatim and states the value, and the rules grade and conflict-check
-  it instantly. The type sets the source's kind, label and source line (e.g. "Meeting summary", "Teams meeting ·
-  summary captured via TrustLabel") and its base score: Teams message 60, email 55, meeting summary and phone call
-  50, other note 45.
+- **Capture from chat, email, meetings and calls.** Paste a Teams message, an email, a meeting summary, phone call
+  notes or another note (up to 4,000 characters). OpenAI extracts claims; the server checks the value and verbatim
+  quote and preserves each claim's expiry. Pasted text is an **unverified, private submission**, not authenticated
+  Teams evidence: only its submitter sees the preview, capped at grade D. It cannot corroborate, conflict with,
+  or change shared answers or expert candidates. An independent expert must verify the value before it becomes a
+  trusted answer. Source kinds and their normal base scores are preserved for the preview.
 - **Trust overview.** Before anyone asks, the Ask page shows each topic's verdict for the chosen client or country,
   the grade mix of current sources, knowledge debt (orphaned, overdue or superseded sources and their owner) and
   recent verifications. It refreshes every 15 s and tells a requester when their expert has answered.
 - **Outlook add-in.** Open a client email → TrustLabel shows the client, the label, up to three current sources and
   the best verifier. "Reply with this" (or "Send holding reply" when the answer is *don't act yet*) opens Outlook's
   reply form prefilled; it never sends. "Ask <expert>" creates a verification request. "Add this email as a source"
-  (`POST /api/v1/capture`) sends the email to the claim extractor for the detected or chosen client; claims whose quote
-  appears word for word are stored as an email source (title: the subject; source line: "Email · from <sender>")
-  and shown with their grades. Unlike the brief, this stores the email text (subject and body, first 4,000
-  characters), because the user clicked to add it. Needs `OPENAI_API_KEY`; 422 when no claim is verifiable.
+  (`POST /api/v1/capture`) extracts claims for the detected or chosen client and stores a private, unverified email
+  submission. The subject is its title; the source identifies the sender as forwarded, not authenticated.
+  Unlike the brief, this stores the email text (subject and body, first 4,000 characters), because the user clicked
+  to add it. Needs `OPENAI_API_KEY`; 422 when no claim is verifiable.
 - **Salesforce cases.** New cases are polled every 15 s and get an internal case comment (never visible to the
   client) with the label, sources, verifier and a suggested reply. The client comes from the case's account, else the
   sender's email domain or a client name in the case text; if it can't tell, the comment says "Don't act yet" without
@@ -124,8 +124,9 @@ OneDrive/SharePoint. The watcher scans every 15 s and handles each file once (na
 has held across two scans; while the folder owner has 3 recordings in flight, new files wait for the next scan, in
 folder order. Scribe transcribes with speaker diarization ("Speaker 1: …"). The existing extractor reads
 the first 12,000 characters, and only claims quoted verbatim survive. They become one item of kind `meeting` per
-recording, titled "Meeting · {name} · {date}", owned by the uploader (or the folder owner, in their country), and
-graded against existing knowledge like any capture. Processing runs in the background, one recording at a time;
+recording, titled "Meeting · {name} · {date}", owned by the uploader or configured folder owner. Uploads are private,
+unverified previews; the administrator-configured folder supplies connector evidence in its owner's country.
+Processing runs in the background, one recording at a time;
 `GET /api/meetings` lists your recordings as queued, transcribing, done or failed, with the claim count, item id and
 error class. A recording without a verbatim claim ends as done with 0 claims and adds no item.
 
@@ -213,9 +214,9 @@ NotFound. To route each card to the expert TrustLabel picked, set Recipient to t
 "Off: set TEAMS_WORKFLOW_URL and TRUSTLABEL_TEAMS_USERS".
 
 **Teams: verified-answer alerts.** When the expert resolves a request (inbox or Teams, below), the same workflow gets
-a second card in the same background pool, one per resolve, for the requester and the followers of every request it
-closes: the resolved request plus the expert's other open requests for the same context (requests assigned to other
-experts stay open). The expert is excluded, e.g. "@Lotte Janssens, Jonas Wouters, Ellen Maes verified the payroll
+a second card in the same background pool for that request's requester and explicit followers. Only the addressed
+request is resolved; independent requests stay open, even for the same context and expert. The expert is excluded,
+e.g. "@Lotte Janssens, Jonas Wouters, Ellen Maes verified the payroll
 variables cut-off for Van Dam Logistics NV (BE): 25th of the month (grade A)", the expert's note if any, and an "Open
 in TrustLabel" button to `<TRUSTLABEL_PUBLIC_URL>/?view=ask`. People with a `TRUSTLABEL_TEAMS_USERS` address are
 @mentioned and the first of them is the payload's `recipient`; the rest are named in plain text. With Recipient fixed
@@ -290,8 +291,8 @@ messages modified in the last 30 days (`$filter=lastModifiedDateTime gt …`). S
 messages it has already processed (by id) are skipped. HTML bodies become plain text (stdlib `html.parser`). The
 author's UPN and mail come from `GET /v1.0/users/{id}?$select=userPrincipalName,mail` (cached) and are matched against
 `TRUSTLABEL_TEAMS_USERS`. A matched author becomes the item's author and sets its country; unknown authors are kept by
-display name, marked "(external)" and scoped to every country. The text then goes through the same capture pipeline as
-"Capture a source": AI extraction, the server-side verbatim-quote check and grading against existing knowledge.
+display name, marked "(external)" and scoped to every country. Messages fetched through authenticated Graph use
+connector provenance: unlike pasted submissions, they can participate in grading after extraction and quote checks.
 Only the sentences that hold a kept quote are stored. Messages without such a claim create no item. The source reads
 "Teams · {team}/{channel}"; the Item model has no URL field, so the message's `webUrl` is not stored. Setup: register an
 app in Entra ID, create a client secret and add the **application** permissions `ChannelMessage.Read.All` and
@@ -384,7 +385,7 @@ after 30 failed key checks from one IP in 5 minutes, that IP gets 429 on the cha
 | `GET /api/v1/me` | The key's user and their client portfolio |
 | `POST /api/v1/brief` | `{subject, body, sender?, client_id?}` → client (and how it was matched), topic, label, up to 3 current sources, verifier, open request, reply template. Nothing stored, no AI called |
 | `POST /api/v1/verifications` | `{topic_id, client_id?, question}` → request id, assigned expert, status (201 new, 200 if one is already open) |
-| `POST /api/v1/capture` | `{subject?, sender_name?, sender_email?, body?, client_id?}` → the email as a graded email source (`captured_item_id`, `result` as in the web capture, `claims` with topic, value, quote and grade). Stores the email text (first 4,000 characters); OpenAI extraction counts against the user's AI budget (20 calls per hour); 403 outside the portfolio, 422 no verifiable claim, 503 AI not configured |
+| `POST /api/v1/capture` | `{subject?, sender_name?, sender_email?, body?, client_id?}` → a private, unverified email preview (`captured_item_id`, `result`, `claims` with topic, value, quote, grade and `valid_until`). Stores the first 4,000 characters; counts against 20 AI calls/user/hour. Does not affect shared answers; 403 outside the portfolio, 422 no verifiable claim, 429 storage capacity, 503 AI not configured |
 
 ## Security
 
@@ -395,16 +396,18 @@ after 30 failed key checks from one IP in 5 minutes, that IP gets 429 on the cha
   are refused and purged, and at most 10,000 sessions are kept (the oldest go first).
 - CSRF: SameSite=Strict plus an `Origin` check on every state-changing request (`Sec-Fetch-Site` when a browser
   omits `Origin`).
-- Login rate limits: 5 failures per username and IP, and 30 attempts per IP across usernames (Google sign-in
-  callbacks included), per 5 minutes; attempts count per IP up front, before any password check or token exchange,
-  and a successful sign-in gives its attempt back. Concurrent scrypt checks are capped (4); a check that waits more
-  than 2 s for a scrypt slot gets 429, and passwords over 256 characters are refused without hashing. `main.py`
-  ignores `X-Forwarded-For` unless `TRUSTLABEL_BEHIND_PROXY=1` (then only from 127.0.0.1, a local tunnel); the Render
-  deployment takes the client IP from Render's proxy. AI budget: 20 voice/capture calls per user per hour.
+- Password failures are limited to 5 per account per 5 minutes, independent of IP and forwarded headers. A failed
+  account cannot impose a five-minute ban on other accounts behind the same network. Global admission is capped at
+  30 checks/second; four process-wide scrypt slots are reserved before threadpool dispatch, with immediate 429 when
+  saturated. Passwords over 256 characters are rejected without hashing. OAuth callbacks and token authentication
+  have separate bounded limiters, so callback errors cannot poison password sign-in. `main.py` trusts forwarded
+  headers only with the explicit proxy opt-in. AI budget: 20 voice/capture calls per user per hour.
 - Teams/MCP keys are random, stored only as a SHA-256 hash, one per user, expire after 8 h and can be revoked; they
   never work as a session cookie, and every tool call runs with that user's permissions (60 calls per 10 minutes, and
   600 MCP messages of any kind per user per 10 minutes, else HTTP 429). Failed key checks on `/mcp` and the channel
   API count per IP (30 per 5 minutes, then 429).
+  Browser requests belong to a sign-in generation: switching accounts aborts old work and discards late key,
+  integration and 401 responses before they can alter the current account's UI.
 - Google sign-in uses a signed 10-minute flow cookie (state, nonce, PKCE verifier) and checks the ID token's issuer,
   audience, expiry, nonce and `email_verified`; errors never echo provider text.
 - Spott webhooks are limited to 120 calls per IP per minute and to 64 KB, checked before the signature. They must
@@ -415,17 +418,22 @@ after 30 failed key checks from one IP in 5 minutes, that IP gets 429 on the cha
   record with another id is ignored, and verified answers keep going to the bound record. Only the sentences stating
   a kept claim are stored, never the rest of the note. Note fetches and capture share a budget of 60 per hour, and a
   Spott outage never blocks a verification.
-- Authorization: client-specific knowledge is only visible to that client's team, and verification requests for a
-  client only go to experts on that client's team; the verifier is chosen by the server, never by the client; only
-  the assigned expert can resolve or answer by voice (others get 404, same as a missing id), and resolving closes
-  only that expert's own open requests for the same context; a context can only be asked about for clients in your
-  own portfolio.
+- Authorization: client knowledge is visible only to its team; private submissions only to their author. Runtime
+  country-scoped evidence and verified notes are hidden from users outside that country (including countries of
+  their authorized clients); curated public country policies remain available as out-of-scope examples. Requests
+  for a client go only to experts on that team. Only the assigned expert can resolve the addressed request or answer
+  by voice (others get 404); no independent request is modified by that resolution.
 - Input limits: 3 MB request cap, 2 MB audio-only uploads, strict request schemas (`extra="forbid"`), validation
   errors never echo input back.
-- LLM output is never trusted: the topic, the value range, a verbatim quote from the input and that the quote states
-  the value are all checked server-side. A model never decides who can see a claim (a capture takes the scope of the
-  context it was made in). A voice statement is only shown to the requester, and kept as evidence, once the expert
-  confirms the value it states.
+- Runtime retention is bounded independently of hourly AI budgets: at most 500 items / 4 MB globally and
+  100 items / 1 MB per author. Verification requests (including resolved requests and their candidate snapshots)
+  have the same count and insertion-byte quotas per requester. Capacity is checked atomically; new writes return
+  429 (or an MCP tool error) without evicting existing evidence. A restart resets this in-memory demo.
+- LLM output is never trusted: topic, value range, verbatim quote and the quote's value are checked server-side.
+  Every captured claim retains its validated expiry; after that date it cannot support an answer, independently
+  of other claims in the same item. Caller-pasted/forwarded text and uploads carry `submitted` provenance and are
+  excluded from shared evidence until independently verified. Connector and expert provenance are assigned by the
+  server, never accepted from capture requests. Confirmed voice evidence follows the verified item's visibility.
 - Channels: channel API calls authenticate only with the personal key, and the Outlook pane keeps it in its own
   storage and never uses cookies. Only `/static/outlook/` may be framed, and only by Outlook origins
   (`frame-ancestors`); everything else stays `frame-ancestors 'none'`. Emails sent for a brief are not stored and never
@@ -464,7 +472,8 @@ tests run against stubs of the outside services:
 - the internal-knowledge example and the personal-data guard (`test_internal.py`)
 - capture types in the web form and MCP `capture_source` (`test_capture_kinds.py`)
 
-207 tests in total.
+245 tests passed in the security verification run, including browser account-switch races, capture quarantine,
+per-claim expiry, cross-country disclosure, bounded storage and authentication-capacity regressions.
 
 ## Unfinished
 

@@ -2,7 +2,7 @@ from conftest import login
 from fastapi.testclient import TestClient
 from test_capture import MESSAGE, StubExtractor
 
-from trustlabel.app import LOGIN_MAX_FAILURES_PER_IP
+from trustlabel.app import AUTH_MAX_FAILURES_PER_IP
 
 CUTOFF_QUESTION = "What's the cut-off for submitting overtime this month?"
 
@@ -131,7 +131,7 @@ def test_failed_token_checks_are_limited_per_ip(make_client):
     token = connect(login(app_client, "lotte"))
     teams = TestClient(app_client.app)
     assert rpc(teams, token, "ping").status_code == 200  # a valid token gives its attempt back
-    for _ in range(LOGIN_MAX_FAILURES_PER_IP):
+    for _ in range(AUTH_MAX_FAILURES_PER_IP):
         assert rpc(teams, "tlk_guess", "ping").status_code == 401
     blocked = rpc(teams, token, "ping")
     assert (blocked.status_code, blocked.json()["error"]["code"]) == (429, -32600)
