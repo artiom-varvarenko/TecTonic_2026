@@ -11,6 +11,7 @@ import logging
 import re
 import secrets
 import threading
+from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime
@@ -165,6 +166,10 @@ class MeetingLog:
             return sum(1 for m in self._jobs.values() if m.owner_id == owner_id and m.status in IN_FLIGHT)
 
 
+class MeetingsBusy(Exception):
+    """Raised by the watcher callback when the owner has too many recordings in flight; the file waits a scan."""
+
+
 class FolderWatcher:
     """Scans a folder and its `calls/` subfolder for new recordings; a file is handed over once, after its size held
     across two scans. The callback gets the recording's kind: phone_call inside `calls/`, meeting otherwise."""
@@ -184,6 +189,7 @@ class FolderWatcher:
         self._max_bytes = max_bytes
         self._pending: dict[str, tuple[int, int]] = {}  # relative name → (size, mtime_ns) at the previous scan
         self._seen: set[tuple[str, int, int]] = set()  # (relative name, size, mtime_ns) already handled or skipped
+        self._order: deque[tuple[str, int, int]] = deque()  # _seen in insertion order, oldest evicted first
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self.last_scan_at: datetime | None = None
@@ -192,6 +198,7 @@ class FolderWatcher:
 
     def scan_once(self) -> int:
         handed = 0
+        busy = False
         pending: dict[str, tuple[int, int]] = {}
         try:
             entries = self._recordings(self.folder, "meeting")
@@ -224,16 +231,23 @@ class FolderWatcher:
             if self._pending.get(name) != state:
                 pending[name] = state  # new or still growing: wait for one more scan
                 continue
-            self._mark_seen(key)
             log.info("Recording %s found (%d bytes)", name, stat.st_size)
             try:
                 self._on_file(path, stat.st_mtime, kind)
-                handed += 1
-                self.files_processed += 1
+            except MeetingsBusy:
+                log.info("Recording %s waits for the next scan: too many recordings in flight", name)
+                pending[name] = state
+                busy = True
+                break  # later files wait too, so recordings are handed over in folder order
             except Exception as exc:  # one bad file must not stop the watcher
                 self.last_error = type(exc).__name__
                 log.warning("Meeting recording %s could not be queued: %s", path.name, self.last_error)
-        self._pending = pending
+            else:
+                handed += 1
+                self.files_processed += 1
+            self._mark_seen(key)
+        # Stopped early: files not reached this scan keep their previous size, so they stay ready to hand over.
+        self._pending = self._pending | pending if busy else pending
         self.last_scan_at = datetime.now().astimezone().replace(microsecond=0)
         return handed
 
@@ -242,9 +256,10 @@ class FolderWatcher:
         return [(p, kind) for p in sorted(folder.iterdir()) if p.suffix.lower() in MEETING_TYPES]
 
     def _mark_seen(self, key: tuple[str, int, int]) -> None:
-        if len(self._seen) >= self.SEEN_MAX:
-            self._seen.clear()
         self._seen.add(key)
+        self._order.append(key)
+        while len(self._order) > self.SEEN_MAX:
+            self._seen.discard(self._order.popleft())
 
     def _run(self) -> None:
         while not self._stop.is_set():

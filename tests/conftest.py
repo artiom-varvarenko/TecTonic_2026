@@ -55,12 +55,15 @@ def make_client(creds_file):
         graph=None,
         claude=None,
         meeting_transcriber=None,
+        monotonic=None,
         **settings_overrides,
     ) -> TestClient:
         settings = Settings(
             secret_key=_SECRET_KEY, credentials_file=creds_file, cookie_secure=False, **settings_overrides
         )
         extra = {"spott_factory": spott_factory} if spott_factory else {}
+        if monotonic is not None:
+            extra["monotonic"] = monotonic
         app = create_app(
             settings,
             extractor,

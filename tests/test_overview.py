@@ -21,6 +21,9 @@ def test_overview_scopes_board_and_debt_to_context(make_client):
     assert topics["leave.sick_certificate"]["answer"]["status"] == "gap"
     debt = {a["id"]: a for a in data["attention"]}
     assert "DOC-BE-009" in debt and debt["DOC-BE-009"]["owner_name"] is None
+    # The former owner's name and leaving date are HR data: the debt reason says only that the owner left.
+    assert "Owner left SD Worx" in debt["DOC-BE-009"]["issues"]
+    assert not any("Marc Peeters" in issue or "2025-11-30" in issue for issue in debt["DOC-BE-009"]["issues"])
     assert "DOC-NL-004" not in debt  # other country: out of scope, not this context's debt
     # Superseded DOC-BE-009 and POL-BE-031 are in scope but not current; the Dutch sources are out of scope.
     assert (data["health"]["in_scope"], data["health"]["current"]) == (10, 8)

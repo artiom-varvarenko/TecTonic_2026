@@ -68,7 +68,7 @@ export const Grading: React.FC = () => {
 					</div>
 					<div style={{display: 'flex', gap: 34, fontSize: 21, color: C.muted, marginTop: 20}}>
 						<span style={{color: mixColor('#5d6b7c', '#c62828', redOwner), fontWeight: redOwner > 0.5 ? 800 : 500}}>
-							Owner: {DOC.owner_name}
+							Owner: {DOC.owner_name ?? DOC.author_name}
 							{redOwner > 0.5 ? ' (left SD Worx)' : ''}
 						</span>
 						<span style={{color: mixColor('#5d6b7c', '#c62828', redReview), fontWeight: redReview > 0.5 ? 800 : 500}}>Last reviewed {DOC.last_reviewed_on}</span>

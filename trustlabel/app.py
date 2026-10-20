@@ -40,7 +40,7 @@ from .ai import (
 from .brief import brief_text, detect_client, plain_text, reply_for, unscoped_case_text
 from .claude import ClaudeClient, DraftCandidate, template_question
 from .config import REPO_ROOT, Settings
-from .credentials import load_credentials, verify_password
+from .credentials import PasswordCheckBusy, load_credentials, verify_password
 from .engine import (
     COUNTRY_NAMES,
     GRADES,
@@ -115,6 +115,7 @@ from .meetings import (
     FolderWatcher,
     Meeting,
     MeetingLog,
+    MeetingsBusy,
     NoSpeech,
     RecordingKind,
     ScribeMeetingTranscriber,
@@ -196,9 +197,15 @@ STATIC_DIR = REPO_ROOT / "static"
 MAX_BODY_BYTES = 3_000_000
 SESSION_COOKIE = "trustlabel_session"
 SESSION_MAX_AGE_SECONDS = 8 * 3600
+# Server-side sessions kept at once; the oldest are dropped first.
+MAX_SESSIONS = 10_000
 LOGIN_MAX_FAILURES = 5
 LOGIN_MAX_FAILURES_PER_IP = 30
 LOGIN_WINDOW_SECONDS = 300
+# Spott and Teams webhook calls per client IP and minute.
+WEBHOOK_CALLS_PER_MINUTE = 120
+# All MCP messages (initialize, ping, tools/list, tools/call) per user and MCP_WINDOW_SECONDS.
+MCP_MESSAGES_PER_WINDOW = 600
 MAX_OPEN_REQUESTS_PER_USER = 10
 MAX_VALIDITY_DAYS = 730
 MAX_AUDIO_BYTES = 2_000_000
@@ -277,6 +284,9 @@ class SlidingWindow:
         if len(self._events) > self.MAX_KEYS:
             for stale in [k for k, ev in self._events.items() if not ev or now - ev[-1] >= self._window]:
                 del self._events[stale]
+            # Still over the cap (a flood of distinct live keys): forget the oldest-inserted keys.
+            while len(self._events) > self.MAX_KEYS:
+                del self._events[next(iter(self._events))]
 
     def try_add(self, key: Hashable, limit: int) -> bool:
         """Record an event unless `limit` events already happened inside the window."""
@@ -302,6 +312,13 @@ class SlidingWindow:
     def clear(self, key: Hashable) -> None:
         with self._lock:
             self._events.pop(key, None)
+
+    def release(self, key: Hashable) -> None:
+        """Forget the newest event for `key` (an attempt that turned out to succeed)."""
+        with self._lock:
+            events = self._events.get(key)
+            if events:
+                events.pop()
 
 
 class SecurityHeadersMiddleware:
@@ -352,7 +369,14 @@ class RequestGuardMiddleware:
             return
         if scope["method"] in UNSAFE_METHODS:
             origin = headers.get("origin")
-            if origin is not None and urlsplit(origin).netloc != headers.get("host", ""):
+            if origin is not None:
+                cross_site = urlsplit(origin).netloc != headers.get("host", "")
+            else:
+                # Browsers that omit Origin still send Sec-Fetch-Site; server-to-server callers (webhooks,
+                # MCP, the Outlook and Salesforce channels) send neither and authenticate with a key or HMAC.
+                fetch_site = headers.get("sec-fetch-site")
+                cross_site = fetch_site is not None and fetch_site not in ("same-origin", "none")
+            if cross_site:
                 await JSONResponse({"detail": "Cross-origin request blocked"}, status_code=403)(
                     scope, receive, send
                 )
@@ -464,6 +488,7 @@ def create_app(
     claude: ClaudeClient | None = None,
     graph: GraphApi | None = None,
     meeting_transcriber: Transcriber | None = None,
+    monotonic: Callable[[], float] = time.monotonic,
 ) -> FastAPI:
     store = Store(settings.data_dir)
     people_names = known_names(store.people)  # for the restricted-data guard; people are static seed data
@@ -481,9 +506,10 @@ def create_app(
     if settings.meetings_dir is not None and settings.meetings_owner is None:
         raise ValueError("TRUSTLABEL_MEETINGS_DIR needs TRUSTLABEL_MEETINGS_OWNER")
     credentials = load_credentials(settings.credentials_file)
-    sessions: dict[str, str] = {}
+    sessions: dict[str, tuple[str, float]] = {}  # sid → (user id, issued at on `monotonic`), oldest first
     login_attempts = SlidingWindow(LOGIN_WINDOW_SECONDS)  # per (username, IP)
-    ip_failures = SlidingWindow(LOGIN_WINDOW_SECONDS)  # per IP, across usernames
+    ip_failures = SlidingWindow(LOGIN_WINDOW_SECONDS)  # per IP: sign-in attempts and failed MCP/channel auth
+    webhook_calls = SlidingWindow(60)  # per ("spott" | "teams", IP)
     ai_budget = SlidingWindow(3600)
     if extractor is None and settings.openai_api_key:
         extractor = OpenAIExtractor(settings.openai_api_key, settings.openai_model)
@@ -507,6 +533,22 @@ def create_app(
     spott_written: set[str] = set()  # ids of the notes TrustLabel wrote to Spott itself
     spott_client_ids: dict[str, str] = {}  # TrustLabel client id → Spott client id
     clients_by_name = {c.name.strip().casefold(): c for c in store.clients.values()}
+
+    def spott_client_for(spott_id: str, spott_name: str) -> Client | None:
+        """TrustLabel client for a Spott client link, or None.
+
+        A known Spott id wins; a name binds only a client not yet bound to another Spott id.
+        """
+        with store.lock:
+            for client_id, bound in spott_client_ids.items():
+                if bound == spott_id:
+                    return store.clients[client_id]
+            client = clients_by_name.get(spott_name.strip().casefold())
+            # A same-named record with another id is someone else's (or a lookalike): never rebind write-back to it.
+            if client is None or spott_client_ids.get(client.id, spott_id) != spott_id:
+                return None
+            spott_client_ids[client.id] = spott_id
+            return client
 
     if salesforce is None and settings.salesforce_domain and settings.salesforce_client_id:
         salesforce = HttpSalesforceApi(
@@ -606,13 +648,44 @@ def create_app(
     app.add_middleware(
         RequestGuardMiddleware,
         max_body=MAX_BODY_BYTES,
-        body_limits={("POST", MEETINGS_PATH): MAX_MEETING_BODY_BYTES},
+        body_limits={
+            ("POST", MEETINGS_PATH): MAX_MEETING_BODY_BYTES,
+            # Webhooks are capped before their signatures are checked.
+            ("POST", WEBHOOK_PATH): MAX_WEBHOOK_BYTES,
+            ("POST", OUTGOING_PATH): MAX_OUTGOING_BODY_BYTES,
+        },
     )
     app.add_middleware(SecurityHeadersMiddleware)
 
+    sessions_lock = threading.Lock()
+
+    def issue_session(request: Request, person: Person) -> None:
+        """Replace the caller's session with a fresh one; expired and excess sessions are dropped."""
+        previous = request.session.get("sid")
+        sid = secrets.token_urlsafe(24)
+        now = monotonic()
+        with sessions_lock:
+            if isinstance(previous, str):
+                sessions.pop(previous, None)
+            # Insertion order is issue order, so expired sessions sit at the front.
+            while sessions and now - next(iter(sessions.values()))[1] >= SESSION_MAX_AGE_SECONDS:
+                sessions.pop(next(iter(sessions)))
+            while len(sessions) >= MAX_SESSIONS:
+                sessions.pop(next(iter(sessions)))
+            sessions[sid] = (person.id, now)
+        request.session.clear()
+        request.session["sid"] = sid
+
     def current_user(request: Request) -> Person:
         sid = request.session.get("sid")
-        user_id = sessions.get(sid) if isinstance(sid, str) else None
+        user_id = None
+        if isinstance(sid, str):
+            with sessions_lock:
+                entry = sessions.get(sid)
+                if entry is not None and monotonic() - entry[1] >= SESSION_MAX_AGE_SECONDS:
+                    sessions.pop(sid, None)
+                    entry = None
+            user_id = entry[0] if entry is not None else None
         person = store.people.get(user_id) if user_id else None
         if person is None or not person.active:
             raise HTTPException(401, "Not authenticated")
@@ -655,7 +728,7 @@ def create_app(
             "title": item.title,
             "source": item.source,
             "author_name": author.name if author else None,
-            "owner_name": owner.name if owner else None,
+            "owner_name": owner.name if owner and owner.active else None,
             "owner_active": bool(owner and owner.active),
             "created_on": item.created_on.isoformat(),
             "last_reviewed_on": item.last_reviewed_on.isoformat() if item.last_reviewed_on else None,
@@ -715,32 +788,31 @@ def create_app(
         username = body.username.strip().lower()
         ip = request.client.host if request.client else "unknown"
         key = (username, ip)
-        # Each attempt takes a slot up front; a successful login frees them again.
-        # The per-IP failure cap stops cycling through usernames (each attempt costs a scrypt).
-        if ip_failures.count(ip) >= LOGIN_MAX_FAILURES_PER_IP or not login_attempts.try_add(
+        # Every attempt counts against the IP up front, so a concurrent burst cannot queue up scrypt checks;
+        # a successful login gives its slot back. The per-(username, IP) slots are cleared on success.
+        if not ip_failures.try_add(ip, LOGIN_MAX_FAILURES_PER_IP) or not login_attempts.try_add(
             key, LOGIN_MAX_FAILURES
         ):
             raise HTTPException(429, "Too many failed attempts. Try again in 5 minutes.")
         person = store.people.get(username)
         encoded = credentials.get(username) if person is not None and person.active else None
-        if not verify_password(body.password, encoded) or person is None:
-            ip_failures.add(ip)
+        try:
+            valid = verify_password(body.password, encoded)
+        except PasswordCheckBusy:
+            raise HTTPException(429, "Too many sign-in attempts; try again shortly") from None
+        if not valid or person is None:
             raise HTTPException(401, "Invalid username or password")
         login_attempts.clear(key)
-        previous = request.session.get("sid")
-        if isinstance(previous, str):
-            sessions.pop(previous, None)
-        request.session.clear()
-        sid = secrets.token_urlsafe(24)
-        sessions[sid] = person.id
-        request.session["sid"] = sid
+        ip_failures.release(ip)
+        issue_session(request, person)
         return {"user": user_view(person)}
 
     @app.post("/api/logout", status_code=204)
     def logout(request: Request) -> Response:
         sid = request.session.get("sid")
         if isinstance(sid, str):
-            sessions.pop(sid, None)
+            with sessions_lock:
+                sessions.pop(sid, None)
         request.session.clear()
         return Response(status_code=204)
 
@@ -782,7 +854,7 @@ def create_app(
                         "kind_label": s["kind_label"],
                         "grade": s["grade"],
                         "score": s["score"],
-                        "owner_name": s["owner_name"] if s["owner_active"] else None,
+                        "owner_name": s["owner_name"],
                         "issues": issues,
                     }
                 )
@@ -1126,8 +1198,9 @@ def create_app(
     ) -> tuple[Verification, str]:
         """The expert's answer becomes a verified answer (inbox and Teams alike); returns (request, grade).
 
-        Raises HTTPException. Every open request for the same context is resolved with it; the askers and
-        followers get one Teams card, and a Spott-linked client gets a note.
+        Raises HTTPException. The resolver's other open requests for the same context are resolved with it (requests
+        assigned to other experts stay theirs); the askers and followers get one Teams card, and a Spott-linked
+        client gets a note.
         """
         today = clock()
         with store.lock:
@@ -1157,7 +1230,8 @@ def create_app(
             key = (verification.topic_id, verification.country, verification.client_id)
             resolved: list[Verification] = []
             for other in store.verifications.values():
-                if other.status == "open" and (other.topic_id, other.country, other.client_id) == key:
+                same_context = (other.topic_id, other.country, other.client_id) == key
+                if other.status == "open" and other.assignee_id == user.id and same_context:
                     other.status = "resolved"
                     other.resolution = resolution
                     resolved.append(other)
@@ -1211,8 +1285,12 @@ def create_app(
             return teams_usage
         code, answer = parsed
         with store.lock:
-            verification = next((v for v in store.verifications.values() if request_code(v.id) == code), None)
-            if verification is None or verification.assignee_id != person.id:
+            # Codes are 4 characters, so only the sender's own requests are candidates, open ones first.
+            mine = [
+                v for v in store.verifications.values() if v.assignee_id == person.id and request_code(v.id) == code
+            ]
+            verification = next((v for v in mine if v.status == "open"), mine[0] if mine else None)
+            if verification is None:
                 return f"{code} is not a verification request assigned to you."
             if verification.status != "open":
                 return f"{code} was already answered."
@@ -1242,6 +1320,9 @@ def create_app(
         """Teams Outgoing Webhook: verify the HMAC over the raw body, then answer in the thread (within 5 s)."""
         if teams_outgoing_key is None:
             raise HTTPException(404, "Not found")
+        ip = request.client.host if request.client else "unknown"
+        if not webhook_calls.try_add(("teams", ip), WEBHOOK_CALLS_PER_MINUTE):
+            raise HTTPException(429, "Too many requests")
         raw = bytearray()
         async for chunk in request.stream():
             raw += chunk
@@ -1260,8 +1341,11 @@ def create_app(
         object_id = sender.get("aadObjectId") if isinstance(sender, dict) else None
         object_id = object_id.strip().lower()[:64] if isinstance(object_id, str) else ""
         raw_text = activity.get("text")
-        text = message_text(raw_text) if isinstance(raw_text, str) else ""
-        reply = await run_in_threadpool(answer_from_teams, object_id, text, background)
+        raw_text = raw_text if isinstance(raw_text, str) else ""
+        # message_text runs regexes over up to 64 KB: keep it off the event loop with the answer itself.
+        reply = await run_in_threadpool(
+            lambda: answer_from_teams(object_id, message_text(raw_text) if raw_text else "", background)
+        )
         return JSONResponse(outgoing_reply(reply))
 
     @app.post("/api/verifications/{vid}/voice")
@@ -1475,6 +1559,8 @@ def create_app(
         """Folder watcher: a stable new recording (a phone call inside `calls/`) owned by TRUSTLABEL_MEETINGS_OWNER."""
         if settings.meetings_owner is None:
             return
+        if meetings.in_flight(settings.meetings_owner) >= MAX_MEETINGS_IN_FLIGHT:
+            raise MeetingsBusy  # the watcher retries this file at its next scan
         with path.open("rb") as recording:
             data = recording.read(MAX_MEETING_BYTES + 1)
         if len(data) > MAX_MEETING_BYTES:
@@ -1574,6 +1660,10 @@ def create_app(
         api = spott_link.api
         if api is None or extractor is None or note_id in spott_written:
             return
+        # The budget covers the paid note fetch too; each note takes one slot whatever it turns out to be.
+        if not spott_budget.try_add("spott", SPOTT_AI_CALLS_PER_HOUR):
+            logger.warning("Spott note %s skipped: AI budget reached", note_id)
+            return
         try:
             note = api.get_note(note_id)
         except SPOTT_ERRORS as exc:
@@ -1583,16 +1673,13 @@ def create_app(
             return
         question = question_text(note.text)
         if question is not None:
+            spott_budget.release("spott")  # answer_spott_question takes the slot itself
             answer_spott_question(api, note, question)
             return
         # Scope comes from the note's client link in Spott, never from the model; ambiguous links are skipped.
-        client = clients_by_name.get(note.clients[0][1].strip().casefold()) if len(note.clients) == 1 else None
+        client = spott_client_for(*note.clients[0]) if len(note.clients) == 1 else None
         if client is None:
             logger.info("Spott note %s skipped: not linked to exactly one known client", note.id)
-            return
-        spott_client_ids[client.id] = note.clients[0][0]
-        if not spott_budget.try_add("spott", SPOTT_AI_CALLS_PER_HOUR):
-            logger.warning("Spott note %s skipped: AI budget reached", note.id)
             return
         today = clock()
         try:
@@ -1639,8 +1726,8 @@ def create_app(
         if not spott_budget.try_add("spott", SPOTT_AI_CALLS_PER_HOUR):
             logger.warning("Spott question %s skipped: budget reached", note.id)
             return
-        # Same scope rule as captured notes: exactly one Spott client, matched by name to a TrustLabel client.
-        client = clients_by_name.get(spott_name.strip().casefold()) if len(note.clients) == 1 else None
+        # Same scope rule as captured notes: exactly one Spott client, bound by id (or by name while unbound).
+        client = spott_client_for(spott_id, spott_name) if len(note.clients) == 1 else None
         topic, _ = match_topic(plain_text(question), store.topics) if question else (None, [])
         if client is None:
             title = f"{NOTE_TITLE_MARKER} Client not linked"
@@ -1655,7 +1742,6 @@ def create_app(
                 "Name the subject, for example: " + "; ".join(t.label for t in store.topics[:5]) + ".",
             ]
         else:
-            spott_client_ids[client.id] = spott_id
             ctx = Context(client.country, client.id, context_label(client.country, client.id), clock())
             with store.lock:
                 # Service-desk view, as for Salesforce cases: general knowledge plus this client's own.
@@ -1681,7 +1767,8 @@ def create_app(
             if spott_id is None:
                 logger.info("No Spott client named %s; verified answer not written back", name)
                 return
-            spott_client_ids[client_id] = spott_id
+            # A record bound in the meantime (note or connect) keeps the binding; a name lookup never replaces it.
+            spott_id = spott_client_ids.setdefault(client_id, spott_id)
             spott_written.add(api.add_client_note(spott_id, title, note_html(lines)))
         except SPOTT_ERRORS as exc:
             logger.warning("Spott write-back failed: %s", type(exc).__name__)
@@ -1693,6 +1780,9 @@ def create_app(
         link = spott_link
         if link.api is None or extractor is None or link.key is None:
             raise HTTPException(404, "Not found")
+        ip = request.client.host if request.client else "unknown"
+        if not webhook_calls.try_add(("spott", ip), WEBHOOK_CALLS_PER_MINUTE):
+            raise HTTPException(429, "Too many requests")
         body = await request.body()
         if len(body) > MAX_WEBHOOK_BYTES:
             raise HTTPException(413, "Request too large")
@@ -1784,6 +1874,10 @@ def create_app(
     @app.post(MCP_PATH, include_in_schema=False)
     async def mcp_endpoint(request: Request) -> Response:
         """Streamable HTTP transport, stateless, JSON responses only. Token auth only, never cookies."""
+        ip = request.client.host if request.client else "unknown"
+        # Failed token checks count per IP (released again on success), so tokens cannot be guessed at speed.
+        if not ip_failures.try_add(("auth", ip), LOGIN_MAX_FAILURES_PER_IP):
+            return mcp_response(429, rpc_error(None, INVALID_REQUEST, "Too many failed attempts; try again later"))
         user_id = connections.authenticate(bearer_token(request.headers))
         user = store.people.get(user_id) if user_id else None
         if user is None or not user.active:
@@ -1792,6 +1886,9 @@ def create_app(
                 rpc_error(None, UNAUTHORIZED, "Unauthorized"),
                 {"WWW-Authenticate": 'Bearer realm="trustlabel"'},
             )
+        ip_failures.release(("auth", ip))
+        if not mcp_calls.try_add(("mcp-messages", user.id), MCP_MESSAGES_PER_WINDOW):
+            return mcp_response(429, rpc_error(None, INVALID_REQUEST, "Rate limit reached; try again later"))
         version = request.headers.get("mcp-protocol-version")
         if version is not None and version not in SUPPORTED_PROTOCOL_VERSIONS:
             return mcp_response(400, rpc_error(None, INVALID_REQUEST, "Unsupported MCP-Protocol-Version"))
@@ -1874,10 +1971,14 @@ def create_app(
 
     def channel_user(request: Request) -> Person:
         """Personal connection key (X-API-Key or Bearer) only; channel calls never use the session cookie."""
+        ip = request.client.host if request.client else "unknown"
+        if not ip_failures.try_add(("auth", ip), LOGIN_MAX_FAILURES_PER_IP):
+            raise HTTPException(429, "Too many failed attempts; try again later")
         user_id = connections.authenticate(bearer_token(request.headers))
         user = store.people.get(user_id) if user_id else None
         if user is None or not user.active:
             raise HTTPException(401, "Unauthorized", headers={"WWW-Authenticate": 'Bearer realm="trustlabel"'})
+        ip_failures.release(("auth", ip))
         if not mcp_calls.try_add(("channel", user.id), MCP_CALLS_PER_WINDOW):
             raise HTTPException(429, "Rate limit reached; try again later")
         return user
@@ -2059,13 +2160,20 @@ def create_app(
     def iso(value: datetime | None) -> str | None:
         return value.isoformat(timespec="seconds") if value else None
 
-    def spott_view(request: Request) -> dict:
+    def spott_view(request: Request, is_admin: bool) -> dict:
+        """Everyone sees whether Spott works; the workspace details (users, webhook, every client) are admin-only."""
         link = spott_link
-        return {
+        view = {
             "connected": link.api is not None,
+            "webhook_ready": link.api is not None and link.key is not None and extractor is not None,
+            "notes_captured": len(spott_captures),
+            "last_delivery_at": iso(spott_last_delivery),
+        }
+        if not is_admin:
+            return view
+        return view | {
             "source": link.source,
             "webhook_url": public_base(request) + WEBHOOK_PATH,
-            "webhook_ready": link.api is not None and link.key is not None and extractor is not None,
             "users": link.users,
             # Known only after an in-app connect, which looks every client up once.
             "clients": (
@@ -2073,8 +2181,6 @@ def create_app(
                 if link.source == "app"
                 else []
             ),
-            "notes_captured": len(spott_captures),
-            "last_delivery_at": iso(spott_last_delivery),
         }
 
     @app.get("/api/integrations")
@@ -2111,7 +2217,7 @@ def create_app(
                 "sources_last_poll_at": iso(source_poller.last_poll_at) if source_poller else None,
                 "sources_last_error": source_poller.last_error if source_poller else None,
             },
-            "spott": spott_view(request),
+            "spott": spott_view(request, user.id in settings.admins),
             "talkdesk": {"text": TALKDESK_TEXT},
             "auto_ask": {
                 "drafting": "claude" if claude is not None else "template",
@@ -2151,7 +2257,7 @@ def create_app(
         spott_client_ids.clear()
         spott_client_ids.update({cid: sid for cid, sid in found.items() if sid})
         logger.info("Spott workspace connected by %s", user.id)
-        return spott_view(request)
+        return spott_view(request, True)
 
     @app.delete("/api/integrations/spott", status_code=204)
     def disconnect_spott(user: Person = Depends(admin_user)) -> Response:
@@ -2219,8 +2325,9 @@ def create_app(
             raise HTTPException(404, "Not found")
         ip = request.client.host if request.client else "unknown"
         try:
-            if ip_failures.count(ip) >= LOGIN_MAX_FAILURES_PER_IP:
-                raise GoogleAuthError(FAILED, "too many failed sign-ins from this IP")
+            # Every callback counts against the IP before the outbound token exchange; success gives it back.
+            if not ip_failures.try_add(ip, LOGIN_MAX_FAILURES_PER_IP):
+                raise GoogleAuthError(FAILED, "too many sign-in attempts from this IP")
             if error is not None:
                 # Provider text is never logged or reflected; only the fixed code goes back.
                 raise GoogleAuthError(CANCELLED if error == "access_denied" else FAILED, "provider returned an error")
@@ -2241,16 +2348,10 @@ def create_app(
             if person is None or not person.active:
                 raise GoogleAuthError(UNLINKED, "Google account is not linked to an active TrustLabel user")
         except GoogleAuthError as exc:
-            ip_failures.add(ip)
             logger.warning("Google sign-in failed from %s: %s", ip, exc.reason)
             return finish_google("/?" + urlencode({"login_error": exc.code}))
-        previous = request.session.get("sid")
-        if isinstance(previous, str):
-            sessions.pop(previous, None)
-        request.session.clear()
-        sid = secrets.token_urlsafe(24)
-        sessions[sid] = person.id
-        request.session["sid"] = sid
+        ip_failures.release(ip)
+        issue_session(request, person)
         return finish_google("/")
 
     @app.get("/", include_in_schema=False)

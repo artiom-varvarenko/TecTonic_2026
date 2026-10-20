@@ -1,11 +1,8 @@
-import {AbsoluteFill, Audio, interpolate, staticFile, useCurrentFrame} from 'remotion';
-import {linearTiming, TransitionSeries} from '@remotion/transitions';
-import {fade} from '@remotion/transitions/fade';
-import {Fragment} from 'react';
+import {AbsoluteFill, Audio, interpolate, Sequence, staticFile, useCurrentFrame} from 'remotion';
 import {Background} from './components/Background';
 import {CLAMP} from './anim';
 import {GRADE_BG} from './theme';
-import {sceneDuration, SCENE_IDS, TOTAL_FRAMES, TRANSITION_FRAMES} from './timeline';
+import {sceneDuration, sceneStart, SCENE_IDS, TOTAL_FRAMES, TRANSITION_FRAMES} from './timeline';
 import type {SceneId} from './timeline';
 import {Hook} from './scenes/Hook';
 import {Problem} from './scenes/Problem';
@@ -42,23 +39,31 @@ const ProgressBar: React.FC = () => {
 	);
 };
 
+/** Fades the scene in over its first TRANSITION_FRAMES frames, on top of the scene still playing underneath. */
+const FadeIn: React.FC<{children: React.ReactNode}> = ({children}) => {
+	const frame = useCurrentFrame();
+	return <AbsoluteFill style={{opacity: interpolate(frame, [0, TRANSITION_FRAMES], [0, 1], CLAMP)}}>{children}</AbsoluteFill>;
+};
+
 export const TrustLabelDemo: React.FC<{music: boolean}> = ({music}) => {
 	return (
 		<AbsoluteFill>
 			<Background />
-			<TransitionSeries>
-				{SCENE_IDS.map((id, i) => {
-					const Scene = SCENES[id];
-					return (
-						<Fragment key={id}>
-							{i > 0 ? <TransitionSeries.Transition presentation={fade()} timing={linearTiming({durationInFrames: TRANSITION_FRAMES})} /> : null}
-							<TransitionSeries.Sequence durationInFrames={sceneDuration(id)} name={id}>
+			{SCENE_IDS.map((id, i) => {
+				const Scene = SCENES[id];
+				// Scenes overlap by TRANSITION_FRAMES (see sceneStart); later scenes render on top.
+				return (
+					<Sequence key={id} from={sceneStart(id)} durationInFrames={sceneDuration(id)} name={id}>
+						{i > 0 ? (
+							<FadeIn>
 								<Scene />
-							</TransitionSeries.Sequence>
-						</Fragment>
-					);
-				})}
-			</TransitionSeries>
+							</FadeIn>
+						) : (
+							<Scene />
+						)}
+					</Sequence>
+				);
+			})}
 			<ProgressBar />
 			{music ? (
 				<Audio

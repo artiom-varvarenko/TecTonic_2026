@@ -197,3 +197,16 @@ def test_only_admins_connect_spott_and_the_keys_never_come_back(make_client):
     assert lotte.get("/api/integrations").json()["spott"]["connected"] is False
     body, headers = signed(note_event("note_2"), msg_id="msg_2")
     assert app_client.post(WEBHOOK_PATH, content=body, headers=headers).status_code == 404
+
+
+def test_only_admins_see_the_spott_workspace_details(make_client):
+    app_client = make_client(StubExtractor(), spott_factory=WorkspaceSpott, admins=frozenset({"lotte"}))
+    lotte = login(app_client, "lotte")
+    workspace = {"api_key": "spott-good-key", "webhook_secret": SECRET}
+    assert lotte.post("/api/integrations/spott", json=workspace).status_code == 200
+
+    seen = login(app_client, "jonas").get("/api/integrations").json()["spott"]
+    assert seen == {"connected": True, "webhook_ready": True, "notes_captured": 0, "last_delivery_at": None}
+    admin = lotte.get("/api/integrations").json()["spott"]
+    assert admin["users"] == 2 and admin["webhook_url"].endswith(WEBHOOK_PATH)
+    assert len(admin["clients"]) == 3

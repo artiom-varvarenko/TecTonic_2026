@@ -437,8 +437,14 @@ async function logout() {
   try {
     await api("/api/logout", { method: "POST", skipAuthRedirect: true });
   } catch (err) {
-    if (!(err instanceof ApiError && err.status === 401)) showError(err);
+    // 401: the session is already gone server-side. Anything else means it may still be live,
+    // so stay signed in and let the user retry instead of showing a login screen over a valid session.
+    if (!(err instanceof ApiError && err.status === 401)) {
+      showError(err);
+      return;
+    }
   }
+  issuedKey = null;
   stopPolling();
   stopHandsFree();
   state.me = null;
@@ -1833,17 +1839,19 @@ function renderSalesforceCard(sf) {
 function renderSpottCard(spott, isAdmin) {
   const body = [];
   if (spott.connected) {
-    body.push(
-      facts([
-        ["Source", spott.source === "environment" ? "Environment" : "Connected in app"],
-        ["Webhook ready", spott.webhook_ready ? "Yes" : "No"],
-        ["Users", spott.users === null || spott.users === undefined ? "–" : String(spott.users)],
-        ["Notes captured", String(spott.notes_captured)],
-        ["Last delivery", spott.last_delivery_at ? relativeTime(spott.last_delivery_at) : "None yet"],
-      ]),
-      copyRow("Webhook URL", absoluteUrl(spott.webhook_url)),
-    );
-    if (spott.clients.length) {
+    // Non-admins get only the status; source, users, webhook URL and client mapping are operator details.
+    const rows = [
+      ["Webhook ready", spott.webhook_ready ? "Yes" : "No"],
+      ["Notes captured", String(spott.notes_captured)],
+      ["Last delivery", spott.last_delivery_at ? relativeTime(spott.last_delivery_at) : "None yet"],
+    ];
+    if (isAdmin) {
+      rows.unshift(["Source", spott.source === "environment" ? "Environment" : "Connected in app"]);
+      rows.splice(2, 0, ["Users", spott.users === null || spott.users === undefined ? "–" : String(spott.users)]);
+    }
+    body.push(facts(rows));
+    if (spott.webhook_url) body.push(copyRow("Webhook URL", absoluteUrl(spott.webhook_url)));
+    if (spott.clients && spott.clients.length) {
       body.push(
         h(
           "ul",
@@ -2425,6 +2433,13 @@ async function speak(text) {
     return;
   }
   if (!res.ok) {
+    if (res.status === 401) {
+      // Session expired or revoked: same handling as api(), never keep acting as signed in.
+      stopHandsFree();
+      state.me = null;
+      renderLogin();
+      return;
+    }
     let data = null;
     try {
       data = await res.json();

@@ -172,8 +172,9 @@ def resolved_card(
 CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 MAX_OUTGOING_BODY_BYTES = 64_000
 _REPLY = re.compile(r"(TL-[A-Za-z0-9]{4})(?:\s+(.*))?", re.DOTALL | re.IGNORECASE)
-_MENTION = re.compile(r"<at>.*?</at>", re.IGNORECASE | re.DOTALL)
-_TAG = re.compile(r"<[^>]+>")
+# No `.*?` or `[^>]+` over the body: on 64 KB of unclosed `<at>`/`<` those backtrack quadratically.
+_MENTION = re.compile(r"<at>[^<]*</at>", re.IGNORECASE)
+_TAG = re.compile(r"<[^<>]+>")
 
 
 def request_code(verification_id: str) -> str:

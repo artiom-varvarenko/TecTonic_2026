@@ -174,7 +174,7 @@
         "title": "Client onboarding handbook — Belgium",
         "source": "SharePoint · Client Onboarding",
         "author_name": "Marc Peeters",
-        "owner_name": "Marc Peeters",
+        "owner_name": null,
         "owner_active": false,
         "created_on": "2023-02-10",
         "last_reviewed_on": "2024-03-02",
@@ -199,7 +199,7 @@
           },
           {
             "code": "orphaned",
-            "text": "Owner Marc Peeters left SD Worx on 2025-11-30",
+            "text": "Owner left SD Worx",
             "delta": -20,
             "cap": null
           },
@@ -265,7 +265,8 @@
         ]
       }
     ],
-    "open_request": null
+    "open_request": null,
+    "auto_request": null
   },
   "general_before": {
     "topic": {
@@ -378,7 +379,7 @@
         "title": "Client onboarding handbook — Belgium",
         "source": "SharePoint · Client Onboarding",
         "author_name": "Marc Peeters",
-        "owner_name": "Marc Peeters",
+        "owner_name": null,
         "owner_active": false,
         "created_on": "2023-02-10",
         "last_reviewed_on": "2024-03-02",
@@ -403,7 +404,7 @@
           },
           {
             "code": "orphaned",
-            "text": "Owner Marc Peeters left SD Worx on 2025-11-30",
+            "text": "Owner left SD Worx",
             "delta": -20,
             "cap": null
           },
@@ -512,7 +513,8 @@
         ]
       }
     ],
-    "open_request": null
+    "open_request": null,
+    "auto_request": null
   },
   "request": {
     "topic": {
@@ -520,7 +522,8 @@
       "label": "Payroll variables cut-off"
     },
     "context_label": "Van Dam Logistics NV (BE)",
-    "question": "What's the cut-off for submitting overtime this month?",
+    "question": "Which is right for Van Dam Logistics NV (BE): payroll variables cut-off 20th of the month (Payroll variables cut-off — Belgium, grade C) or 25th of the month (Jonas Wouters in #payroll-be, grade D)?",
+    "asked": "What's the cut-off for submitting overtime this month?",
     "requester_name": "Lotte Janssens",
     "assignee_name": "Ellen Maes",
     "is_assignee": false,
@@ -558,7 +561,8 @@
         "label": "Payroll variables cut-off"
       },
       "context_label": "Van Dam Logistics NV (BE)",
-      "question": "What's the cut-off for submitting overtime this month?",
+      "question": "Which is right for Van Dam Logistics NV (BE): payroll variables cut-off 20th of the month (Payroll variables cut-off — Belgium, grade C) or 25th of the month (Jonas Wouters in #payroll-be, grade D)?",
+      "asked": "What's the cut-off for submitting overtime this month?",
       "requester_name": "Lotte Janssens",
       "assignee_name": "Ellen Maes",
       "is_assignee": true,
@@ -605,7 +609,8 @@
       "label": "Payroll variables cut-off"
     },
     "context_label": "Van Dam Logistics NV (BE)",
-    "question": "What's the cut-off for submitting overtime this month?",
+    "question": "Which is right for Van Dam Logistics NV (BE): payroll variables cut-off 20th of the month (Payroll variables cut-off — Belgium, grade C) or 25th of the month (Jonas Wouters in #payroll-be, grade D)?",
+    "asked": "What's the cut-off for submitting overtime this month?",
     "requester_name": "Lotte Janssens",
     "assignee_name": "Ellen Maes",
     "is_assignee": true,
@@ -764,7 +769,7 @@
         "title": "Client onboarding handbook — Belgium",
         "source": "SharePoint · Client Onboarding",
         "author_name": "Marc Peeters",
-        "owner_name": "Marc Peeters",
+        "owner_name": null,
         "owner_active": false,
         "created_on": "2023-02-10",
         "last_reviewed_on": "2024-03-02",
@@ -789,7 +794,7 @@
           },
           {
             "code": "orphaned",
-            "text": "Owner Marc Peeters left SD Worx on 2025-11-30",
+            "text": "Owner left SD Worx",
             "delta": -20,
             "cap": null
           },
@@ -919,7 +924,8 @@
         ]
       }
     ],
-    "open_request": null
+    "open_request": null,
+    "auto_request": null
   },
   "general_after": {
     "topic": {
@@ -1032,7 +1038,7 @@
         "title": "Client onboarding handbook — Belgium",
         "source": "SharePoint · Client Onboarding",
         "author_name": "Marc Peeters",
-        "owner_name": "Marc Peeters",
+        "owner_name": null,
         "owner_active": false,
         "created_on": "2023-02-10",
         "last_reviewed_on": "2024-03-02",
@@ -1057,7 +1063,7 @@
           },
           {
             "code": "orphaned",
-            "text": "Owner Marc Peeters left SD Worx on 2025-11-30",
+            "text": "Owner left SD Worx",
             "delta": -20,
             "cap": null
           },
@@ -1204,6 +1210,7 @@
         ]
       }
     ],
-    "open_request": null
+    "open_request": null,
+    "auto_request": null
   }
 }

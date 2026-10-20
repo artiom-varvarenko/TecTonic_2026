@@ -2,6 +2,8 @@ from conftest import login
 from fastapi.testclient import TestClient
 from test_capture import MESSAGE, StubExtractor
 
+from trustlabel.app import LOGIN_MAX_FAILURES_PER_IP
+
 CUTOFF_QUESTION = "What's the cut-off for submitting overtime this month?"
 
 
@@ -122,3 +124,32 @@ def test_capture_tool_is_offered_only_with_an_extractor(make_client):
     assert result["isError"] is False
     captured_id = result["structuredContent"]["captured_item_id"]
     assert captured_id in [s["id"] for s in result["structuredContent"]["result"]["sources"]]
+
+
+def test_failed_token_checks_are_limited_per_ip(make_client):
+    app_client = make_client()
+    token = connect(login(app_client, "lotte"))
+    teams = TestClient(app_client.app)
+    assert rpc(teams, token, "ping").status_code == 200  # a valid token gives its attempt back
+    for _ in range(LOGIN_MAX_FAILURES_PER_IP):
+        assert rpc(teams, "tlk_guess", "ping").status_code == 401
+    blocked = rpc(teams, token, "ping")
+    assert (blocked.status_code, blocked.json()["error"]["code"]) == (429, -32600)
+    # The channel API shares the per-IP failure count.
+    assert teams.get("/api/v1/me", headers={"Authorization": f"Bearer {token}"}).status_code == 429
+
+
+def test_all_mcp_messages_are_capped_per_user(make_client, monkeypatch):
+    monkeypatch.setattr("trustlabel.app.MCP_MESSAGES_PER_WINDOW", 3)
+    app_client = make_client()
+    token = connect(login(app_client, "lotte"))
+    teams = TestClient(app_client.app)
+    for _ in range(3):
+        assert rpc(teams, token, "ping").status_code == 200
+    capped = rpc(teams, token, "tools/list")
+    assert capped.status_code == 429
+    assert capped.json() == {
+        "jsonrpc": "2.0",
+        "id": None,
+        "error": {"code": -32600, "message": "Rate limit reached; try again later"},
+    }

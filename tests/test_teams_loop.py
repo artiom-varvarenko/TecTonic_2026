@@ -3,11 +3,13 @@ import hashlib
 import hmac
 import json
 import secrets
+import time
 from datetime import timedelta
 
 from conftest import TODAY, login
 from test_teams_alerts import ELLEN_TEAMS, REQUEST, StubTeams, settle
 
+from trustlabel.app import WEBHOOK_CALLS_PER_MINUTE
 from trustlabel.engine import validate_value
 from trustlabel.store import Store
 from trustlabel.teams_alerts import message_text, parse_reply, request_code, split_answer
@@ -122,6 +124,14 @@ def test_outgoing_webhook_needs_a_valid_hmac_over_the_raw_body(make_client):
     assert teams_client(make_client, teams_outgoing_secret=None).post(OUTGOING, content=body).status_code == 404
 
 
+def test_outgoing_webhook_calls_are_limited_per_ip(make_client):
+    app_client = teams_client(make_client)
+    body = activity("<at>TrustLabel</at> hello")
+    for _ in range(WEBHOOK_CALLS_PER_MINUTE):
+        assert app_client.post(OUTGOING, content=body).status_code == 401
+    assert app_client.post(OUTGOING, content=body, headers=signed(body)).status_code == 429
+
+
 def test_an_unknown_sender_gets_their_aad_object_id_and_how_to_map_it(make_client):
     app_client = teams_client(make_client)
     reply = post_teams(app_client, "<at>TrustLabel</at> TL-AAAA 25", aad=LOTTE_AAD)
@@ -184,3 +194,15 @@ def test_reply_codes_and_answers_parse_like_a_person_types_them(store: Store):
     amount = next(t for t in store.topics if t.value_type == "amount_eur")
     value, note = split_answer(amount, "750 EUR per month")
     assert validate_value(amount, value) == "750" and note == "per month"
+
+
+def test_message_text_is_linear_on_unclosed_mentions_and_tags():
+    for raw, expected in [
+        ("<at>" * 16_000, ""),
+        ("<" * 64_000, "<" * 64_000),
+        ("<at>x" * 12_800, "x " * 12_799 + "x"),
+        ("<at>" * 8_000 + "</at> TL-7F2K", "TL-7F2K"),
+    ]:
+        started = time.perf_counter()
+        assert message_text(raw) == expected
+        assert time.perf_counter() - started < 1

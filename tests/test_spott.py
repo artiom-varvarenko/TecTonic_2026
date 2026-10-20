@@ -10,7 +10,9 @@ import pytest
 from conftest import TODAY, login
 
 from trustlabel.ai import ExtractedClaim
+from trustlabel.app import WEBHOOK_CALLS_PER_MINUTE
 from trustlabel.spott import (
+    MAX_WEBHOOK_BYTES,
     NOTE_TITLE_MARKER,
     WEBHOOK_PATH,
     SpottNote,
@@ -188,7 +190,50 @@ def test_verified_answer_is_written_to_the_clients_spott_record(make_client):
     assert "25th" in html and "Ellen Maes" in html and "Contract addendum" in html
 
 
+def test_a_same_named_spott_record_cannot_take_over_a_bound_client(make_client):
+    notes = [
+        spott_note("note_real", title="Van Dam call", clients=(("sp_vandam", "Van Dam Logistics NV"),)),
+        spott_note("note_evil", title="Van Dam call", clients=(("sp_evil", "Van Dam Logistics NV"),)),
+    ]
+    spott = StubSpott(notes, clients={"Van Dam Logistics NV": "sp_evil"})
+    client = make_client(StubExtractor(), spott=spott, spott_webhook_secret=SECRET)
+    for n, note in enumerate(notes):
+        body, headers = signed(note_event(note.id), msg_id=f"msg_{n}")
+        assert client.post(WEBHOOK_PATH, content=body, headers=headers).status_code == 202
+
+    # Only the note on the bound record reaches Van Dam's scope; the lookalike is skipped.
+    assert len(spott_sources(ask(login(client, "lotte"), "vandam"))) == 1
+    assert resolve_vandam_cutoff(client) == 200
+    assert [spott_client for spott_client, _, _ in spott.written] == ["sp_vandam"]
+
+
 def test_verification_still_resolves_when_spott_is_down(make_client):
     spott = StubSpott(down=True)
     assert resolve_vandam_cutoff(make_client(spott=spott)) == 200
     assert spott.written == []
+
+
+class CountingSpott(StubSpott):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fetched: list[str] = []
+
+    def get_note(self, note_id):
+        self.fetched.append(note_id)
+        return super().get_note(note_id)
+
+
+def test_oversized_webhook_body_is_rejected_before_the_signature_check(make_client):
+    spott = CountingSpott([spott_note()])
+    client = make_client(StubExtractor(), spott=spott, spott_webhook_secret=SECRET)
+    body, headers = signed({**note_event(), "padding": "x" * MAX_WEBHOOK_BYTES})
+    assert client.post(WEBHOOK_PATH, content=body, headers=headers).status_code == 413
+    assert spott.fetched == []
+
+
+def test_webhook_calls_are_limited_per_ip(make_client):
+    client = make_client(StubExtractor(), spott=CountingSpott(), spott_webhook_secret=SECRET)
+    for _ in range(WEBHOOK_CALLS_PER_MINUTE):
+        assert client.post(WEBHOOK_PATH, content=b"{}").status_code == 401
+    body, headers = signed(note_event())
+    assert client.post(WEBHOOK_PATH, content=body, headers=headers).status_code == 429

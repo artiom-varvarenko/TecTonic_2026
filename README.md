@@ -121,7 +121,8 @@ Integrations page ("Recordings · ElevenLabs Scribe", or `POST /api/meetings`, m
 wav, webm, ogg or mp4, max 25 MB; only this path accepts bodies above the 3 MB limit), or set
 `TRUSTLABEL_MEETINGS_DIR` and `TRUSTLABEL_MEETINGS_OWNER` to watch a folder, e.g. Teams meeting recordings synced from
 OneDrive/SharePoint. The watcher scans every 15 s and handles each file once (name + size + mtime), after its size
-has held across two scans. Scribe transcribes with speaker diarization ("Speaker 1: …"). The existing extractor reads
+has held across two scans; while the folder owner has 3 recordings in flight, new files wait for the next scan, in
+folder order. Scribe transcribes with speaker diarization ("Speaker 1: …"). The existing extractor reads
 the first 12,000 characters, and only claims quoted verbatim survive. They become one item of kind `meeting` per
 recording, titled "Meeting · {name} · {date}", owned by the uploader (or the folder owner, in their country), and
 graded against existing knowledge like any capture. Processing runs in the background, one recording at a time;
@@ -174,10 +175,10 @@ Verification inbox → resolve (by voice or form). Lotte asks again → 25th, gr
 **Integrations page.** The third tab in the web app holds everything a channel needs: your personal key (*Personal
 key*, shown once, 8 h, used by Teams and Outlook), the Teams MCP URL, the Outlook manifest URL with install steps,
 Salesforce status (domain, last checked, cases briefed, sources sync on/off and sources added, last error), the Spott
-workspace and how Talkdesk is reached.
-Users listed in `TRUSTLABEL_ADMINS` (comma-separated user ids, e.g. `lotte`) can connect, replace or disconnect a
-Spott workspace there with an API key and an optional `whsec_…` signing secret; the key is checked against Spott and
-clients are matched by name.
+workspace status (connected, webhook ready, notes captured, last delivery) and how Talkdesk is reached.
+Users listed in `TRUSTLABEL_ADMINS` (comma-separated user ids, e.g. `lotte`) also see the Spott workspace details
+(source, user count, webhook URL, client mapping) and can connect, replace or disconnect a Spott workspace there with
+an API key and an optional `whsec_…` signing secret; the key is checked against Spott and clients are matched by name.
 
 **Connect Microsoft Teams.** Serve TrustLabel over public HTTPS (below). Integrations shows the MCP URL and the
 personal key. In Copilot Studio: agent → Tools → Add a tool → New
@@ -213,11 +214,12 @@ NotFound. To route each card to the expert TrustLabel picked, set Recipient to t
 
 **Teams: verified-answer alerts.** When the expert resolves a request (inbox or Teams, below), the same workflow gets
 a second card in the same background pool, one per resolve, for the requester and the followers of every request it
-closes (the expert excluded), e.g. "@Lotte Janssens, Jonas Wouters, Ellen Maes verified the payroll variables cut-off
-for Van Dam Logistics NV (BE): 25th of the month (grade A)", the expert's note if any, and an "Open in TrustLabel"
-button to `<TRUSTLABEL_PUBLIC_URL>/?view=ask`. People with a `TRUSTLABEL_TEAMS_USERS` address are @mentioned and the
-first of them is the payload's `recipient`; the rest are named in plain text. With Recipient fixed to one address in
-the flow, every card goes to that chat. Failures are logged by exception class only.
+closes: the resolved request plus the expert's other open requests for the same context (requests assigned to other
+experts stay open). The expert is excluded, e.g. "@Lotte Janssens, Jonas Wouters, Ellen Maes verified the payroll
+variables cut-off for Van Dam Logistics NV (BE): 25th of the month (grade A)", the expert's note if any, and an "Open
+in TrustLabel" button to `<TRUSTLABEL_PUBLIC_URL>/?view=ask`. People with a `TRUSTLABEL_TEAMS_USERS` address are
+@mentioned and the first of them is the payload's `recipient`; the rest are named in plain text. With Recipient fixed
+to one address in the flow, every card goes to that chat. Failures are logged by exception class only.
 
 **Teams: answer from a channel** (`POST /api/teams/outgoing`). Uses a Teams Outgoing Webhook: no Graph admin consent,
 no premium connector. A team owner opens the team → Manage team → Apps → "Create an outgoing webhook", names it
@@ -225,13 +227,14 @@ no premium connector. A team owner opens the team → Manage team → Apps → "
 security token Teams shows once. Every request card then ends with "Or reply in Teams: @TrustLabel TL-7F2K <your
 answer>" (a 4-character code derived from the request id). In a channel of that team the expert posts
 `@TrustLabel TL-7F2K 25th per contract addendum`. TrustLabel checks `Authorization: HMAC …` (HMAC-SHA256 of the raw
-body with the base64-decoded token, constant-time compare; body max 64 KB), strips the mention and HTML, and maps the
+body with the base64-decoded token, constant-time compare; body max 64 KB, checked before the HMAC; 120 calls per IP
+per minute, else 429), strips the mention and HTML, and maps the
 sender's `aadObjectId` to a user. The value is the longest leading 1–3 words the topic accepts (same `validate_value`
 as the inbox; "25th" counts as 25), the rest is the note (max 500 characters), and it is valid for 180 days, the
-inbox's default. Only the assigned expert can answer; the answer goes through the inbox's resolve path, so the
-verified answer, the Spott note and the asker's card are the same. The reply in the thread says what was verified,
-or why not (unknown code, not your request, already answered, invalid value). An unmapped sender gets their
-aadObjectId and how to map it. Set:
+inbox's default. Only the assigned expert can answer (the code is looked up among the sender's own requests, open
+ones first); the answer goes through the inbox's resolve path, so the verified answer, the Spott note and the asker's
+card are the same. The reply in the thread says what was verified, or why not (unknown code, not your request,
+already answered, invalid value). An unmapped sender gets their aadObjectId and how to map it. Set:
 
 - `TEAMS_OUTGOING_SECRET`: the outgoing webhook's security token (base64; anything else stops startup). Without it
   the endpoint returns 404 and the cards have no reply line.
@@ -340,7 +343,8 @@ conflict brief with a holding reply. Outlook sends subjects with non-breaking sp
 normalise whitespace (`trustlabel/brief.py`). `npx office-addin-manifest validate` reports the manifest as valid.
 
 **Connect Spott.** Set `SPOTT_API_KEY` (from Spott's API settings) to write verified answers back: when an expert
-resolves a request for a client, a note titled "TrustLabel · Verified: …" lands on the Spott client with the same name.
+resolves a request for a client, a note titled "TrustLabel · Verified: …" lands on that client's Spott record (found
+by name once, then kept by id).
 To capture notes, serve TrustLabel over public HTTPS, add a Spott webhook for the event `note.created` with URL
 `https://<host>/api/integrations/spott/webhook`, and set `SPOTT_WEBHOOK_SECRET` to its `whsec_…` signing secret
 (capture also needs `OPENAI_API_KEY`). A quick tunnel works for a demo: `cloudflared tunnel --url
@@ -372,7 +376,8 @@ port=int(os.environ["PORT"]), proxy_headers=True, forwarded_allow_ips="*")` unde
 ### Channel API
 
 Used by the Outlook pane; any channel can call it with a personal key (`X-API-Key: <key>` or
-`Authorization: Bearer <key>`; session cookies are never accepted). 60 calls per 10 minutes per user, shared with MCP.
+`Authorization: Bearer <key>`; session cookies are never accepted). 60 calls per 10 minutes per user, shared with MCP;
+after 30 failed key checks from one IP in 5 minutes, that IP gets 429 on the channel API and `/mcp`.
 
 | Endpoint | Does |
 |---|---|
@@ -386,25 +391,35 @@ Used by the Outlook pane; any channel can call it with a personal key (`X-API-Ke
 - Per-user passwords, stored only as scrypt hashes in the gitignored `.credentials.json`; only the test logins above
   are published. Unknown users are checked against a dummy hash (no username timing oracle).
 - Server-side sessions: a random session id in a signed, `HttpOnly`, `SameSite=Strict` cookie (8 h); logout revokes
-  it on the server. A new session id on every login.
-- CSRF: SameSite=Strict plus an `Origin` check on every state-changing request.
-- Login rate limits: 5 failures per username and IP, and 30 failures per IP across usernames, per 5 minutes;
-  concurrent scrypt checks are capped. `main.py` ignores `X-Forwarded-For` unless `TRUSTLABEL_BEHIND_PROXY=1` (then
-  only from 127.0.0.1, a local tunnel); the Render deployment takes the client IP from Render's proxy. AI budget: 20
-  voice/capture calls per user per hour.
+  it on the server. A new session id on every login. The 8 h expiry is also enforced on the server: expired sessions
+  are refused and purged, and at most 10,000 sessions are kept (the oldest go first).
+- CSRF: SameSite=Strict plus an `Origin` check on every state-changing request (`Sec-Fetch-Site` when a browser
+  omits `Origin`).
+- Login rate limits: 5 failures per username and IP, and 30 attempts per IP across usernames (Google sign-in
+  callbacks included), per 5 minutes; attempts count per IP up front, before any password check or token exchange,
+  and a successful sign-in gives its attempt back. Concurrent scrypt checks are capped (4); a check that waits more
+  than 2 s for a scrypt slot gets 429, and passwords over 256 characters are refused without hashing. `main.py`
+  ignores `X-Forwarded-For` unless `TRUSTLABEL_BEHIND_PROXY=1` (then only from 127.0.0.1, a local tunnel); the Render
+  deployment takes the client IP from Render's proxy. AI budget: 20 voice/capture calls per user per hour.
 - Teams/MCP keys are random, stored only as a SHA-256 hash, one per user, expire after 8 h and can be revoked; they
-  never work as a session cookie, and every tool call runs with that user's permissions (60 calls per 10 minutes).
+  never work as a session cookie, and every tool call runs with that user's permissions (60 calls per 10 minutes, and
+  600 MCP messages of any kind per user per 10 minutes, else HTTP 429). Failed key checks on `/mcp` and the channel
+  API count per IP (30 per 5 minutes, then 429).
 - Google sign-in uses a signed 10-minute flow cookie (state, nonce, PKCE verifier) and checks the ID token's issuer,
   audience, expiry, nonce and `email_verified`; errors never echo provider text.
-- Spott webhooks must carry a valid Standard Webhooks (Svix) HMAC-SHA256 signature, within a 5-minute timestamp
+- Spott webhooks are limited to 120 calls per IP per minute and to 64 KB, checked before the signature. They must
+  carry a valid Standard Webhooks (Svix) HMAC-SHA256 signature, within a 5-minute timestamp
   window; redelivered messages are processed once. The payload supplies only ids: the note is fetched from the Spott
   API. A note counts only if it is linked to exactly one client known by exact name, and that link sets its scope.
-  Only the sentences stating a kept claim are stored, never the rest of the note. Note capture shares a budget of 60
-  AI calls per hour, and a Spott outage never blocks a verification.
+  The Spott client id, once matched by a note or found at connect, stays bound to that client: a same-named Spott
+  record with another id is ignored, and verified answers keep going to the bound record. Only the sentences stating
+  a kept claim are stored, never the rest of the note. Note fetches and capture share a budget of 60 per hour, and a
+  Spott outage never blocks a verification.
 - Authorization: client-specific knowledge is only visible to that client's team, and verification requests for a
   client only go to experts on that client's team; the verifier is chosen by the server, never by the client; only
-  the assigned expert can resolve or answer by voice (others get 404, same as a missing id); a context can only be
-  asked about for clients in your own portfolio.
+  the assigned expert can resolve or answer by voice (others get 404, same as a missing id), and resolving closes
+  only that expert's own open requests for the same context; a context can only be asked about for clients in your
+  own portfolio.
 - Input limits: 3 MB request cap, 2 MB audio-only uploads, strict request schemas (`extra="forbid"`), validation
   errors never echo input back.
 - LLM output is never trusted: the topic, the value range, a verbatim quote from the input and that the quote states
@@ -417,8 +432,9 @@ Used by the Outlook pane; any channel can call it with a personal key (`X-API-Ke
   sent to an AI: rules pick the client (sender domain, or exactly one client name or alias in the text; never a guess)
   and the topic. Only "Add this email as a source" stores an email and sends it to OpenAI, on the user's click.
   Salesforce comments are internal (`IsPublished: false`), and nothing is sent automatically anywhere:
-  replies open Outlook's reply form. The Salesforce secret lives only in the environment. The Spott workspace form is
-  admin-only, the key is kept in memory only and never echoed back.
+  replies open Outlook's reply form. The Salesforce secret lives only in the environment. The Spott workspace form and
+  the workspace details (user count, webhook URL, client mapping) are admin-only; other users see only whether Spott is
+  connected and receiving notes. The key is kept in memory only and never echoed back.
 - Teams expert alerts: `TEAMS_WORKFLOW_URL` is a secret (the URL is signed), accepted only as https on port 443 to
   `*.logic.azure.com` or `*.api.powerplatform.com`, and never logged or shown in the UI. The card (question, client
   name, competing values, reasons) goes to the customer's own Microsoft 365 tenant.
@@ -461,15 +477,16 @@ tests run against stubs of the outside services:
 - Teams answer from a channel (`/api/teams/outgoing`): verified live on 20 October 2026 in a university tenant. A
   student-created team with an outgoing webhook posted "@TrustLabel TL-E3WN 25th per the contract addendum"; the HMAC
   check passed, the request was resolved through the inbox path, TrustLabel replied in the thread and the asker's card
-  was sent. Limits: the code lookup scans all requests (fine for the demo), the answer has no date (always 180 days),
-  one Teams account maps to one TrustLabel user, and the alert arrives in a Flow bot chat while the answer must be
-  posted in a team channel.
+  was sent. Limits: the code lookup scans the sender's requests (fine for the demo), the answer has no date (always
+  180 days), one Teams account maps to one TrustLabel user, and the alert arrives in a Flow bot chat while the answer
+  must be posted in a team channel.
 - Teams channel sync: not verified against a live Microsoft 365 tenant (needs admin consent). Only top-level channel
   messages are read (replies are not), edits of an already-processed message are ignored, and the delta link and the
   processed ids live in memory, so a restart re-reads the last 30 days (TrustLabel's own captures are lost on restart
   too). Polling, not Graph change notifications.
-- Spott: only `note.created` is handled (edited or deleted notes are not), clients are matched by exact name, and the
-  write-back uses one workspace API key. A restart forgets which webhook messages were already processed.
+- Spott: only `note.created` is handled (edited or deleted notes are not), clients are matched by exact name until
+  their Spott id is bound (the first match wins until a reconnect), and the write-back uses one workspace API key. A
+  restart forgets which webhook messages were already processed.
 - Spott questions: no "Open in Spott" link, because neither the API docs nor the app page give a stable web URL for a
   client or note. A question linked to several clients gets a "client not linked" reply on the first one. A full
   round trip with a question note created in Spott and delivered by a real webhook has not been run. The webhook,

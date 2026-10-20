@@ -21,18 +21,31 @@ SCRYPT_N = 2**14
 SCRYPT_R = 8
 SCRYPT_P = 1
 KEY_LEN = 32
+MAX_PASSWORD_CHARS = 256  # LoginBody.password's max_length
 # Each scrypt call needs ~16 MiB; cap concurrency so a login flood cannot exhaust memory.
 _SCRYPT_SLOTS = threading.BoundedSemaphore(4)
+# A flood must not queue threadpool workers forever behind the slots.
+SCRYPT_WAIT_SECONDS = 2.0
+
+
+class PasswordCheckBusy(Exception):
+    """No scrypt slot freed within SCRYPT_WAIT_SECONDS."""
 
 
 def _derive(password: str, salt: bytes) -> bytes:
-    with _SCRYPT_SLOTS:
+    if not _SCRYPT_SLOTS.acquire(timeout=SCRYPT_WAIT_SECONDS):
+        raise PasswordCheckBusy
+    try:
         return hashlib.scrypt(
             password.encode(), salt=salt, n=SCRYPT_N, r=SCRYPT_R, p=SCRYPT_P, dklen=KEY_LEN
         )
+    finally:
+        _SCRYPT_SLOTS.release()
 
 
 def hash_password(password: str) -> str:
+    if len(password) > MAX_PASSWORD_CHARS:
+        raise ValueError(f"Password is longer than {MAX_PASSWORD_CHARS} characters")
     salt = os.urandom(16)
     return f"scrypt${salt.hex()}${_derive(password, salt).hex()}"
 
@@ -42,6 +55,9 @@ _DUMMY_HASH = hash_password(secrets.token_urlsafe(16))
 
 
 def verify_password(password: str, encoded: str | None) -> bool:
+    """True when `password` matches `encoded`; raises PasswordCheckBusy when every scrypt slot stays taken."""
+    if len(password) > MAX_PASSWORD_CHARS:
+        return False  # cannot match a stored hash: hash_password refuses such passwords
     try:
         scheme, salt_hex, hash_hex = (encoded or _DUMMY_HASH).split("$")
         salt, expected = bytes.fromhex(salt_hex), bytes.fromhex(hash_hex)

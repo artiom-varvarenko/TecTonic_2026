@@ -4,7 +4,12 @@ import time
 from conftest import TODAY, login
 
 from trustlabel.ai import ExtractedClaim
-from trustlabel.meetings import FolderWatcher, media_type, speaker_transcript
+from trustlabel.meetings import (
+    FolderWatcher,
+    MeetingsBusy,
+    media_type,
+    speaker_transcript,
+)
 
 CUTOFF = "payroll.variables_cutoff"
 TRANSCRIPT = "Speaker 1: What about Van Dam?\nSpeaker 2: Van Dam Logistics really has the 25th as cut-off now."
@@ -130,6 +135,41 @@ def test_watcher_skips_oversize_files_and_rescans_changed_ones(tmp_path):
     watcher.scan_once()
     watcher.scan_once()
     assert handed == ["small.ogg", "small.ogg"]
+
+
+def test_watcher_forgets_oldest_files_first_past_seen_max(tmp_path, monkeypatch):
+    monkeypatch.setattr(FolderWatcher, "SEEN_MAX", 2)
+    handed: list[str] = []
+    watcher = FolderWatcher(tmp_path, lambda path, mtime, kind: handed.append(path.name))
+    for name in ("a.mp3", "b.mp3"):
+        (tmp_path / name).write_bytes(b"x")
+    watcher.scan_once()
+    watcher.scan_once()
+    (tmp_path / "a.mp3").unlink()  # e.g. folder retention
+    (tmp_path / "c.mp3").write_bytes(b"x")
+    for _ in range(4):
+        watcher.scan_once()
+    assert handed == ["a.mp3", "b.mp3", "c.mp3"]  # b was still remembered when c pushed the seen set past 2
+
+
+def test_watcher_keeps_busy_files_pending_in_order(tmp_path):
+    handed: list[str] = []
+    busy = True
+
+    def on_file(path, mtime, kind):
+        if busy and path.name == "b.mp3":
+            raise MeetingsBusy
+        handed.append(path.name)
+
+    watcher = FolderWatcher(tmp_path, on_file)
+    for name in ("a.mp3", "b.mp3", "c.mp3"):
+        (tmp_path / name).write_bytes(b"x")
+    assert watcher.scan_once() == 0  # first sighting
+    assert watcher.scan_once() == 1 and handed == ["a.mp3"]  # b busy: the scan stops before c
+    assert watcher.scan_once() == 0 and watcher.last_error is None
+    busy = False
+    assert watcher.scan_once() == 2 and handed == ["a.mp3", "b.mp3", "c.mp3"]
+    assert watcher.scan_once() == 0 and watcher.files_processed == 3
 
 
 def test_unknown_meetings_owner_is_rejected(make_client, tmp_path):

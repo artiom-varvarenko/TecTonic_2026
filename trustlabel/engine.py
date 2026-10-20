@@ -242,8 +242,8 @@ def _intrinsic_reasons(item: Item, today: date, people: Mapping[str, Person]) ->
         if owner is None:
             reasons.append(Reason("orphaned", "No owner", ORPHANED))
         elif not owner.active:
-            left = f" on {owner.left_on.isoformat()}" if owner.left_on else ""
-            reasons.append(Reason("orphaned", f"Owner {owner.name} left SD Worx{left}", ORPHANED))
+            # Who left and when is HR data; the grade only needs the fact that nobody owns the item.
+            reasons.append(Reason("orphaned", "Owner left SD Worx", ORPHANED))
         if item.last_reviewed_on and item.review_cycle_days:
             due = item.last_reviewed_on + timedelta(days=item.review_cycle_days)
             if due < today:

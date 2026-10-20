@@ -7,6 +7,8 @@ from urllib.parse import parse_qs, urlsplit
 import httpx
 import pytest
 
+from trustlabel.app import LOGIN_MAX_FAILURES_PER_IP
+
 CLIENT_ID = "test-client.apps.googleusercontent.com"
 GOOGLE = {
     "google_client_id": CLIENT_ID,
@@ -153,6 +155,24 @@ def test_callback_token_endpoint_failure(make_client):
     flow.update(start(client))
     response = callback(client, code="auth-code", state=flow["state"])
     assert response.headers["location"] == "/?login_error=google_failed"
+
+
+def test_callback_bursts_are_limited_before_the_token_exchange(make_client):
+    exchanges: list[str] = []
+
+    def exchange(*, code, code_verifier, redirect_uri):
+        exchanges.append(code)
+        raise httpx.ConnectError("boom")
+
+    client = make_client(google_exchange=exchange, **GOOGLE)
+    for _ in range(LOGIN_MAX_FAILURES_PER_IP):
+        state = start(client)["state"]
+        assert callback(client, code="auth-code", state=state).headers["location"] == "/?login_error=google_failed"
+    state = start(client)["state"]
+    response = callback(client, code="auth-code", state=state)
+    assert response.headers["location"] == "/?login_error=google_failed"
+    assert len(exchanges) == LOGIN_MAX_FAILURES_PER_IP
+
 
 
 def test_callback_user_cancelled(make_client):
