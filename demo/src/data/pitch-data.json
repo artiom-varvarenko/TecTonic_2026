@@ -1,0 +1,821 @@
+{
+  "today": "2026-10-20",
+  "question": "What is my company car lease budget?",
+  "before": {
+    "topic": {
+      "id": "mobility.car_lease_budget",
+      "label": "Company car lease budget"
+    },
+    "matched_keywords": [
+      "company car",
+      "car lease",
+      "lease budget"
+    ],
+    "context": {
+      "key": "general",
+      "label": "Belgium — all clients",
+      "country": "BE",
+      "client_id": null
+    },
+    "answer": {
+      "status": "conflict",
+      "action": "ask_expert",
+      "headline": "Don't act yet — sources disagree",
+      "detail": "€750 per month (C) vs €800 per month (F) for Belgium — all clients.",
+      "value": null,
+      "value_display": null,
+      "grade": null,
+      "competing": [
+        {
+          "value": "750",
+          "value_display": "€750 per month",
+          "best_grade": "C",
+          "item_ids": [
+            "POL-BE-044",
+            "FAQ-BE-012"
+          ]
+        },
+        {
+          "value": "800",
+          "value_display": "€800 per month",
+          "best_grade": "F",
+          "item_ids": [
+            "TEAMS-5127"
+          ]
+        }
+      ],
+      "verified_by": null
+    },
+    "sources": [
+      {
+        "id": "POL-BE-044",
+        "kind": "policy",
+        "kind_label": "Policy",
+        "title": "Company car policy 2025 — Belgium",
+        "source": "SharePoint · Fleet & Mobility BE",
+        "author_name": "Sofie Verhaegen",
+        "owner_name": "Sofie Verhaegen",
+        "owner_active": true,
+        "created_on": "2024-11-28",
+        "last_reviewed_on": "2026-08-25",
+        "statement": "The company car lease budget in Belgium is €750 per month.",
+        "quote": "the monthly lease budget for car-eligible functions is €750",
+        "body": "Company car policy (2025). From 1 January 2025 the monthly lease budget for car-eligible functions is €750, including fuel card, insurance and maintenance. Questions go to Fleet & Mobility BE (Sofie Verhaegen).",
+        "value": "750",
+        "value_display": "€750 per month",
+        "status": "effective",
+        "applicability": {
+          "code": "applies",
+          "text": "Applies to all clients in Belgium"
+        },
+        "score": 75,
+        "grade": "C",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Policy: base 80",
+            "delta": 80,
+            "cap": null
+          },
+          {
+            "code": "conflict",
+            "text": "Conflicts with Jonas Wouters in #general-be",
+            "delta": -15,
+            "cap": null
+          },
+          {
+            "code": "corroborated",
+            "text": "Corroborated by 1 independent source(s): New joiner FAQ — company car (Belgium)",
+            "delta": 10,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "FAQ-BE-012",
+        "kind": "faq",
+        "kind_label": "FAQ",
+        "title": "New joiner FAQ — company car (Belgium)",
+        "source": "SharePoint · HR Onboarding BE",
+        "author_name": "Anke Claes",
+        "owner_name": "Anke Claes",
+        "owner_active": true,
+        "created_on": "2025-02-03",
+        "last_reviewed_on": "2026-03-02",
+        "statement": "The company car lease budget is €750 per month.",
+        "quote": "€750 per month",
+        "body": "Q: How much can I spend on my lease car? A: €750 per month for car-eligible functions, as set in the 2025 car policy. Fleet & Mobility BE handles the order.",
+        "value": "750",
+        "value_display": "€750 per month",
+        "status": "effective",
+        "applicability": {
+          "code": "applies",
+          "text": "Applies to all clients in Belgium"
+        },
+        "score": 60,
+        "grade": "D",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "FAQ: base 65",
+            "delta": 65,
+            "cap": null
+          },
+          {
+            "code": "conflict",
+            "text": "Conflicts with Jonas Wouters in #general-be",
+            "delta": -15,
+            "cap": null
+          },
+          {
+            "code": "corroborated",
+            "text": "Corroborated by 1 independent source(s): Company car policy 2025 — Belgium",
+            "delta": 10,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "TEAMS-5127",
+        "kind": "teams_message",
+        "kind_label": "Teams message",
+        "title": "Jonas Wouters in #general-be",
+        "source": "Teams · #general-be",
+        "author_name": "Jonas Wouters",
+        "owner_name": null,
+        "owner_active": false,
+        "created_on": "2026-09-25",
+        "last_reviewed_on": null,
+        "statement": "The company car lease budget is €800 per month since the town hall.",
+        "quote": "since the town hall our car lease budget is €800 per month",
+        "body": "FYI since the town hall our car lease budget is €800 per month, so you can go for a bigger model when you renew.",
+        "value": "800",
+        "value_display": "€800 per month",
+        "status": "effective",
+        "applicability": {
+          "code": "applies",
+          "text": "Applies to all clients in Belgium"
+        },
+        "score": 45,
+        "grade": "F",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Teams message: base 60",
+            "delta": 60,
+            "cap": null
+          },
+          {
+            "code": "conflict",
+            "text": "Conflicts with Company car policy 2025 — Belgium, New joiner FAQ — company car (Belgium)",
+            "delta": -15,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "POL-BE-031",
+        "kind": "policy",
+        "kind_label": "Policy",
+        "title": "Company car policy 2023 — Belgium",
+        "source": "SharePoint · Fleet & Mobility BE",
+        "author_name": "Sofie Verhaegen",
+        "owner_name": "Sofie Verhaegen",
+        "owner_active": true,
+        "created_on": "2022-12-12",
+        "last_reviewed_on": "2024-01-15",
+        "statement": "The company car lease budget in Belgium is €650 per month.",
+        "quote": "a monthly lease budget of €650",
+        "body": "Company car policy (2023). Employees in a car-eligible function get a monthly lease budget of €650, including fuel card and insurance. A bigger car is possible with a personal contribution.",
+        "value": "650",
+        "value_display": "€650 per month",
+        "status": "superseded",
+        "applicability": {
+          "code": "superseded",
+          "text": "Superseded by Company car policy 2025 — Belgium (effective 2025-01-01)"
+        },
+        "score": 65,
+        "grade": "F",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Policy: base 80",
+            "delta": 80,
+            "cap": null
+          },
+          {
+            "code": "review_overdue",
+            "text": "Review overdue by 644 days (last reviewed 2024-01-15)",
+            "delta": -15,
+            "cap": null
+          },
+          {
+            "code": "superseded",
+            "text": "Superseded by Company car policy 2025 — Belgium (effective 2025-01-01)",
+            "delta": null,
+            "cap": "F"
+          }
+        ]
+      },
+      {
+        "id": "POL-NL-018",
+        "kind": "policy",
+        "kind_label": "Policy",
+        "title": "Leaseautoregeling 2025 — Nederland",
+        "source": "SharePoint · HR Policies NL",
+        "author_name": "Sanne de Vries",
+        "owner_name": "Sanne de Vries",
+        "owner_active": true,
+        "created_on": "2024-12-02",
+        "last_reviewed_on": "2026-05-12",
+        "statement": "The company car lease budget in the Netherlands is €700 per month.",
+        "quote": "een maandelijks leasebudget van €700",
+        "body": "Leaseautoregeling (2025). Medewerkers in een functie met leaseauto hebben een maandelijks leasebudget van €700, inclusief brandstof en verzekering.",
+        "value": "700",
+        "value_display": "€700 per month",
+        "status": "not_applicable",
+        "applicability": {
+          "code": "country_mismatch",
+          "text": "Applies to Netherlands only"
+        },
+        "score": 80,
+        "grade": "B",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Policy: base 80",
+            "delta": 80,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "MEET-BE-0924",
+        "kind": "meeting",
+        "kind_label": "Meeting transcript",
+        "title": "Town hall Q3 2026 — Belgium",
+        "source": "Teams meeting · Town hall BE (transcript)",
+        "author_name": null,
+        "owner_name": null,
+        "owner_active": false,
+        "created_on": "2026-09-24",
+        "last_reviewed_on": null,
+        "statement": "The company car lease budget will rise to €800 per month from 1 January 2027.",
+        "quote": "the car lease budget will rise to €800 per month from 1 January 2027",
+        "body": "Leadership: on mobility, the car lease budget will rise to €800 per month from 1 January 2027. Until then the 2025 car policy stays as it is; Fleet will update the policy before year end.",
+        "value": "800",
+        "value_display": "€800 per month",
+        "status": "not_applicable",
+        "applicability": {
+          "code": "not_yet_effective",
+          "text": "Not effective until 2027-01-01"
+        },
+        "score": 55,
+        "grade": "E",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Meeting transcript: base 55",
+            "delta": 55,
+            "cap": null
+          }
+        ]
+      }
+    ],
+    "experts": [
+      {
+        "id": "sofie",
+        "name": "Sofie Verhaegen",
+        "title": "Fleet & Mobility Manager BE",
+        "country": "BE",
+        "score": 6,
+        "reasons": [
+          "Listed expertise: Company car lease budget",
+          "Owns 1 applicable source(s) on this topic",
+          "Based in Belgium"
+        ]
+      },
+      {
+        "id": "anke",
+        "name": "Anke Claes",
+        "title": "HR Policy Officer BE",
+        "country": "BE",
+        "score": 3,
+        "reasons": [
+          "Owns 1 applicable source(s) on this topic",
+          "Based in Belgium"
+        ]
+      }
+    ],
+    "open_request": {
+      "id": "vr_SnmzKuaHMJwc",
+      "assignee_name": "Sofie Verhaegen"
+    },
+    "auto_request": {
+      "id": "vr_SnmzKuaHMJwc",
+      "topic": {
+        "id": "mobility.car_lease_budget",
+        "label": "Company car lease budget"
+      },
+      "context_label": "Belgium — all clients",
+      "question": "Which is right for Belgium — all clients: company car lease budget €750 per month (Company car policy 2025 — Belgium, grade C) or €800 per month (Jonas Wouters in #general-be, grade F)?",
+      "asked": "What is my company car lease budget?",
+      "requester_name": "Lotte Janssens",
+      "assignee_name": "Sofie Verhaegen",
+      "is_assignee": false,
+      "status": "open",
+      "created_at": "2026-10-20T13:25:21+00:00",
+      "candidates": [
+        {
+          "value": "750",
+          "value_display": "€750 per month",
+          "item_id": "POL-BE-044",
+          "title": "Company car policy 2025 — Belgium",
+          "grade": "C"
+        },
+        {
+          "value": "750",
+          "value_display": "€750 per month",
+          "item_id": "FAQ-BE-012",
+          "title": "New joiner FAQ — company car (Belgium)",
+          "grade": "D"
+        },
+        {
+          "value": "800",
+          "value_display": "€800 per month",
+          "item_id": "TEAMS-5127",
+          "title": "Jonas Wouters in #general-be",
+          "grade": "F"
+        }
+      ],
+      "voice_transcript": null,
+      "resolution": null
+    }
+  },
+  "request_card": {
+    "type": "AdaptiveCard",
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "version": "1.4",
+    "body": [
+      {
+        "type": "TextBlock",
+        "text": "TrustLabel · verification request",
+        "weight": "Bolder",
+        "size": "Medium"
+      },
+      {
+        "type": "TextBlock",
+        "text": "<at>Sofie Verhaegen</at>, Lotte Janssens asks you to verify the company car lease budget for Belgium — all clients.",
+        "wrap": true
+      },
+      {
+        "type": "FactSet",
+        "facts": [
+          {
+            "title": "Question",
+            "value": "Which is right for Belgium — all clients: company car lease budget €750 per month (Company car policy 2025 — Belgium, grade C) or €800 per month (Jonas Wouters in #general-be, grade F)?"
+          },
+          {
+            "title": "Sources say",
+            "value": "€750 per month (grade C) · €800 per month (grade F)"
+          },
+          {
+            "title": "Why you",
+            "value": "Listed expertise: Company car lease budget; Owns 1 applicable source(s) on this topic; Based in Belgium"
+          }
+        ]
+      },
+      {
+        "type": "TextBlock",
+        "text": "Or reply in Teams: @TrustLabel TL-S8FL <your answer>",
+        "wrap": true,
+        "isSubtle": true
+      }
+    ],
+    "msteams": {
+      "entities": [
+        {
+          "type": "mention",
+          "text": "<at>Sofie Verhaegen</at>",
+          "mentioned": {
+            "id": "sofie@sdworx.example",
+            "name": "Sofie Verhaegen"
+          }
+        }
+      ]
+    }
+  },
+  "reply": "@TrustLabel TL-S8FL 750 €800 starts 1 January 2027",
+  "resolution": {
+    "value": "750",
+    "note": "€800 starts 1 January 2027",
+    "valid_until": "2026-12-31"
+  },
+  "resolved_card": {
+    "type": "AdaptiveCard",
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "version": "1.4",
+    "body": [
+      {
+        "type": "TextBlock",
+        "text": "TrustLabel · verified answer",
+        "weight": "Bolder",
+        "size": "Medium"
+      },
+      {
+        "type": "TextBlock",
+        "text": "<at>Lotte Janssens</at>, Sofie Verhaegen verified the company car lease budget for Belgium — all clients: €750 per month (grade A)",
+        "wrap": true
+      },
+      {
+        "type": "FactSet",
+        "facts": [
+          {
+            "title": "Note",
+            "value": "€800 starts 1 January 2027"
+          }
+        ]
+      }
+    ],
+    "msteams": {
+      "entities": [
+        {
+          "type": "mention",
+          "text": "<at>Lotte Janssens</at>",
+          "mentioned": {
+            "id": "lotte@sdworx.example",
+            "name": "Lotte Janssens"
+          }
+        }
+      ]
+    }
+  },
+  "after": {
+    "topic": {
+      "id": "mobility.car_lease_budget",
+      "label": "Company car lease budget"
+    },
+    "matched_keywords": [
+      "company car",
+      "car lease",
+      "lease budget"
+    ],
+    "context": {
+      "key": "general",
+      "label": "Belgium — all clients",
+      "country": "BE",
+      "client_id": null
+    },
+    "answer": {
+      "status": "verified",
+      "action": "use",
+      "headline": "€750 per month — verified",
+      "detail": "Verified by Sofie Verhaegen (Fleet & Mobility Manager BE) on 2026-10-20, valid until 2026-12-31. Applies to Belgium — all clients.",
+      "value": "750",
+      "value_display": "€750 per month",
+      "grade": "A",
+      "competing": [],
+      "verified_by": {
+        "id": "sofie",
+        "name": "Sofie Verhaegen",
+        "title": "Fleet & Mobility Manager BE"
+      }
+    },
+    "sources": [
+      {
+        "id": "VER-570B6BE7",
+        "kind": "verified_answer",
+        "kind_label": "Verified answer",
+        "title": "Verified: Company car lease budget — Belgium — all clients",
+        "source": "TrustLabel · Expert verification",
+        "author_name": "Sofie Verhaegen",
+        "owner_name": "Sofie Verhaegen",
+        "owner_active": true,
+        "created_on": "2026-10-20",
+        "last_reviewed_on": "2026-10-20",
+        "statement": "Company car lease budget for Belgium — all clients: €750 per month.",
+        "quote": "€750 per month",
+        "body": "Company car lease budget: €750 per month. €800 starts 1 January 2027.",
+        "value": "750",
+        "value_display": "€750 per month",
+        "status": "effective",
+        "applicability": {
+          "code": "applies",
+          "text": "Applies to all clients in Belgium"
+        },
+        "score": 100,
+        "grade": "A",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Verified answer: base 95",
+            "delta": 95,
+            "cap": null
+          },
+          {
+            "code": "verified",
+            "text": "Verified by Sofie Verhaegen on 2026-10-20; valid until 2026-12-31",
+            "delta": null,
+            "cap": null
+          },
+          {
+            "code": "corroborated",
+            "text": "Corroborated by 1 independent source(s): New joiner FAQ — company car (Belgium)",
+            "delta": 10,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "POL-BE-044",
+        "kind": "policy",
+        "kind_label": "Policy",
+        "title": "Company car policy 2025 — Belgium",
+        "source": "SharePoint · Fleet & Mobility BE",
+        "author_name": "Sofie Verhaegen",
+        "owner_name": "Sofie Verhaegen",
+        "owner_active": true,
+        "created_on": "2024-11-28",
+        "last_reviewed_on": "2026-08-25",
+        "statement": "The company car lease budget in Belgium is €750 per month.",
+        "quote": "the monthly lease budget for car-eligible functions is €750",
+        "body": "Company car policy (2025). From 1 January 2025 the monthly lease budget for car-eligible functions is €750, including fuel card, insurance and maintenance. Questions go to Fleet & Mobility BE (Sofie Verhaegen).",
+        "value": "750",
+        "value_display": "€750 per month",
+        "status": "effective",
+        "applicability": {
+          "code": "applies",
+          "text": "Applies to all clients in Belgium"
+        },
+        "score": 90,
+        "grade": "B",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Policy: base 80",
+            "delta": 80,
+            "cap": null
+          },
+          {
+            "code": "conflict",
+            "text": "Conflicts with Jonas Wouters in #general-be",
+            "delta": -15,
+            "cap": null
+          },
+          {
+            "code": "corroborated",
+            "text": "Corroborated by 1 independent source(s): New joiner FAQ — company car (Belgium)",
+            "delta": 10,
+            "cap": null
+          },
+          {
+            "code": "confirmed_by_verification",
+            "text": "Confirmed by Sofie Verhaegen's verification on 2026-10-20",
+            "delta": 15,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "FAQ-BE-012",
+        "kind": "faq",
+        "kind_label": "FAQ",
+        "title": "New joiner FAQ — company car (Belgium)",
+        "source": "SharePoint · HR Onboarding BE",
+        "author_name": "Anke Claes",
+        "owner_name": "Anke Claes",
+        "owner_active": true,
+        "created_on": "2025-02-03",
+        "last_reviewed_on": "2026-03-02",
+        "statement": "The company car lease budget is €750 per month.",
+        "quote": "€750 per month",
+        "body": "Q: How much can I spend on my lease car? A: €750 per month for car-eligible functions, as set in the 2025 car policy. Fleet & Mobility BE handles the order.",
+        "value": "750",
+        "value_display": "€750 per month",
+        "status": "effective",
+        "applicability": {
+          "code": "applies",
+          "text": "Applies to all clients in Belgium"
+        },
+        "score": 75,
+        "grade": "C",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "FAQ: base 65",
+            "delta": 65,
+            "cap": null
+          },
+          {
+            "code": "conflict",
+            "text": "Conflicts with Jonas Wouters in #general-be",
+            "delta": -15,
+            "cap": null
+          },
+          {
+            "code": "corroborated",
+            "text": "Corroborated by 1 independent source(s): Company car policy 2025 — Belgium",
+            "delta": 10,
+            "cap": null
+          },
+          {
+            "code": "confirmed_by_verification",
+            "text": "Confirmed by Sofie Verhaegen's verification on 2026-10-20",
+            "delta": 15,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "TEAMS-5127",
+        "kind": "teams_message",
+        "kind_label": "Teams message",
+        "title": "Jonas Wouters in #general-be",
+        "source": "Teams · #general-be",
+        "author_name": "Jonas Wouters",
+        "owner_name": null,
+        "owner_active": false,
+        "created_on": "2026-09-25",
+        "last_reviewed_on": null,
+        "statement": "The company car lease budget is €800 per month since the town hall.",
+        "quote": "since the town hall our car lease budget is €800 per month",
+        "body": "FYI since the town hall our car lease budget is €800 per month, so you can go for a bigger model when you renew.",
+        "value": "800",
+        "value_display": "€800 per month",
+        "status": "effective",
+        "applicability": {
+          "code": "applies",
+          "text": "Applies to all clients in Belgium"
+        },
+        "score": 45,
+        "grade": "G",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Teams message: base 60",
+            "delta": 60,
+            "cap": null
+          },
+          {
+            "code": "conflict",
+            "text": "Conflicts with Company car policy 2025 — Belgium, New joiner FAQ — company car (Belgium)",
+            "delta": -15,
+            "cap": null
+          },
+          {
+            "code": "contradicted_by_verification",
+            "text": "Contradicted by Sofie Verhaegen's verification (€750 per month) on 2026-10-20",
+            "delta": null,
+            "cap": "G"
+          }
+        ]
+      },
+      {
+        "id": "POL-BE-031",
+        "kind": "policy",
+        "kind_label": "Policy",
+        "title": "Company car policy 2023 — Belgium",
+        "source": "SharePoint · Fleet & Mobility BE",
+        "author_name": "Sofie Verhaegen",
+        "owner_name": "Sofie Verhaegen",
+        "owner_active": true,
+        "created_on": "2022-12-12",
+        "last_reviewed_on": "2024-01-15",
+        "statement": "The company car lease budget in Belgium is €650 per month.",
+        "quote": "a monthly lease budget of €650",
+        "body": "Company car policy (2023). Employees in a car-eligible function get a monthly lease budget of €650, including fuel card and insurance. A bigger car is possible with a personal contribution.",
+        "value": "650",
+        "value_display": "€650 per month",
+        "status": "superseded",
+        "applicability": {
+          "code": "superseded",
+          "text": "Superseded by Company car policy 2025 — Belgium (effective 2025-01-01)"
+        },
+        "score": 65,
+        "grade": "F",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Policy: base 80",
+            "delta": 80,
+            "cap": null
+          },
+          {
+            "code": "review_overdue",
+            "text": "Review overdue by 644 days (last reviewed 2024-01-15)",
+            "delta": -15,
+            "cap": null
+          },
+          {
+            "code": "superseded",
+            "text": "Superseded by Company car policy 2025 — Belgium (effective 2025-01-01)",
+            "delta": null,
+            "cap": "F"
+          }
+        ]
+      },
+      {
+        "id": "POL-NL-018",
+        "kind": "policy",
+        "kind_label": "Policy",
+        "title": "Leaseautoregeling 2025 — Nederland",
+        "source": "SharePoint · HR Policies NL",
+        "author_name": "Sanne de Vries",
+        "owner_name": "Sanne de Vries",
+        "owner_active": true,
+        "created_on": "2024-12-02",
+        "last_reviewed_on": "2026-05-12",
+        "statement": "The company car lease budget in the Netherlands is €700 per month.",
+        "quote": "een maandelijks leasebudget van €700",
+        "body": "Leaseautoregeling (2025). Medewerkers in een functie met leaseauto hebben een maandelijks leasebudget van €700, inclusief brandstof en verzekering.",
+        "value": "700",
+        "value_display": "€700 per month",
+        "status": "not_applicable",
+        "applicability": {
+          "code": "country_mismatch",
+          "text": "Applies to Netherlands only"
+        },
+        "score": 80,
+        "grade": "B",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Policy: base 80",
+            "delta": 80,
+            "cap": null
+          }
+        ]
+      },
+      {
+        "id": "MEET-BE-0924",
+        "kind": "meeting",
+        "kind_label": "Meeting transcript",
+        "title": "Town hall Q3 2026 — Belgium",
+        "source": "Teams meeting · Town hall BE (transcript)",
+        "author_name": null,
+        "owner_name": null,
+        "owner_active": false,
+        "created_on": "2026-09-24",
+        "last_reviewed_on": null,
+        "statement": "The company car lease budget will rise to €800 per month from 1 January 2027.",
+        "quote": "the car lease budget will rise to €800 per month from 1 January 2027",
+        "body": "Leadership: on mobility, the car lease budget will rise to €800 per month from 1 January 2027. Until then the 2025 car policy stays as it is; Fleet will update the policy before year end.",
+        "value": "800",
+        "value_display": "€800 per month",
+        "status": "not_applicable",
+        "applicability": {
+          "code": "not_yet_effective",
+          "text": "Not effective until 2027-01-01"
+        },
+        "score": 55,
+        "grade": "E",
+        "reasons": [
+          {
+            "code": "base",
+            "text": "Meeting transcript: base 55",
+            "delta": 55,
+            "cap": null
+          }
+        ]
+      }
+    ],
+    "experts": [
+      {
+        "id": "sofie",
+        "name": "Sofie Verhaegen",
+        "title": "Fleet & Mobility Manager BE",
+        "country": "BE",
+        "score": 6,
+        "reasons": [
+          "Listed expertise: Company car lease budget",
+          "Owns 2 applicable source(s) on this topic",
+          "Based in Belgium"
+        ]
+      },
+      {
+        "id": "anke",
+        "name": "Anke Claes",
+        "title": "HR Policy Officer BE",
+        "country": "BE",
+        "score": 3,
+        "reasons": [
+          "Owns 1 applicable source(s) on this topic",
+          "Based in Belgium"
+        ]
+      }
+    ],
+    "open_request": null,
+    "auto_request": null
+  },
+  "pay_question": "How much does my colleague Jonas earn?",
+  "pay": {
+    "topic": null,
+    "restricted": {
+      "message": "TrustLabel doesn't share individual pay or personal data. Ask who decides instead:",
+      "contact": {
+        "name": "Anke Claes",
+        "title": "HR Policy Officer BE"
+      }
+    }
+  }
+}

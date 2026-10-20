@@ -290,6 +290,109 @@
         "text_elevenlabs": "TrustLabel.",
         "speaker": "rufina"
       }
+    ],
+    "pitch_hook": [
+      {
+        "id": "ask",
+        "text": "You ask your assistant about the company car budget.",
+        "speaker": "rufina"
+      },
+      {
+        "id": "four",
+        "text": "It finds four answers: six fifty, seven hundred, seven fifty, eight hundred.",
+        "speaker": "rufina",
+        "text_elevenlabs": "It finds four answers: €650, €700, €750, €800."
+      },
+      {
+        "id": "which",
+        "text": "Which one is right?",
+        "speaker": "rufina"
+      }
+    ],
+    "pitch_grade": [
+      {
+        "id": "layer",
+        "text": "Trust Label isn't another assistant. It's the trust layer underneath.",
+        "speaker": "artiom",
+        "text_elevenlabs": "TrustLabel isn't another assistant. It's the trust layer underneath."
+      },
+      {
+        "id": "grade",
+        "text": "Every source gets a grade from A to G, with reasons:",
+        "speaker": "artiom"
+      },
+      {
+        "id": "old",
+        "text": "the twenty twenty-three policy is superseded,",
+        "speaker": "artiom",
+        "text_elevenlabs": "the 2023 policy is superseded,"
+      },
+      {
+        "id": "nl",
+        "text": "the Dutch one doesn't apply here,",
+        "speaker": "artiom"
+      },
+      {
+        "id": "townhall",
+        "text": "and the town hall's eight hundred only starts in January.",
+        "speaker": "artiom",
+        "text_elevenlabs": "and the town hall's €800 only starts in January."
+      }
+    ],
+    "pitch_ask": [
+      {
+        "id": "conflict",
+        "text": "Two sources still disagree, so Trust Label asks the owner for you.",
+        "speaker": "rufina",
+        "text_elevenlabs": "Two sources still disagree, so TrustLabel asks the owner for you."
+      },
+      {
+        "id": "teams",
+        "text": "Sofie answers in Teams, in one line.",
+        "speaker": "rufina"
+      },
+      {
+        "id": "verified",
+        "text": "Now everyone gets seven fifty, grade A, until year end.",
+        "speaker": "rufina",
+        "text_elevenlabs": "Now everyone gets €750, grade A, until year end."
+      }
+    ],
+    "pitch_where": [
+      {
+        "id": "where",
+        "text": "It works where people already are: Teams, Outlook, Salesforce.",
+        "speaker": "artiom"
+      },
+      {
+        "id": "scribe",
+        "text": "Meetings and calls become sources too, transcribed by Eleven Labs Scribe.",
+        "speaker": "artiom",
+        "text_elevenlabs": "Meetings and calls become sources too, transcribed by ElevenLabs Scribe."
+      },
+      {
+        "id": "pay",
+        "text": "And it never shares a colleague's pay.",
+        "speaker": "artiom"
+      }
+    ],
+    "pitch_close": [
+      {
+        "id": "principle",
+        "text": "AI reads. Rules judge.",
+        "speaker": "artiom"
+      },
+      {
+        "id": "humans",
+        "text": "People verify.",
+        "speaker": "rufina"
+      },
+      {
+        "id": "end",
+        "text": "Trust Label.",
+        "speaker": "rufina",
+        "text_elevenlabs": "TrustLabel."
+      }
     ]
   },
   "elevenlabs_takes": {
@@ -396,6 +499,40 @@
       {
         "speaker": "rufina",
         "prompt": "[confident] Humans verify. [pause] TrustLabel."
+      }
+    ],
+    "pitch_hook": [
+      {
+        "speaker": "rufina",
+        "prompt": "[curious] You ask your assistant about the company car budget. [short pause] It finds four answers: €650, €700, €750, €800. [short pause] [puzzled] Which one is right?"
+      }
+    ],
+    "pitch_grade": [
+      {
+        "speaker": "artiom",
+        "prompt": "[confident] TrustLabel isn't another assistant. It's the trust layer underneath. [short pause] Every source gets a grade from A to G, with reasons: the 2023 policy is superseded, the Dutch one doesn't apply here, and the town hall's €800 only starts in January."
+      }
+    ],
+    "pitch_ask": [
+      {
+        "speaker": "rufina",
+        "prompt": "Two sources still disagree, so TrustLabel asks the owner for you. [short pause] Sofie answers in Teams, in one line. [short pause] [warmly] Now everyone gets €750, grade A, until year end."
+      }
+    ],
+    "pitch_where": [
+      {
+        "speaker": "artiom",
+        "prompt": "It works where people already are: Teams, Outlook, Salesforce. [short pause] Meetings and calls become sources too, transcribed by ElevenLabs Scribe. [short pause] [firmly] And it never shares a colleague's pay."
+      }
+    ],
+    "pitch_close": [
+      {
+        "speaker": "artiom",
+        "prompt": "[confident] AI reads. [short pause] Rules judge."
+      },
+      {
+        "speaker": "rufina",
+        "prompt": "[warmly] People verify. [short pause] TrustLabel."
       }
     ]
   },

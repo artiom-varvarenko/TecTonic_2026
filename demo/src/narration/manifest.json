@@ -2340,6 +2340,714 @@
           }
         ]
       }
+    },
+    "pitch_hook": {
+      "file": "narration/pitch_hook.wav",
+      "durationInFrames": 404,
+      "cues": {
+        "ask": {
+          "start": 0,
+          "end": 82,
+          "words": [
+            [
+              "you",
+              0
+            ],
+            [
+              "ask",
+              6
+            ],
+            [
+              "your",
+              14
+            ],
+            [
+              "assistant",
+              21
+            ],
+            [
+              "about",
+              34
+            ],
+            [
+              "the",
+              46
+            ],
+            [
+              "company",
+              52
+            ],
+            [
+              "car",
+              62
+            ],
+            [
+              "budget",
+              71
+            ]
+          ]
+        },
+        "four": {
+          "start": 105,
+          "end": 325,
+          "words": [
+            [
+              "it",
+              105
+            ],
+            [
+              "finds",
+              109
+            ],
+            [
+              "four",
+              119
+            ],
+            [
+              "answers",
+              131
+            ],
+            [
+              "650",
+              185
+            ],
+            [
+              "euros",
+              185
+            ],
+            [
+              "700",
+              215
+            ],
+            [
+              "euros",
+              230
+            ],
+            [
+              "750",
+              261
+            ],
+            [
+              "euros",
+              275
+            ],
+            [
+              "800",
+              316
+            ]
+          ]
+        },
+        "which": {
+          "start": 368,
+          "end": 394,
+          "words": [
+            [
+              "which",
+              368
+            ],
+            [
+              "one",
+              373
+            ],
+            [
+              "is",
+              379
+            ],
+            [
+              "right",
+              385
+            ]
+          ]
+        }
+      },
+      "locked": true,
+      "source": {
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones",
+        "takes": [
+          {
+            "speaker": "rufina",
+            "take": "pitch_hook.1.mp3",
+            "match": 0.913
+          }
+        ]
+      }
+    },
+    "pitch_grade": {
+      "file": "narration/pitch_grade.wav",
+      "durationInFrames": 492,
+      "cues": {
+        "layer": {
+          "start": 0,
+          "end": 125,
+          "words": [
+            [
+              "trust",
+              0
+            ],
+            [
+              "label",
+              10
+            ],
+            [
+              "isn't",
+              17
+            ],
+            [
+              "another",
+              34
+            ],
+            [
+              "assistant",
+              44
+            ],
+            [
+              "it's",
+              79
+            ],
+            [
+              "the",
+              82
+            ],
+            [
+              "trust",
+              86
+            ],
+            [
+              "layer",
+              96
+            ],
+            [
+              "underneath",
+              107
+            ]
+          ]
+        },
+        "grade": {
+          "start": 153,
+          "end": 244,
+          "words": [
+            [
+              "every",
+              153
+            ],
+            [
+              "source",
+              161
+            ],
+            [
+              "gets",
+              170
+            ],
+            [
+              "a",
+              178
+            ],
+            [
+              "grade",
+              182
+            ],
+            [
+              "from",
+              189
+            ],
+            [
+              "a",
+              197
+            ],
+            [
+              "to",
+              205
+            ],
+            [
+              "g",
+              211
+            ],
+            [
+              "with",
+              226
+            ],
+            [
+              "reasons",
+              232
+            ]
+          ]
+        },
+        "old": {
+          "start": 262,
+          "end": 326,
+          "words": [
+            [
+              "the",
+              262
+            ],
+            [
+              "2023",
+              266
+            ],
+            [
+              "policy",
+              288
+            ],
+            [
+              "is",
+              298
+            ],
+            [
+              "superseded",
+              306
+            ]
+          ]
+        },
+        "nl": {
+          "start": 338,
+          "end": 386,
+          "words": [
+            [
+              "the",
+              338
+            ],
+            [
+              "dutch",
+              344
+            ],
+            [
+              "one",
+              350
+            ],
+            [
+              "doesn't",
+              358
+            ],
+            [
+              "apply",
+              366
+            ],
+            [
+              "here",
+              376
+            ]
+          ]
+        },
+        "townhall": {
+          "start": 395,
+          "end": 483,
+          "words": [
+            [
+              "and",
+              395
+            ],
+            [
+              "the",
+              400
+            ],
+            [
+              "town",
+              403
+            ],
+            [
+              "hall's",
+              410
+            ],
+            [
+              "800",
+              422
+            ],
+            [
+              "only",
+              436
+            ],
+            [
+              "starts",
+              455
+            ],
+            [
+              "in",
+              466
+            ],
+            [
+              "january",
+              472
+            ]
+          ]
+        }
+      },
+      "locked": true,
+      "source": {
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones",
+        "takes": [
+          {
+            "speaker": "artiom",
+            "take": "pitch_grade.1.mp3",
+            "match": 1.0
+          }
+        ]
+      }
+    },
+    "pitch_ask": {
+      "file": "narration/pitch_ask.wav",
+      "durationInFrames": 394,
+      "cues": {
+        "conflict": {
+          "start": 0,
+          "end": 131,
+          "words": [
+            [
+              "two",
+              0
+            ],
+            [
+              "sources",
+              6
+            ],
+            [
+              "still",
+              20
+            ],
+            [
+              "disagree",
+              32
+            ],
+            [
+              "so",
+              58
+            ],
+            [
+              "trust",
+              69
+            ],
+            [
+              "label",
+              69
+            ],
+            [
+              "asks",
+              85
+            ],
+            [
+              "the",
+              99
+            ],
+            [
+              "owner",
+              107
+            ],
+            [
+              "for",
+              113
+            ],
+            [
+              "you",
+              122
+            ]
+          ]
+        },
+        "teams": {
+          "start": 152,
+          "end": 224,
+          "words": [
+            [
+              "sophie",
+              152
+            ],
+            [
+              "answers",
+              158
+            ],
+            [
+              "in",
+              170
+            ],
+            [
+              "teams",
+              179
+            ],
+            [
+              "in",
+              202
+            ],
+            [
+              "one",
+              206
+            ],
+            [
+              "line",
+              214
+            ]
+          ]
+        },
+        "verified": {
+          "start": 250,
+          "end": 385,
+          "words": [
+            [
+              "now",
+              250
+            ],
+            [
+              "everyone",
+              252
+            ],
+            [
+              "gets",
+              266
+            ],
+            [
+              "750",
+              278
+            ],
+            [
+              "euros",
+              305
+            ],
+            [
+              "grade",
+              339
+            ],
+            [
+              "a",
+              340
+            ],
+            [
+              "until",
+              356
+            ],
+            [
+              "year",
+              367
+            ],
+            [
+              "end",
+              376
+            ]
+          ]
+        }
+      },
+      "locked": true,
+      "source": {
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones",
+        "takes": [
+          {
+            "speaker": "rufina",
+            "take": "pitch_ask.1.mp3",
+            "match": 0.947
+          }
+        ]
+      }
+    },
+    "pitch_where": {
+      "file": "narration/pitch_where.wav",
+      "durationInFrames": 405,
+      "cues": {
+        "where": {
+          "start": 0,
+          "end": 136,
+          "words": [
+            [
+              "it",
+              0
+            ],
+            [
+              "works",
+              4
+            ],
+            [
+              "where",
+              11
+            ],
+            [
+              "people",
+              20
+            ],
+            [
+              "already",
+              29
+            ],
+            [
+              "are",
+              43
+            ],
+            [
+              "teams",
+              77
+            ],
+            [
+              "outlook",
+              98
+            ],
+            [
+              "salesforce",
+              120
+            ]
+          ]
+        },
+        "scribe": {
+          "start": 173,
+          "end": 313,
+          "words": [
+            [
+              "meetings",
+              173
+            ],
+            [
+              "and",
+              184
+            ],
+            [
+              "calls",
+              189
+            ],
+            [
+              "become",
+              199
+            ],
+            [
+              "sources",
+              211
+            ],
+            [
+              "too",
+              221
+            ],
+            [
+              "transcribed",
+              253
+            ],
+            [
+              "by",
+              268
+            ],
+            [
+              "11",
+              275
+            ],
+            [
+              "labs",
+              286
+            ],
+            [
+              "scribe",
+              294
+            ]
+          ]
+        },
+        "pay": {
+          "start": 332,
+          "end": 396,
+          "words": [
+            [
+              "and",
+              332
+            ],
+            [
+              "it",
+              337
+            ],
+            [
+              "never",
+              341
+            ],
+            [
+              "shares",
+              354
+            ],
+            [
+              "a",
+              368
+            ],
+            [
+              "colleague's",
+              374
+            ],
+            [
+              "pay",
+              388
+            ]
+          ]
+        }
+      },
+      "locked": true,
+      "source": {
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones",
+        "takes": [
+          {
+            "speaker": "artiom",
+            "take": "pitch_where.2.mp3",
+            "match": 0.963
+          }
+        ]
+      }
+    },
+    "pitch_close": {
+      "file": "narration/pitch_close.wav",
+      "durationInFrames": 189,
+      "cues": {
+        "principle": {
+          "start": 0,
+          "end": 83,
+          "words": [
+            [
+              "ai",
+              0
+            ],
+            [
+              "reads",
+              15
+            ],
+            [
+              "rules",
+              62
+            ],
+            [
+              "judge",
+              70
+            ]
+          ]
+        },
+        "humans": {
+          "start": 102,
+          "end": 134,
+          "words": [
+            [
+              "people",
+              102
+            ],
+            [
+              "verify",
+              116
+            ]
+          ]
+        },
+        "end": {
+          "start": 163,
+          "end": 179,
+          "words": [
+            [
+              "trust",
+              163
+            ],
+            [
+              "label",
+              170
+            ]
+          ]
+        }
+      },
+      "locked": true,
+      "source": {
+        "label": "ElevenLabs eleven_v4 · Rufina & Artiom voice clones",
+        "takes": [
+          {
+            "speaker": "artiom",
+            "take": "pitch_close.p1.1.mp3",
+            "match": 1.0
+          },
+          {
+            "speaker": "rufina",
+            "take": "pitch_close.p2.1.mp3",
+            "match": 1.0
+          }
+        ]
+      }
     }
   }
 }

@@ -28,6 +28,25 @@ video was made; a quick tunnel gets a new one on every start (`MCP_URL` in `src/
 | 13 | Team | Rufina Chyhohidze and Artiom Varvarenko, and the ElevenLabs voices behind the narration |
 | 14 | Outro | AI reads. Rules judge. Humans verify. |
 
+## One-minute pitch
+
+`out/trustlabel-pitch.mp4` (exactly 60 s, composition `TrustLabelPitch`, `src/pitch/`) tells the employee side in
+five scenes, from the seed data's "four car policies" case:
+
+| Scene | Voice | Shows |
+|---|---|---|
+| Hook | Rufina | An assistant finds four car lease budgets: €650, €700, €750, €800. Which one is right? |
+| Grade | Artiom | Every source graded A–G: 2023 policy superseded, Dutch policy not applicable, town hall's €800 not effective until 2027 |
+| Ask | Rufina | "Don't act yet", so TrustLabel asks the owner (Sofie) in Teams; she answers in one line; €750 becomes grade A until year end |
+| Where | Artiom | Teams, the Outlook add-in, Salesforce case comments, meetings and calls via ElevenLabs Scribe; a colleague's pay is refused |
+| Close | Artiom, Rufina | AI reads. Rules judge. People verify. |
+
+Every answer, grade, Teams card and refusal comes from the engine (`scripts/capture_pitch_data.py` →
+`src/data/pitch-data.json`, 20 October 2026). The narration is the same ElevenLabs voice clones, played 1.1× faster
+(pitch preserved, `TEMPO` in `src/pitch/timeline.ts`) so the pitch lands on one minute; the close takes whatever
+time is left. Render it with `npm run render:pitch`; preview stills with
+`COMPOSITION=TrustLabelPitch npm run stills -- 300 900`.
+
 ## Commands
 
 ```bash
